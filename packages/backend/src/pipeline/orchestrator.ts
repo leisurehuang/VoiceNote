@@ -2,7 +2,7 @@ import * as store from '../store/sessionStore.js';
 import { audioPath, sourcePath } from '../store/sessionStore.js';
 import { convertToWav, DependencyMissingError } from './ffmpeg.js';
 import { transcribe } from './whisper.js';
-import { summarize } from './summarize.js';
+import { generateTitle, summarize } from './summarize.js';
 
 type Stage = (id: string) => Promise<void>;
 
@@ -40,6 +40,15 @@ async function summarizeStage(id: string): Promise<void> {
     onToken: (delta) => store.emitter(id)?.emit('summary-token', { token: delta }),
   });
   store.writeSummary(id, text, model);
+
+  // 根据内容自动起一个简短标题，替换默认的「未命名」。失败不影响整体流程。
+  try {
+    const title = await generateTitle(transcript);
+    if (title) await store.update(id, { title });
+  } catch {
+    /* 标题生成失败可忽略 */
+  }
+
   await store.update(id, { progress: 0.98 });
 }
 

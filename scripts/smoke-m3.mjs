@@ -73,7 +73,7 @@ const liveSegs = await sse;
 console.log(`SSE 共收到 ${liveSegs.length} 段`);
 
 const detail = await (await fetch(`${API}/sessions/${id}`)).json();
-console.log('最终 status =', detail.status, ' 段数 =', detail.transcript.length, ' durationMs =', detail.durationMs);
+console.log('最终 status =', detail.status, ' 标题 =', detail.title, ' 段数 =', detail.transcript.length, ' durationMs =', detail.durationMs);
 console.log('---- 全文 ----');
 console.log(detail.transcript.map((s) => s.text).join(''));
 console.log('---- 摘要 ----');

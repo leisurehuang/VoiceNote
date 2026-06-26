@@ -1,5 +1,15 @@
 import { config } from '../config.js';
 
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface ChatChoice {
+  delta?: { content?: string };
+  message?: { content?: string };
+}
+
 export interface SummarizeOptions {
   /** 覆盖默认 system prompt（重新摘要时自定义）。 */
   systemPrompt?: string;
@@ -14,18 +24,12 @@ export interface SummarizeResult {
   model: string;
 }
 
-interface ChatChoice {
-  delta?: { content?: string };
-  message?: { content?: string };
-}
-
-/** 调 OpenAI 兼容的 /chat/completions（默认本地 Ollama）。可流式可非流式。 */
-export async function summarize(transcript: string, opts: SummarizeOptions = {}): Promise<SummarizeResult> {
-  const model = opts.model ?? config.llm.model;
-  const systemPrompt = opts.systemPrompt ?? config.llm.summarySystemPrompt;
+/** OpenAI 兼容 /chat/completions 的核心调用，可流式可非流式。 */
+async function postChat(
+  messages: ChatMessage[],
+  opts: { model: string; stream: boolean; onToken?: (delta: string) => void },
+): Promise<string> {
   const url = `${config.llm.baseUrl}/chat/completions`;
-  const stream = !!opts.onToken;
-
   let res: Response;
   try {
     res = await fetch(url, {
@@ -35,19 +39,16 @@ export async function summarize(transcript: string, opts: SummarizeOptions = {})
         Authorization: `Bearer ${config.llm.apiKey}`,
       },
       body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: transcript },
-        ],
+        model: opts.model,
+        messages,
         temperature: 0.3,
-        stream,
+        stream: opts.stream,
       }),
     });
   } catch (e) {
     const cause = e instanceof Error ? e.message : String(e);
     throw new Error(
-      `无法连接摘要 LLM（${url}）。请确认已运行 \`ollama serve\` 且模型 ${model} 已 pull。原因：${cause}`,
+      `无法连接摘要 LLM（${url}）。请确认已运行 \`ollama serve\` 且模型 ${opts.model} 已 pull。原因：${cause}`,
     );
   }
 
@@ -55,7 +56,7 @@ export async function summarize(transcript: string, opts: SummarizeOptions = {})
     throw new Error(`摘要 LLM 返回 ${res.status}：${(await res.text()).slice(0, 300)}`);
   }
 
-  if (stream && res.body) {
+  if (opts.stream && res.body) {
     let text = '';
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -70,7 +71,7 @@ export async function summarize(transcript: string, opts: SummarizeOptions = {})
         buf = buf.slice(i + 1);
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
-        if (data === '[DONE]' || data.length === 0) continue;
+        if (!data || data === '[DONE]') continue;
         try {
           const json = JSON.parse(data) as { choices?: ChatChoice[] };
           const delta = json.choices?.[0]?.delta?.content ?? '';
@@ -83,10 +84,52 @@ export async function summarize(transcript: string, opts: SummarizeOptions = {})
         }
       }
     }
-    return { text, model };
+    return text;
   }
 
   const json = (await res.json()) as { choices?: ChatChoice[] };
-  const text = json.choices?.[0]?.message?.content ?? '';
+  return json.choices?.[0]?.message?.content ?? '';
+}
+
+/** 生成结构化中文摘要。 */
+export async function summarize(transcript: string, opts: SummarizeOptions = {}): Promise<SummarizeResult> {
+  const model = opts.model ?? config.llm.model;
+  const systemPrompt = opts.systemPrompt ?? config.llm.summarySystemPrompt;
+  const text = await postChat(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: transcript },
+    ],
+    { model, stream: !!opts.onToken, onToken: opts.onToken },
+  );
   return { text, model };
+}
+
+const TITLE_SYSTEM =
+  '你擅长给内容起标题。根据用户提供的会议转写文本，生成一个简短的中文标题。' +
+  '要求：不超过 18 个字；概括核心主题或关键事项；只输出标题文本本身；' +
+  '不要书名号或引号；不要以句号结尾；不要解释或任何多余内容。';
+
+/** 根据转写内容生成简短标题（用于替换默认「未命名」）。 */
+export async function generateTitle(transcript: string, model?: string): Promise<string> {
+  const m = model ?? config.llm.model;
+  const raw = (
+    await postChat(
+      [
+        { role: 'system', content: TITLE_SYSTEM },
+        { role: 'user', content: transcript.slice(0, 2000) },
+      ],
+      { model: m, stream: false },
+    )
+  ).trim();
+
+  const firstLine = raw
+    .split('\n')
+    .map((s) => s.trim())
+    .find(Boolean);
+  const cleaned = (firstLine ?? raw)
+    .replace(/^["'“”‘’「『]+|["'“”‘’」』]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.slice(0, 40) || '未命名';
 }
