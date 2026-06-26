@@ -1,0 +1,15 @@
+{
+  "name": "@voice-notes/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice Notes 桌面外壳（Electron）",
+  "main": "src/main.cjs",
+  "author": "voice-notes",
+  "scripts": {
+    "dev": "electron .",
+    "dist": "bash ../../scripts/build-app.sh"
+  },
+  "devDependencies": {
+    "electron": "33.4.11"
+  }
+}

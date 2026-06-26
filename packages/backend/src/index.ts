@@ -51,7 +51,5 @@ async function main() {
   }
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
-  main();
-}
+// 作为入口直接启动（dev: tsx 运行；打包: node 运行 backend.cjs；Electron fork）
+main();

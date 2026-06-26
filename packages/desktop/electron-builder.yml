@@ -1,0 +1,27 @@
+appId: com.voicenotes.app
+productName: Voice Notes
+electronVersion: 33.4.11
+directories:
+  output: release
+  buildResources: build
+# 只打包桌面外壳代码；后端单文件 / 前端 dist / 二进制 / 模型都走 extraResources
+files:
+  - src/**
+  - package.json
+extraResources:
+  - from: ../../resources
+    to: vn
+    filter:
+      - '**/*'
+      - '!**/.DS_Store'
+mac:
+  category: public.app-category.productivity
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  artifactName: ${productName}-${version}-${arch}.${ext}

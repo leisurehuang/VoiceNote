@@ -1,4 +1,4 @@
-import { which } from '../config.js';
+import { config, which } from '../config.js';
 import { run } from '../util/exec.js';
 
 /** 外部二进制（ffmpeg / whisper-cli）缺失时抛出，路由层据此返回 503。 */
@@ -13,9 +13,10 @@ export class DependencyMissingError extends Error {
 
 /** 用 ffprobe 读时长（毫秒），读不到返回 0。 */
 export async function probeDurationMs(file: string): Promise<number> {
-  if (!which('ffprobe')) return 0;
+  const bin = config.ffprobeBin ?? which('ffprobe');
+  if (!bin) return 0;
   try {
-    const res = await run('ffprobe', [
+    const res = await run(bin, [
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
@@ -33,8 +34,9 @@ export async function probeDurationMs(file: string): Promise<number> {
  * 转成 whisper.cpp 要求的 16kHz 单声道 PCM WAV。
  */
 export async function convertToWav(input: string, output: string): Promise<{ durationMs: number }> {
-  if (!which('ffmpeg')) throw new DependencyMissingError('ffmpeg');
-  await run('ffmpeg', [
+  const bin = config.ffmpegBin ?? which('ffmpeg');
+  if (!bin) throw new DependencyMissingError('ffmpeg');
+  await run(bin, [
     '-y',
     '-i', input,
     '-ar', '16000',

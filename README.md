@@ -105,3 +105,39 @@ node scripts/smoke-m2.mjs            # 上传/转码/删除
 node scripts/smoke-m3.mjs <音频>      # SSE 转写 + 摘要全链路
 node scripts/verify-prod.mjs         # 生产模式自检
 ```
+
+## 桌面应用（Mac .app / .dmg）
+
+可打包成**双击即用的自包含 Mac 应用**（Electron 原生窗口，arm64）。所有依赖——whisper-cli、ffmpeg、Ollama、whisper 模型、qwen2.5:7b——全部打进 app，拷到别的 Apple Silicon Mac 无需安装任何东西。
+
+### 打包步骤
+
+```bash
+npm install                 # 装 electron 等
+bash scripts/assemble-resources.sh   # 组装 resources/（二进制+模型，~6GB，首次较慢）
+npm run desktop:dist        # 产出 packages/desktop/release/Voice Notes-0.1.0-arm64.dmg
+```
+
+- `assemble-resources.sh`：esbuild 后端单文件 + 前端 dist、拷 ollama、用 `bundle-dylibs.mjs` 收拢 whisper-cli/ffmpeg 的动态库并 ad-hoc 重签、拷 turbo 模型、从 `~/.ollama` 抽取 qwen 模型。
+- `build-app.sh`（由 `desktop:dist` 调用）：拷 Electron 自带 `Electron.app` → 注入 app 代码 + resources → 改 Info.plist → 重签 → `hdiutil` 生成可拖拽安装的 dmg。（不依赖 electron-builder，规避其原生辅助下载问题。）
+
+产物：
+
+```
+packages/desktop/release/Voice Notes-0.1.0-arm64.dmg   (~5.9GB)
+```
+
+### 分发须知
+
+- **架构**：仅 Apple Silicon（arm64）。Intel Mac 无法运行。
+- **未签名**（无 Apple 开发者账号）：收件人首次打开会被 Gatekeeper 拦，两种放行方式：
+  - 右键 app →「打开」→ 确认；或
+  - 终端执行 `xattr -cr "/Applications/Voice Notes.app"`
+- **体积**：约 5.9GB（两个模型占大头）。可通过不打包 qwen、改成首次启动 `ollama pull` 来瘦身（需改 assemble 脚本，首跑需联网）。
+- 启动日志在 `~/Library/Application Support/voice-notes/main.log`，排查问题看这里。
+
+### 桌面开发模式
+
+```bash
+npm run desktop:dev   # 用系统 brew 装的 whisper/ffmpeg/ollama，弹原生窗口联调
+```

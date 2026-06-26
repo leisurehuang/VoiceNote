@@ -3,7 +3,14 @@ import { accessSync, constants, existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url)); // .../packages/backend/src
+// 打包成单文件（cjs）后 import.meta.url 可能不可用，兜底到 cwd；
+// 打包模式下实际路径都由 env 提供，这里只是开发态默认值的兜底。
+let here = process.cwd();
+try {
+  here = dirname(fileURLToPath(import.meta.url));
+} catch {
+  /* cjs 打包态：用 cwd 兜底 */
+}
 const projectRoot = resolve(here, '..', '..', '..');
 
 // 加载项目根 .env（本地工具，免装 dotenv；进程已有环境变量优先）
@@ -44,6 +51,8 @@ export interface AppConfig {
   sessionsDir: string;
   frontendDist: string;
   maxUploadBytes: number;
+  ffmpegBin: string | null;
+  ffprobeBin: string | null;
   whisper: WhisperConfig;
   llm: LlmConfig;
 }
@@ -95,6 +104,8 @@ export const config: AppConfig = {
     ? resolve(process.env.FRONTEND_DIST)
     : join(projectRoot, 'packages', 'frontend', 'dist'),
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 500 * 1024 * 1024),
+  ffmpegBin: process.env.FFMPEG ?? null,
+  ffprobeBin: process.env.FFPROBE ?? null,
   whisper: {
     cli: resolveWhisperCli(),
     model:
@@ -126,7 +137,7 @@ export interface HealthStatus {
 
 /** 运行时探测所有外部依赖；前端用此渲染「缺依赖」横幅。 */
 export async function checkHealth(): Promise<HealthStatus> {
-  const ffmpegPath = which('ffmpeg');
+  const ffmpegPath = config.ffmpegBin ?? which('ffmpeg');
   const whisperCliOk = fileAccessible(config.whisper.cli);
   const whisperModelOk = existsSync(config.whisper.model);
 
