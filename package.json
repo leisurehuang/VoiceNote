@@ -1,0 +1,22 @@
+{
+  "name": "voice-notes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,web -c blue,green \"npm:dev:backend\" \"npm:dev:web\"",
+    "dev:backend": "npm run dev -w @voice-notes/backend",
+    "dev:web": "npm run dev -w @voice-notes/frontend",
+    "build": "npm run build -w @voice-notes/frontend",
+    "start": "npm run start -w @voice-notes/backend",
+    "setup": "bash scripts/setup.sh",
+    "typecheck": "npm run typecheck -w @voice-notes/backend && npm run typecheck -w @voice-notes/frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3"
+  }
+}
