@@ -114,18 +114,36 @@ node scripts/verify-prod.mjs         # 生产模式自检
 
 ```bash
 npm install                 # 装 electron 等
-bash scripts/assemble-resources.sh   # 组装 resources/（二进制+模型，~6GB，首次较慢）
-npm run desktop:dist        # 产出 packages/desktop/release/Voice Notes-0.1.0-arm64.dmg
+
+# 完整版（自带 qwen，开箱即用，~5.9GB）
+bash scripts/assemble-resources.sh
+npm run desktop:dist        # → release/Voice Notes-0.1.0-arm64.dmg
+
+# 瘦身版（不含 qwen，首启动自动 ollama pull，~1.5GB）
+RES="$PWD/resources-slim" SLIM=1 bash scripts/assemble-resources.sh
+RES="$PWD/resources-slim" SLIM=1 npm run desktop:dist   # → release/Voice Notes-0.1.0-slim-arm64.dmg
 ```
 
-- `assemble-resources.sh`：esbuild 后端单文件 + 前端 dist、拷 ollama、用 `bundle-dylibs.mjs` 收拢 whisper-cli/ffmpeg 的动态库并 ad-hoc 重签、拷 turbo 模型、从 `~/.ollama` 抽取 qwen 模型。
-- `build-app.sh`（由 `desktop:dist` 调用）：拷 Electron 自带 `Electron.app` → 注入 app 代码 + resources → 改 Info.plist → 重签 → `hdiutil` 生成可拖拽安装的 dmg。（不依赖 electron-builder，规避其原生辅助下载问题。）
+- `assemble-resources.sh`：esbuild 后端单文件 + 前端 dist、拷 ollama、用 `bundle-dylibs.mjs` 收拢 whisper-cli/ffmpeg 的动态库并 ad-hoc 重签、拷 turbo 模型；完整版还从 `~/.ollama` 抽取 qwen 模型（`SLIM=1` 跳过）。可用 `RES=...` 指定输出目录。
+- `build-app.sh`（由 `desktop:dist` 调用）：拷 Electron 自带 `Electron.app` → 注入 app 代码 + resources + 图标 → 改 Info.plist → 重签 → `hdiutil` 生成可拖拽安装的 dmg。（不依赖 electron-builder，规避其原生辅助下载问题。）
+- **图标**：`scripts/make-icon.mjs` 纯 Node 生成蓝底白话筒 `.icns`，`build-app.sh` 自动注入并设 `CFBundleIconFile`。
 
-产物：
+产物（`packages/desktop/release/`）：
 
 ```
-packages/desktop/release/Voice Notes-0.1.0-arm64.dmg   (~5.9GB)
+Voice Notes-0.1.0-arm64.dmg        ~5.9GB  完整版，开箱即用
+Voice Notes-0.1.0-slim-arm64.dmg   ~1.5GB  瘦身版，首启动联网拉 qwen（~4.7GB）
 ```
+
+### 自动检查更新
+
+默认关闭。发布前在 `packages/desktop/src/main.cjs` 改 `UPDATE_URL`（或构建/启动时设 `VOICE_NOTES_UPDATE_URL` 环境变量）为你托管的版本清单 JSON：
+
+```json
+{ "version": "0.2.0", "url": "https://your.host/voice-notes-0.2.0.dmg", "note": "修复若干问题" }
+```
+
+启动时若 `version` 高于当前版本，弹窗提示并带「前往下载」按钮（未签名 app 不做静默自更新，只引导下载）。也可在菜单「Voice Notes → 检查更新…」手动触发。
 
 ### 分发须知
 
@@ -133,7 +151,8 @@ packages/desktop/release/Voice Notes-0.1.0-arm64.dmg   (~5.9GB)
 - **未签名**（无 Apple 开发者账号）：收件人首次打开会被 Gatekeeper 拦，两种放行方式：
   - 右键 app →「打开」→ 确认；或
   - 终端执行 `xattr -cr "/Applications/Voice Notes.app"`
-- **体积**：约 5.9GB（两个模型占大头）。可通过不打包 qwen、改成首次启动 `ollama pull` 来瘦身（需改 assemble 脚本，首跑需联网）。
+- **体积**：完整版 ~5.9GB（两个模型占大头）；瘦身版 ~1.5GB，但首启动要联网拉 qwen（~4.7GB，约几分钟到十几分钟，取决于网速）。
+- **瘦身版首启动**：app 自动判断 qwen 缺失，用自带 ollama 拉到用户目录并显示进度 splash，拉完即可用（仅这一次）。
 - 启动日志在 `~/Library/Application Support/voice-notes/main.log`，排查问题看这里。
 
 ### 桌面开发模式

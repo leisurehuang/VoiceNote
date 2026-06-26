@@ -1,10 +1,29 @@
 // Electron 主进程：启动 Ollama sidecar（打包态）+ fork 后端 + 打开原生窗口。
-// dev 模式复用系统 brew 装的 whisper/ffmpeg/ollama；打包态全部用 app 内自带的 resources。
+// dev 模式复用系统 brew 装的 whisper/ffmpeg/ollama；打包态用 app 内自带的 resources。
+// 瘦身版：若自带 qwen 缺失，首次启动用自带 ollama pull 到用户可写目录（带 splash 进度）。
 const { app, BrowserWindow, shell, Menu, dialog } = require('electron');
 const { fork, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
+
+const BACKEND_PORT = 3100;
+const OLLAMA_PORT = 11435; // 避开系统常占的 11434
+const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b-instruct';
+const VER = app.getVersion();
+// 自动检查更新：发布前改成你托管的清单 URL（JSON: {version, url, note?}）；留空则不检查。
+const UPDATE_URL = process.env.VOICE_NOTES_UPDATE_URL || '';
+
+// 注意：app.isPackaged 在「代码放在 Resources/app 文件夹（非 app.asar）」时为 false，不可靠。
+// 改用是否存在自带 resources 目录来判断打包态。
+const isPackaged = fs.existsSync(path.join(process.resourcesPath, 'vn', 'bin', 'ollama'));
+const projectRoot = isPackaged ? null : path.resolve(app.getAppPath(), '..', '..');
+
+let ollamaProc = null;
+let backendProc = null;
+let win = null;
+let ollamaModelsDir = null;
 
 // 调试日志：写到 userData/main.log（open 启动时看不到 stdout）
 let LOG_PATH = null;
@@ -18,28 +37,27 @@ function logf(msg) {
   console.log(msg);
 }
 
-const BACKEND_PORT = 3100;
-const OLLAMA_PORT = 11435; // 避开系统常占的 11434
-const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b-instruct';
-
-// 注意：app.isPackaged 在「代码放在 Resources/app 文件夹（非 app.asar）」时为 false，不可靠。
-// 改用是否存在自带 resources 目录来判断打包态。
-const isPackaged = fs.existsSync(path.join(process.resourcesPath, 'vn', 'bin', 'ollama'));
-const projectRoot = isPackaged ? null : path.resolve(app.getAppPath(), '..', '..');
-
-let ollamaProc = null;
-let backendProc = null;
-let win = null;
-
-/** 打包态：process.resourcesPath/vn/... ；dev：<root>/resources/... */
 function resPath(...p) {
   return isPackaged
     ? path.join(process.resourcesPath, 'vn', ...p)
     : path.join(projectRoot, 'resources', ...p);
 }
 
-/** 轮询 URL 直到 2xx/3xx/4xx 或超时（用于等 sidecar/后端就绪）。 */
+/** qwen manifest 在自带目录里 → 完整版（只读）；否则用用户可写目录（瘦身版首跑拉取）。 */
+function resolveOllamaModelsDir() {
+  if (ollamaModelsDir) return ollamaModelsDir;
+  const bundled = resPath('ollama-models');
+  const tagRel = `manifests/registry.ollama.ai/library/${OLLAMA_MODEL.replace(':', '/')}`;
+  if (fs.existsSync(path.join(bundled, tagRel))) {
+    ollamaModelsDir = bundled;
+  } else {
+    ollamaModelsDir = path.join(app.getPath('userData'), 'ollama-models');
+    fs.mkdirSync(ollamaModelsDir, { recursive: true });
+  }
+  logf('ollamaModelsDir=' + ollamaModelsDir);
+  return ollamaModelsDir;
+}
+
 function waitUrl(url, timeoutMs) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -64,21 +82,78 @@ function waitUrl(url, timeoutMs) {
 }
 
 async function startOllama() {
-  if (!isPackaged) return; // dev：用系统 ollama（默认 11434）
+  if (!isPackaged) return; // dev：用系统 ollama
   const bin = resPath('bin', 'ollama');
   logf('ollama bin: ' + bin + ' exists=' + fs.existsSync(bin));
-  ollamaProc = spawn(resPath('bin', 'ollama'), ['serve'], {
+  ollamaProc = spawn(bin, ['serve'], {
     env: {
       ...process.env,
       OLLAMA_HOST: `127.0.0.1:${OLLAMA_PORT}`,
-      OLLAMA_MODELS: resPath('ollama-models'),
+      OLLAMA_MODELS: resolveOllamaModelsDir(),
       OLLAMA_KEEP_ALIVE: '30m',
       OLLAMA_ORIGINS: '*',
     },
     stdio: 'ignore',
   });
-  ollamaProc.on('error', (e) => console.error('[ollama]', e.message));
+  ollamaProc.on('error', (e) => logf('ollama spawn error: ' + e.message));
   await waitUrl(`http://127.0.0.1:${OLLAMA_PORT}/api/tags`, 90000);
+}
+
+function createSplash(text) {
+  const w = new BrowserWindow({
+    width: 460, height: 280, frame: false, resizable: false, center: true,
+    backgroundColor: '#0f1115', webPreferences: { contextIsolation: true, sandbox: true },
+  });
+  const body = `<body style="margin:0;background:#0f1115;color:#e6e8ee;font-family:-apple-system,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh"><div style="font-size:44px;margin-bottom:14px">🎙️</div><div style="font-size:14px;color:#9aa3b2">首次使用：正在下载摘要模型（约 4.7GB，仅这一次）</div><div id="p" style="font-size:26px;margin-top:12px">${text}</div></body>`;
+  w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(body));
+  return w;
+}
+
+/** 瘦身版：自带 qwen 缺失时，拉取到用户目录并显示进度。 */
+async function ensureQwenModel() {
+  if (!isPackaged) return; // dev：系统 ollama 自行管理
+  const tags = await (await fetch(`http://127.0.0.1:${OLLAMA_PORT}/api/tags`)).json();
+  const has = (tags.models || []).some((m) => m.name === OLLAMA_MODEL);
+  if (has) {
+    logf('qwen 已就绪，跳过 pull');
+    return;
+  }
+  logf('qwen 缺失，开始 ollama pull ' + OLLAMA_MODEL);
+  const splash = createSplash('准备中…');
+  await new Promise((resolve) => {
+    const p = spawn(resPath('bin', 'ollama'), ['pull', OLLAMA_MODEL], {
+      env: {
+        ...process.env,
+        OLLAMA_HOST: `127.0.0.1:${OLLAMA_PORT}`,
+        OLLAMA_MODELS: resolveOllamaModelsDir(),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const onData = (d) => {
+      const s = d.toString();
+      const pct = [...s.matchAll(/(\d+)%/g)].pop();
+      if (pct) {
+        try {
+          splash.webContents.executeJavaScript(`document.getElementById('p').textContent='${pct[1]}%'`);
+        } catch {
+          /* 窗口可能已关 */
+        }
+        logf('pull ' + pct[1] + '%'); // 只在有百分比更新时记录，避免刷屏
+      }
+    };
+    p.stdout.on('data', onData);
+    p.stderr.on('data', onData);
+    p.on('error', (e) => logf('pull error: ' + e.message));
+    p.on('close', (code) => {
+      logf('pull done code=' + code);
+      resolve();
+    });
+  });
+  try {
+    splash.close();
+  } catch {
+    /* ignore */
+  }
 }
 
 async function startBackend() {
@@ -100,10 +175,7 @@ async function startBackend() {
   } else {
     env.FRONTEND_DIST = path.join(projectRoot, 'packages', 'frontend', 'dist');
   }
-  backendProc = fork(resPath('app', 'backend.cjs'), [], {
-    env,
-    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-  });
+  backendProc = fork(backendFile, [], { env, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
   backendProc.stdout?.on('data', (d) => process.stdout.write('[backend] ' + d));
   backendProc.stderr?.on('data', (d) => process.stderr.write('[backend] ' + d));
   await waitUrl(`${BACKEND_URL}/api/health`, 30000);
@@ -120,15 +192,79 @@ function createWindow() {
     webPreferences: { contextIsolation: true, sandbox: true },
   });
   win.loadURL(BACKEND_URL);
-  // 外部链接在系统浏览器打开，不在窗口内跳转
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://127.0.0.1:') || url.startsWith(BACKEND_URL)) return { action: 'allow' };
+    if (url.startsWith(BACKEND_URL) || url.startsWith('http://127.0.0.1:')) return { action: 'allow' };
     shell.openExternal(url);
     return { action: 'deny' };
   });
   win.on('closed', () => {
     win = null;
   });
+}
+
+function cmpVer(a, b) {
+  const pa = String(a).split('.');
+  const pb = String(b).split('.');
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = Number(pa[i] || 0);
+    const y = Number(pb[i] || 0);
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+
+/** 启动后非阻塞检查更新；有新版弹窗带「前往下载」。 */
+async function checkForUpdate() {
+  if (!UPDATE_URL) return;
+  try {
+    const r = await fetch(UPDATE_URL, { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    if (j && j.version && cmpVer(j.version, VER) > 0) {
+      const res = await dialog.showMessageBox({
+        type: 'info',
+        buttons: ['前往下载', '稍后再说'],
+        defaultId: 0,
+        cancelId: 1,
+        title: '发现新版本',
+        message: `发现新版本 ${j.version}（当前 ${VER}）`,
+        detail: j.note || '点击「前往下载」打开下载页。',
+      });
+      if (res.response === 0 && j.url) shell.openExternal(j.url);
+    } else {
+      logf('更新检查：已是最新 ' + VER);
+    }
+  } catch (e) {
+    logf('更新检查失败：' + (e && e.message ? e.message : e));
+  }
+}
+
+function buildMenu() {
+  const tpl = [
+    {
+      label: 'Voice Notes',
+      submenu: [
+        { label: '检查更新…', click: () => void checkForUpdate() },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    { role: 'editMenu' },
+    {
+      label: '视图',
+      submenu: [
+        { role: 'reload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(tpl));
 }
 
 function killChild(p) {
@@ -159,20 +295,19 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
-    Menu.setApplicationMenu(null);
-    logf('app ready, isPackaged=' + isPackaged);
+    buildMenu();
+    logf('app ready v' + VER + ' isPackaged=' + isPackaged);
     try {
-      logf('startOllama…');
       await startOllama();
-      logf('startBackend…');
+      await ensureQwenModel(); // 瘦身版首拉 qwen（带 splash）
       await startBackend();
-      logf('createWindow…');
       createWindow();
       logf('window opened');
+      void checkForUpdate(); // 非阻塞
     } catch (e) {
       logf('启动失败：' + (e && e.stack ? e.stack : e));
       dialog.showErrorBox('Voice Notes 启动失败', (e && e.message ? e.message : e) + '\n\n请检查 app 内依赖是否完整。');
-      createWindow(); // 仍开窗，前端会显示依赖缺失横幅
+      createWindow();
     }
   });
 

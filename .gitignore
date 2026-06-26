@@ -7,5 +7,5 @@ data/sessions/*
 .DS_Store
 
 # 桌面打包产物（资源、安装包）
-resources/
+resources*/
 packages/desktop/release/

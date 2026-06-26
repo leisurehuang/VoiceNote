@@ -2,7 +2,7 @@
 # 组装桌面打包所需的自包含资源到 resources/。打包前运行（模型大，可重复运行、增量跳过）。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RES="$ROOT/resources"
+RES="${RES:-$ROOT/resources}"
 NODE="${NODE:-node}"
 
 MODEL_TAG="${MODEL_TAG:-qwen2.5:7b-instruct}"
@@ -43,14 +43,17 @@ echo "==> [5/7] whisper 模型 turbo (~1.5GB)"
 [[ -f "$WHISPER_MODEL_SRC" ]] || { echo "找不到 whisper 模型：$WHISPER_MODEL_SRC"; exit 1; }
 if [[ -f "$RES/models/ggml-large-v3-turbo.bin" ]]; then echo "    已存在，跳过"; else cp -f "$WHISPER_MODEL_SRC" "$RES/models/ggml-large-v3-turbo.bin"; fi
 
-echo "==> [6/7] $MODEL_TAG 模型（从 $OLLAMA_MODELS_SRC 抽取 ~4.7GB）"
-MANIFEST="$OLLAMA_MODELS_SRC/manifests/registry.ollama.ai/$TAG_PATH"
-[[ -f "$MANIFEST" ]] || MANIFEST="$(find "$OLLAMA_MODELS_SRC/manifests" -ipath "*$TAG_PATH*" -type f | head -1)"
-[[ -f "$MANIFEST" ]] || { echo "找不到 $MODEL_TAG 的 manifest（确认已 ollama pull）"; exit 1; }
-REL="${MANIFEST#$OLLAMA_MODELS_SRC/manifests/}"
-mkdir -p "$RES/ollama-models/manifests/$(dirname "$REL")"
-cp -f "$MANIFEST" "$RES/ollama-models/manifests/$REL"
-python3 - "$MANIFEST" "$OLLAMA_MODELS_SRC/blobs" "$RES/ollama-models/blobs" <<'PY'
+if [[ -n "${SLIM:-}" ]]; then
+  echo "==> [6/7] 瘦身模式（SLIM=1）：跳过 qwen 模型，首启动由 app 用 ollama pull 拉取"
+else
+  echo "==> [6/7] $MODEL_TAG 模型（从 $OLLAMA_MODELS_SRC 抽取 ~4.7GB）"
+  MANIFEST="$OLLAMA_MODELS_SRC/manifests/registry.ollama.ai/$TAG_PATH"
+  [[ -f "$MANIFEST" ]] || MANIFEST="$(find "$OLLAMA_MODELS_SRC/manifests" -ipath "*$TAG_PATH*" -type f | head -1)"
+  [[ -f "$MANIFEST" ]] || { echo "找不到 $MODEL_TAG 的 manifest（确认已 ollama pull）"; exit 1; }
+  REL="${MANIFEST#$OLLAMA_MODELS_SRC/manifests/}"
+  mkdir -p "$RES/ollama-models/manifests/$(dirname "$REL")"
+  cp -f "$MANIFEST" "$RES/ollama-models/manifests/$REL"
+  python3 - "$MANIFEST" "$OLLAMA_MODELS_SRC/blobs" "$RES/ollama-models/blobs" <<'PY'
 import json, os, shutil, sys
 manifest, src, dst = sys.argv[1], sys.argv[2], sys.argv[3]
 data = json.load(open(manifest))
@@ -73,6 +76,7 @@ for h in sorted(digests):
     print(f"    blob {name} ({os.path.getsize(s) // 1048576} MB)")
 print(f"    新拷贝 {copied}，已存在跳过 {skipped}")
 PY
+fi
 
 echo "==> [7/7] 完成。校验 + 体积："
 du -sh "$RES" 2>/dev/null

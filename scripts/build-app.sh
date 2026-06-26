@@ -4,20 +4,20 @@
 # → ad-hoc 重签 → hdiutil 生成可拖拽安装的 dmg。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+RES="${RES:-$ROOT/resources}"
 VER="$(node -e "console.log(require('$ROOT/packages/desktop/package.json').version)")"
 ELECTRON_APP="$ROOT/node_modules/electron/dist/Electron.app"
 STAGE="$ROOT/packages/desktop/release/build"
 OUT="$ROOT/packages/desktop/release"
 APP_NAME="Voice Notes"
 APP="$STAGE/$APP_NAME.app"
-RES="$ROOT/resources"
 
 [[ -d "$ELECTRON_APP" ]] || { echo "找不到 Electron.app：$ELECTRON_APP（先 npm install）"; exit 1; }
 [[ -d "$RES/bin" ]] || { echo "找不到 resources（先跑 assemble-resources.sh）"; exit 1; }
 
 echo "==> [1/6] 拷贝 Electron.app → $APP_NAME.app"
-rm -rf "$STAGE" "$OUT"
-mkdir -p "$STAGE"
+rm -rf "$STAGE"
+mkdir -p "$STAGE" "$OUT"
 cp -R "$ELECTRON_APP" "$APP"
 
 echo "==> [2/6] 注入 app 代码（main.cjs + package.json）"
@@ -43,6 +43,14 @@ plset CFBundleShortVersionString "$VER"
 plset CFBundleVersion "$VER"
 chmod +x "$APP/Contents/MacOS/"*
 
+echo "  注入应用图标"
+ICON="$ROOT/packages/desktop/build/icon.icns"
+[[ -f "$ICON" ]] || node "$ROOT/scripts/make-icon.mjs" "$ICON"
+if [[ -f "$ICON" ]]; then
+  cp -f "$ICON" "$APP_RES/icon.icns"
+  plset CFBundleIconFile icon
+fi
+
 echo "==> [5/6] ad-hoc 重签（arm64 上未签名的二进制无法运行）"
 codesign --force --deep --sign - "$APP" 2>/dev/null || echo "  （codesign --deep 有警告，继续）"
 
@@ -52,7 +60,7 @@ DMG_SRC="$STAGE/dmg"
 mkdir -p "$DMG_SRC"
 cp -R "$APP" "$DMG_SRC/"
 ln -sf /Applications "$DMG_SRC/Applications"
-DMG="$OUT/$APP_NAME-$VER-arm64.dmg"
+DMG="$OUT/$APP_NAME-$VER${SLIM:+-slim}-arm64.dmg"
 hdiutil create -volname "$APP_NAME" -fs HFS+ -srcfolder "$DMG_SRC" -ov -format UDZO "$DMG" >/dev/null
 
 echo "==> 完成"
