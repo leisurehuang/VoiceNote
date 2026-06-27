@@ -50,9 +50,16 @@ jobs:
       - name: 下载 whisper turbo 模型
         if: steps.wmodel.outputs.cache-hit != 'true'
         run: |
-          node scripts/fetch-model.mjs \
+          mkdir -p "$HOME/.voice-notes-models"
+          F="$HOME/.voice-notes-models/ggml-large-v3-turbo.bin"
+          for U in \
             "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin" \
-            "$HOME/.voice-notes-models/ggml-large-v3-turbo.bin"
+            "https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"; do
+            echo "下载尝试：$U"
+            if curl -fL --retry 8 --retry-delay 5 -C - -o "$F" "$U"; then echo "✓ 下载成功"; break; fi
+            echo "✗ 该源失败，换下一个"
+          done
+          ls -lh "$F" || { echo "所有源均失败"; exit 1; }
 
       - name: 组装瘦身版 resources（不含 qwen）
         run: RES="$PWD/resources-slim" SLIM=1 bash scripts/assemble-resources.sh
