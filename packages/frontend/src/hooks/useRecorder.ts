@@ -31,45 +31,80 @@ export function useRecorder() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const mimeRef = useRef(pickMime());
+  // 实时音量分析（供波形可视化）
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const stop = useCallback((): Promise<RecorderResult | null> => {
-    return new Promise((resolve) => {
-      const rec = recRef.current;
-      if (!rec) {
-        resolve(null);
-        return;
-      }
-      rec.onstop = () => {
-        const type = mimeRef.current.mimeType || 'audio/webm';
-        const blob = new Blob(chunksRef.current, { type });
-        chunksRef.current = [];
-        resolve({ blob, mimeType: type, ext: mimeRef.current.ext });
-      };
-      try {
-        rec.stop();
-      } catch {
-        /* ignore */
-      }
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      rec.stream.getTracks().forEach((t) => t.stop());
-      setRecording(false);
-    });
+  const teardownAnalysis = useCallback(() => {
+    try {
+      audioCtxRef.current?.close();
+    } catch {
+      /* ignore */
+    }
+    audioCtxRef.current = null;
+    analyserRef.current = null;
   }, []);
+
+  const stop = useCallback(
+    (): Promise<RecorderResult | null> => {
+      return new Promise((resolve) => {
+        const rec = recRef.current;
+        if (!rec) {
+          resolve(null);
+          return;
+        }
+        rec.onstop = () => {
+          const type = mimeRef.current.mimeType || 'audio/webm';
+          const blob = new Blob(chunksRef.current, { type });
+          chunksRef.current = [];
+          teardownAnalysis();
+          resolve({ blob, mimeType: type, ext: mimeRef.current.ext });
+        };
+        try {
+          rec.stop();
+        } catch {
+          /* ignore */
+        }
+        if (timerRef.current) {
+          window.clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        rec.stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+      });
+    },
+    [teardownAnalysis],
+  );
 
   const start = useCallback(async () => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true, // 回声消除
-          noiseSuppression: true, // 降噪
-          autoGainControl: true, // 自动增益——把轻声说话放大，避免录得太轻 whisper 听不清
-          channelCount: 1, // 单声道，匹配 whisper 期望
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
         },
       });
+
+      // 建分析链路（不影响 MediaRecorder 录制）
+      try {
+        const Ctx: typeof AudioContext =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const ctx = new Ctx();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.82;
+        source.connect(analyser); // 不连到 destination，避免回授
+        audioCtxRef.current = ctx;
+        analyserRef.current = analyser;
+      } catch {
+        /* 可视化可选，失败不阻塞录音 */
+      }
+
       const mime = mimeRef.current;
       const rec = mime.mimeType
         ? new MediaRecorder(stream, { mimeType: mime.mimeType })
@@ -88,5 +123,5 @@ export function useRecorder() {
     }
   }, []);
 
-  return { recording, seconds, error, start, stop };
+  return { recording, seconds, error, start, stop, analyserRef };
 }

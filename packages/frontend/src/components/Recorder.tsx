@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { uploadAudio } from '../api/client';
 import { useRecorder } from '../hooks/useRecorder';
+import { Waveform } from './Waveform';
 
 function fmt(s: number): string {
   const m = String(Math.floor(s / 60)).padStart(2, '0');
@@ -9,7 +10,7 @@ function fmt(s: number): string {
 }
 
 export function Recorder({ onCreated }: { onCreated: (id: string) => void }) {
-  const { recording, seconds, error, start, stop } = useRecorder();
+  const { recording, seconds, error, start, stop, analyserRef } = useRecorder();
   const [busy, setBusy] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
 
@@ -30,21 +31,30 @@ export function Recorder({ onCreated }: { onCreated: (id: string) => void }) {
   }
 
   return (
-    <div className="card">
-      <h3>🎙️ 浏览器录音</h3>
+    <div className="card record-card">
+      <h3>🎙 浏览器录音</h3>
       {(error || uploadErr) && <div className="alert err">{error ?? uploadErr}</div>}
-      <div className="recorder">
-        {!recording ? (
+
+      {!recording ? (
+        <div className="record-idle">
+          <div className="mic-pulse" aria-hidden="true">
+            <span className="mic-dot" />
+          </div>
           <button className="big" onClick={start} disabled={busy}>
-            {busy ? '上传中…' : '开始录音'}
+            开始录音
           </button>
-        ) : (
-          <>
+        </div>
+      ) : (
+        <div className="recording-ui">
+          <Waveform analyserRef={analyserRef} />
+          <div className="rec-controls">
             <span className="timer rec">● REC {fmt(seconds)}</span>
-            <button className="big danger" onClick={handleStop}>停止并转写</button>
-          </>
-        )}
-      </div>
+            <button className="big danger" onClick={handleStop} disabled={busy}>
+              停止并转写
+            </button>
+          </div>
+        </div>
+      )}
       <p className="muted">录音在浏览器本地完成，上传到本机后端转写。</p>
     </div>
   );
