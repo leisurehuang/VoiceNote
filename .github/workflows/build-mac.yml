@@ -1,0 +1,75 @@
+# 自动构建 Mac 瘦身版 dmg 并挂到 GitHub Release。
+# 触发：推送 v* tag（自动建/更新 release 并挂 dmg），或手动 workflow_dispatch（仅产 artifact）。
+#
+# 为什么只建瘦身版：GitHub release 单文件上限 2GB，完整版 dmg ~5.9GB 挂不上。
+# 瘦身版 ~1.5GB 可挂 release，首启动自动联网拉 qwen，最适合分发。
+# 完整版（自带 qwen）请在本地：bash scripts/assemble-resources.sh && npm run desktop:dist
+name: build-mac
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write # 创建/更新 release、上传资源
+
+jobs:
+  build-slim:
+    runs-on: macos-14 # Apple Silicon（arm64）
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 从 tag 设置版本号
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF##*/}"   # v0.2.0
+          VER="${TAG#v}"            # 0.2.0
+          node -e "const fs=require('fs'),p='packages/desktop/package.json',j=JSON.parse(fs.readFileSync(p));j.version='$VER';fs.writeFileSync(p,JSON.stringify(j,null,2))"
+          echo "build version: $VER"
+
+      - run: npm install
+
+      - name: 安装 brew 依赖（whisper-cpp / ffmpeg / ollama）
+        run: brew install whisper-cpp ffmpeg ollama
+
+      - name: 缓存 whisper turbo 模型
+        id: wmodel
+        uses: actions/cache@v4
+        with:
+          path: ~/.voice-notes-models
+          key: whisper-turbo-2026-06
+
+      - name: 下载 whisper turbo 模型
+        if: steps.wmodel.outputs.cache-hit != 'true'
+        run: |
+          node scripts/fetch-model.mjs \
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin" \
+            "$HOME/.voice-notes-models/ggml-large-v3-turbo.bin"
+
+      - name: 组装瘦身版 resources（不含 qwen）
+        run: RES="$PWD/resources-slim" SLIM=1 bash scripts/assemble-resources.sh
+
+      - name: 构建瘦身版 dmg
+        run: RES="$PWD/resources-slim" SLIM=1 npm run desktop:dist
+
+      - name: 上传 dmg 为 workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voice-Notes-slim-arm64
+          path: packages/desktop/release/*.dmg
+          if-no-files-found: error
+
+      - name: 挂载 dmg 到 release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/desktop/release/*.dmg
+          generate_release_notes: true
