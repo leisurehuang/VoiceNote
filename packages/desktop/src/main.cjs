@@ -12,8 +12,11 @@ const OLLAMA_PORT = 11435; // 避开系统常占的 11434
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b-instruct';
 const VER = app.getVersion();
-// 自动检查更新：发布前改成你托管的清单 URL（JSON: {version, url, note?}）；留空则不检查。
-const UPDATE_URL = process.env.VOICE_NOTES_UPDATE_URL || '';
+// 自动检查更新：默认查 GitHub 仓库的最新 release（发布带 tag 的 release 即触发；无 release 静默跳过）。
+// 也可用 VOICE_NOTES_UPDATE_URL 覆盖成自托管的清单 JSON（{version,url,note?}）。
+const UPDATE_URL =
+  process.env.VOICE_NOTES_UPDATE_URL ||
+  'https://api.github.com/repos/leisurehuang/VoiceNote/releases/latest';
 
 // 注意：app.isPackaged 在「代码放在 Resources/app 文件夹（非 app.asar）」时为 false，不可靠。
 // 改用是否存在自带 resources 目录来判断打包态。
@@ -214,25 +217,55 @@ function cmpVer(a, b) {
   return 0;
 }
 
-/** 启动后非阻塞检查更新；有新版弹窗带「前往下载」。 */
+/** 启动后非阻塞检查更新。默认查 GitHub releases/latest；有新版弹窗带「前往下载」。 */
 async function checkForUpdate() {
-  if (!UPDATE_URL) return;
   try {
-    const r = await fetch(UPDATE_URL, { signal: AbortSignal.timeout(8000) });
+    const r = await fetch(UPDATE_URL, {
+      headers: { 'User-Agent': 'VoiceNotes-Updater', Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (r.status === 404) {
+      logf('更新检查：远端暂无 release（' + UPDATE_URL + '）');
+      return;
+    }
+    if (!r.ok) {
+      logf('更新检查：源返回 ' + r.status);
+      return;
+    }
     const j = await r.json();
-    if (j && j.version && cmpVer(j.version, VER) > 0) {
+    // 兼容两种：GitHub release（tag_name + assets）或自定义 {version, url, note}
+    const remoteVer = j.tag_name
+      ? String(j.tag_name).replace(/^v/i, '')
+      : j.version
+        ? String(j.version)
+        : '';
+    if (!remoteVer) {
+      logf('更新检查：无版本信息');
+      return;
+    }
+    if (cmpVer(remoteVer, VER) > 0) {
+      // 选下载地址：优先「完整版 dmg」资源，否则任意 dmg，再否则 release 页
+      let url = j.url;
+      if (!url && Array.isArray(j.assets)) {
+        const dmgs = j.assets.filter((a) => /\.dmg$/i.test(a.name));
+        const pick = dmgs.find((a) => !/slim/i.test(a.name)) || dmgs[0];
+        url = pick && pick.browser_download_url;
+      }
+      url = url || j.html_url;
+      const detail = (j.body || j.note || '点击「前往下载」打开下载页。').toString().slice(0, 400);
       const res = await dialog.showMessageBox({
         type: 'info',
         buttons: ['前往下载', '稍后再说'],
         defaultId: 0,
         cancelId: 1,
         title: '发现新版本',
-        message: `发现新版本 ${j.version}（当前 ${VER}）`,
-        detail: j.note || '点击「前往下载」打开下载页。',
+        message: `发现新版本 ${remoteVer}（当前 ${VER}）`,
+        detail,
       });
-      if (res.response === 0 && j.url) shell.openExternal(j.url);
+      if (res.response === 0 && url) shell.openExternal(url);
+      logf('更新检查：发现新版 ' + remoteVer + ' → ' + url);
     } else {
-      logf('更新检查：已是最新 ' + VER);
+      logf('更新检查：已是最新 ' + VER + '（远端 ' + remoteVer + '）');
     }
   } catch (e) {
     logf('更新检查失败：' + (e && e.message ? e.message : e));
