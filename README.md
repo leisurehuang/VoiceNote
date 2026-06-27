@@ -106,6 +106,29 @@ node scripts/smoke-m3.mjs <音频>      # SSE 转写 + 摘要全链路
 node scripts/verify-prod.mjs         # 生产模式自检
 ```
 
+## Docker 部署（服务端）
+
+不想装 Mac app、想让多人通过浏览器用？用 Docker 跑成服务，浏览器访问即可。
+
+镜像自带后端 + 前端 + whisper.cpp(CPU) + ffmpeg + turbo 模型；摘要用的 **Ollama + qwen** 通过 docker-compose 作为 sidecar。镜像已由 CI 自动构建并发布到 GHCR：`ghcr.io/leisurehuang/voicenote`。
+
+```bash
+# 一条命令起来（首次自动拉 qwen2.5:7b-instruct，约 4.7GB，几分钟）
+docker compose up -d
+
+# 浏览器打开 http://<服务器>:3000
+# 看 qwen 拉取进度（拉完摘要才可用）：
+docker compose logs -f ollama-init
+```
+
+- **数据持久化**：会话（音频/逐字稿/摘要）在 `data` 卷；Ollama 模型在 `ollama` 卷。重启不丢。
+- **GPU 加速**（仅 Linux + nvidia-container-toolkit）：取消 `docker-compose.yml` 里 ollama 服务的 `deploy` 注释。Mac/无 GPU 走 CPU（转写/摘要可用，稍慢）。
+- **只用镜像**（不要 Ollama sidecar）：`docker run -p 3000:3000 -v vn-data:/data -e OLLAMA_BASE_URL=http://你的ollama:11434/v1 ghcr.io/leisurehuang/voicenote:latest`。
+- **自己构建**：`docker compose build` 或 `docker build -t voicenote .`（多阶段：编前端/后端 → 编 whisper.cpp → 运行镜像）。
+- **架构**：CI 默认出 amd64 镜像（适配服务器）。arm64（如树莓派/Mac）需本地 `docker build`，或给 `docker.yml` 加 `platforms: linux/amd64,linux/arm64`。
+
+> compose 里 `app` 同时写了 `build: .` 和 `image:`：本地没镜像就自动构建并打同名 tag；想直接用 CI 预构建镜像就先 `docker compose pull`。
+
 ## 桌面应用（Mac .app / .dmg）
 
 可打包成**双击即用的自包含 Mac 应用**（Electron 原生窗口，arm64）。所有依赖——whisper-cli、ffmpeg、Ollama、whisper 模型、qwen2.5:7b——全部打进 app，拷到别的 Apple Silicon Mac 无需安装任何东西。

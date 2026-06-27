@@ -1,0 +1,21 @@
+# 别把宿主机的构建产物/依赖塞进 Docker 构建上下文
+node_modules/
+**/node_modules/
+.git/
+.gitignore
+.github/
+resources/
+resources-slim/
+packages/desktop/release/
+packages/desktop/build/
+packages/frontend/dist/
+packages/backend/dist/
+data/
+release/
+*.dmg
+*.log
+.env
+.env.*
+.DS_Store
+README.md
+.claude/

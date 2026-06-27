@@ -1,0 +1,54 @@
+# Voice Notes 服务端部署：app（转写/摘要后端 + 前端）+ Ollama（摘要模型 sidecar）。
+# 用法：
+#   docker compose up -d                 # 启动（首次会自动拉 qwen2.5:7b-instruct，约 4.7GB）
+#   浏览器打开 http://<服务器>:3000
+#   docker compose logs -f ollama-init   # 看模型拉取进度
+services:
+  app:
+    build: .                      # 本地构建；或改用 image: ghcr.io/leisurehuang/voicenote:latest 直接拉
+    image: ghcr.io/leisurehuang/voicenote:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - data:/data                # 会话数据（音频/逐字稿/摘要）持久化
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      OLLAMA_MODEL: qwen2.5:7b-instruct
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama       # 模型持久化（避免每次重启重拉）
+    restart: unless-stopped
+    # GPU 加速（仅 Linux + 安装 nvidia-container-toolkit 时取消注释）：
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # 一次性：等 ollama 起来后拉取摘要模型（幂等，已存在则秒过）
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until ollama pull qwen2.5:7b-instruct; do
+          echo "等待 ollama 就绪后重试拉取…"
+          sleep 5
+        done
+        echo "qwen 模型就绪"
+    restart: "no"
+
+volumes:
+  data:
+  ollama:
