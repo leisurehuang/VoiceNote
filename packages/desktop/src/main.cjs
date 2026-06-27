@@ -185,13 +185,20 @@ async function startBackend() {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   win = new BrowserWindow({
-    width: 1100,
-    height: 780,
-    minWidth: 720,
-    minHeight: 500,
+    width: 1080,
+    height: 740,
+    minWidth: 760,
+    minHeight: 480,
     title: 'Voice Notes',
-    backgroundColor: '#0f1115',
+    // macOS 原生标题栏：隐藏标准标题栏、保留交通灯并内嵌
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    trafficLightPosition: isMac ? { x: 15, y: 17 } : undefined,
+    // 毛玻璃：侧栏等透明区域透出桌面模糊
+    vibrancy: isMac ? 'under-window' : undefined,
+    visualEffectState: 'active',
+    backgroundColor: '#1d1d20',
     webPreferences: { contextIsolation: true, sandbox: true },
   });
   win.loadURL(BACKEND_URL);

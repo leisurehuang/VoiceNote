@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { SessionMeta } from '../api/types';
-import { fmtDate, fmtMs } from '../format';
 
 const STATUS_LABEL: Record<string, string> = {
   uploaded: '已上传',
@@ -10,20 +9,30 @@ const STATUS_LABEL: Record<string, string> = {
   done: '完成',
   error: '出错',
 };
+const DOT: Record<string, string> = {
+  uploaded: '○',
+  converting: '◐',
+  transcribing: '◐',
+  summarizing: '◐',
+  done: '●',
+  error: '!',
+};
 
 export function SessionList({
   sessions,
+  activeId,
   onOpen,
   onDelete,
 }: {
   sessions: SessionMeta[];
+  activeId: string | null;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void | Promise<void>;
 }) {
   const [pending, setPending] = useState<SessionMeta | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  if (!sessions.length) return <p className="muted">还没有会话，录一段或上传一个试试。</p>;
+  if (!sessions.length) return <div className="nav-empty">还没有会话</div>;
 
   async function confirmDelete() {
     if (!pending) return;
@@ -40,19 +49,23 @@ export function SessionList({
     <>
       <ul className="session-list">
         {sessions.map((s) => (
-          <li key={s.id}>
-            <button className="row" onClick={() => onOpen(s.id)}>
-              <span className={`badge ${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>
-              <span className="title">{s.title || '未命名'}</span>
-              <span className="muted meta">
-                {fmtDate(s.createdAt)}
-                {s.durationMs ? ` · ${fmtMs(s.durationMs)}` : ''}
-              </span>
-            </button>
+          <li
+            key={s.id}
+            className={'row' + (activeId === s.id ? ' selected' : '')}
+            onClick={() => onOpen(s.id)}
+          >
+            <span className={'dot ' + s.status} title={STATUS_LABEL[s.status] ?? s.status}>
+              {DOT[s.status] ?? '○'}
+            </span>
+            <span className="row-title">{s.title || '未命名'}</span>
             <button
-              className="ghost del"
+              className="row-del"
               title="删除"
-              onClick={() => setPending(s)}
+              disabled={deleting}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPending(s);
+              }}
             >
               ✕
             </button>
@@ -61,11 +74,7 @@ export function SessionList({
       </ul>
 
       {pending && (
-        <div
-          className="modal-backdrop"
-          onClick={() => !deleting && setPending(null)}
-          role="presentation"
-        >
+        <div className="modal-backdrop" onClick={() => !deleting && setPending(null)} role="presentation">
           <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h3>删除会话？</h3>
             <p>

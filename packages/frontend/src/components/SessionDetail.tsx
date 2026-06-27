@@ -4,15 +4,16 @@ import type { SessionDetail as Detail } from '../api/types';
 import { TranscriptView } from './TranscriptView';
 import { SummaryView } from './SummaryView';
 import { ExportBar } from './ExportBar';
-import { fmtDate, fmtMs } from '../format';
 
-export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }) {
+export function SessionDetail({ id }: { id: string }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
+    setDetail(null);
+    setErr(null);
     getSession(id)
       .then((d) => alive && setDetail(d))
       .catch((e) => alive && setErr(e instanceof Error ? e.message : '加载失败'));
@@ -46,43 +47,35 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
 
   if (err && !detail) {
     return (
-      <div className="card">
+      <div className="content">
         <div className="alert err">{err}</div>
-        <button className="ghost" onClick={onBack}>
-          ← 返回
-        </button>
       </div>
     );
   }
-  if (!detail) return <div className="card"><p className="muted">加载中…</p></div>;
+  if (!detail) {
+    return (
+      <div className="content">
+        <p className="muted">加载中…</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="detail-head">
-        <button className="ghost" onClick={onBack}>
-          ← 返回
-        </button>
-        <h2>{detail.title}</h2>
-        <span className="muted">
-          {fmtDate(detail.createdAt)} · {detail.durationMs ? fmtMs(detail.durationMs) : '未知时长'} ·{' '}
-          {detail.sourceKind === 'record' ? '录音' : '上传'}
-        </span>
-      </div>
-
-      <div className="card">
-        <h3>📝 摘要</h3>
+    <div className="content detail">
+      <section className="block">
+        <h3 className="block-h">📝 摘要</h3>
         <SummaryView
           summary={detail.summary}
           summarizing={summarizing}
           onResummarize={handleResummarize}
         />
         {err && <div className="alert err">{err}</div>}
-      </div>
+      </section>
 
-      <div className="card">
-        <h3>💬 逐字稿</h3>
+      <section className="block">
+        <h3 className="block-h">💬 逐字稿</h3>
         <TranscriptView segments={detail.transcript} />
-      </div>
+      </section>
 
       <ExportBar id={id} />
     </div>
