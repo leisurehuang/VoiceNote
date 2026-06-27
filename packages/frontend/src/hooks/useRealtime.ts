@@ -24,7 +24,8 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
-  const cleanup = useCallback(() => {
+  // 立刻停止音频采集（断 worklet、关 AudioContext、停麦），不动 WebSocket
+  const stopCapture = useCallback(() => {
     try {
       nodeRef.current?.disconnect();
     } catch {
@@ -40,17 +41,25 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
     } catch {
       /* ignore */
     }
+    nodeRef.current = null;
+    acRef.current = null;
+    streamRef.current = null;
+    analyserRef.current = null; // 波形组件检测到 null 后停止起伏
+  }, []);
+
+  const closeSocket = useCallback(() => {
     try {
       wsRef.current?.close();
     } catch {
       /* ignore */
     }
-    nodeRef.current = null;
-    acRef.current = null;
-    streamRef.current = null;
     wsRef.current = null;
-    analyserRef.current = null;
   }, []);
+
+  const cleanup = useCallback(() => {
+    stopCapture();
+    closeSocket();
+  }, [stopCapture, closeSocket]);
 
   const start = useCallback(async () => {
     setError(null);
@@ -96,7 +105,7 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
           setSegments((s) => [...s, m.segment!]);
         } else if (m.type === 'done') {
           const id = m.id || idRef.current;
-          cleanup();
+          closeSocket(); // 音频在 stop() 时已停，这里只关连接
           setRecording(false);
           setFinalizing(false);
           if (id) onDoneRef.current?.(id);
@@ -114,10 +123,11 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
   }, [cleanup]);
 
   const stop = useCallback(() => {
+    stopCapture(); // 点「结束」立刻停麦，整理期间不再收音
     setFinalizing(true);
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
-  }, []);
+  }, [stopCapture]);
 
   useEffect(() => () => cleanup(), [cleanup]);
 
