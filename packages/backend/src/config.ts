@@ -113,7 +113,7 @@ export const config: AppConfig = {
       join(process.env.HOME ?? '', '.voice-notes-models', 'ggml-large-v3-turbo.bin'),
     threads: Number(process.env.WHISPER_THREADS ?? 8),
     language: process.env.WHISPER_LANGUAGE ?? 'auto',
-    prompt: process.env.WHISPER_PROMPT ?? '以下是普通话的句子。',
+    prompt: process.env.WHISPER_PROMPT ?? '',
   },
   llm: {
     baseUrl: (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1').replace(/\/+$/, ''),

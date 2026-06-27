@@ -62,7 +62,14 @@ export function useRecorder() {
   const start = useCallback(async () => {
     setError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true, // 回声消除
+          noiseSuppression: true, // 降噪
+          autoGainControl: true, // 自动增益——把轻声说话放大，避免录得太轻 whisper 听不清
+          channelCount: 1, // 单声道，匹配 whisper 期望
+        },
+      });
       const mime = mimeRef.current;
       const rec = mime.mimeType
         ? new MediaRecorder(stream, { mimeType: mime.mimeType })
