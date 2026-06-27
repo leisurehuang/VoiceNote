@@ -486,6 +486,18 @@ button:disabled {
 .transcript p {
   margin: 3px 0;
 }
+.realtime-transcript {
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 13.5px;
+  line-height: 1.7;
+  background: var(--fill-3);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.realtime-transcript p {
+  margin: 3px 0;
+}
 .ts {
   color: var(--accent);
   margin-right: 8px;

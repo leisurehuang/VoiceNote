@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // 开发期把所有 /api 请求代理到 Fastify 后端
-      '/api': 'http://localhost:3000',
+      // 开发期把所有 /api 请求（含 WebSocket）代理到 Fastify 后端
+      '/api': { target: 'http://localhost:3000', ws: true },
     },
   },
   build: {

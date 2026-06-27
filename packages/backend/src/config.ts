@@ -167,6 +167,7 @@ export async function checkHealth(): Promise<HealthStatus> {
 }
 
 export const SESSION_RUNNING_STATUSES = new Set([
+  'recording',
   'converting',
   'transcribing',
   'summarizing',
@@ -174,6 +175,7 @@ export const SESSION_RUNNING_STATUSES = new Set([
 
 export type SessionStatus =
   | 'uploaded'
+  | 'recording'
   | 'converting'
   | 'transcribing'
   | 'summarizing'

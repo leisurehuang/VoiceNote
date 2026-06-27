@@ -2,9 +2,11 @@ import { existsSync } from 'node:fs';
 import Fastify, { type FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
+import websocket from '@fastify/websocket';
 import { checkHealth, config } from './config.js';
 import { init as initSessions } from './store/sessionStore.js';
 import { registerSessionRoutes } from './routes/sessions.js';
+import { registerRealtimeRoute } from './routes/realtime.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -14,12 +16,15 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(multipart, {
     limits: { fileSize: config.maxUploadBytes },
   });
+  await app.register(websocket);
 
   // 健康检查 / 依赖自检
   app.get('/api/health', async () => checkHealth());
 
   // 会话相关路由（上传/列表/详情/处理/SSE/重新摘要/导出/删除）
   await registerSessionRoutes(app);
+  // 实时转写 WebSocket
+  registerRealtimeRoute(app);
 
   // 生产模式：托管前端构建产物（packages/frontend/dist），单进程单端口
   if (existsSync(config.frontendDist)) {

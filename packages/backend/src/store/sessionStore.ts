@@ -187,6 +187,43 @@ export function writeTranscript(id: string, segments: TranscriptSegment[]): void
   writeFileSync(transcriptPath(id), JSON.stringify(segments, null, 2));
 }
 
+/** 实时转写：建一个 recording 态会话（无源文件），逐句增量写入 transcript。 */
+export function createRealtimeSession(title?: string): string {
+  const id = newId();
+  mkdirSync(sessionDir(id), { recursive: true });
+  const meta: SessionMeta = {
+    id,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+    title: title?.trim() || '实时转写',
+    sourceKind: 'record',
+    sourceName: 'realtime',
+    mimeType: 'audio/realtime',
+    status: 'recording',
+    stage: '实时转写中',
+    progress: 0,
+    error: null,
+    durationMs: 0,
+    summaryModel: null,
+  };
+  entries.set(id, { meta, emitter: new EventEmitter() });
+  writeTranscript(id, []);
+  persist(id);
+  return id;
+}
+
+/** 把一句增量追加进 transcript.json，并按句末时间更新会话时长。 */
+export function appendTranscriptSegment(id: string, seg: TranscriptSegment): TranscriptSegment[] {
+  const segs = readTranscript(id);
+  segs.push(seg);
+  writeTranscript(id, segs);
+  const meta = entries.get(id)?.meta;
+  if (meta && seg.endMs > (meta.durationMs ?? 0)) {
+    update(id, { durationMs: seg.endMs });
+  }
+  return segs;
+}
+
 export function readTranscript(id: string): TranscriptSegment[] {
   try {
     return JSON.parse(readFileSync(transcriptPath(id), 'utf8')) as TranscriptSegment[];

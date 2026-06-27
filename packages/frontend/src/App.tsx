@@ -4,6 +4,7 @@ import { deleteSession, getHealth, listSessions, processSession } from './api/cl
 import { Sidebar } from './components/Sidebar';
 import { Recorder } from './components/Recorder';
 import { Uploader } from './components/Uploader';
+import { RealtimeView } from './components/RealtimeView';
 import { ProgressView } from './components/ProgressView';
 import { SessionDetail } from './components/SessionDetail';
 
@@ -13,7 +14,7 @@ export function App() {
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [view, setView] = useState<View>({ name: 'new' });
-  const [tab, setTab] = useState<'record' | 'upload'>('record');
+  const [tab, setTab] = useState<'record' | 'realtime' | 'upload'>('record');
 
   const refresh = useCallback(async () => {
     try {
@@ -53,7 +54,9 @@ export function App() {
     view.name === 'new'
       ? tab === 'record'
         ? '录音'
-        : '上传音频'
+        : tab === 'realtime'
+          ? '实时转写'
+          : '上传音频'
       : view.name === 'processing'
         ? '处理中'
         : sessions.find((s) => s.id === view.id)?.title || '会话';
@@ -81,15 +84,23 @@ export function App() {
                 <button className={tab === 'record' ? 'seg active' : 'seg'} onClick={() => setTab('record')}>
                   🎙 录音
                 </button>
+                <button className={tab === 'realtime' ? 'seg active' : 'seg'} onClick={() => setTab('realtime')}>
+                  ⚡ 实时
+                </button>
                 <button className={tab === 'upload' ? 'seg active' : 'seg'} onClick={() => setTab('upload')}>
                   📁 上传
                 </button>
               </div>
-              {tab === 'record' ? (
-                <Recorder onCreated={onCreated} />
-              ) : (
-                <Uploader onCreated={onCreated} />
+              {tab === 'record' && <Recorder onCreated={onCreated} />}
+              {tab === 'realtime' && (
+                <RealtimeView
+                  onDone={(id) => {
+                    setView({ name: 'detail', id });
+                    refresh();
+                  }}
+                />
               )}
+              {tab === 'upload' && <Uploader onCreated={onCreated} />}
               {health && !health.ok && <DependencyNote health={health} />}
             </div>
           )}
