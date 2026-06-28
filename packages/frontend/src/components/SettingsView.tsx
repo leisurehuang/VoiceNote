@@ -180,6 +180,7 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
             )}
           </>
         )}
+        <p className="muted settings-version">Voice Notes v{__APP_VERSION__}</p>
       </section>
     </div>
   );

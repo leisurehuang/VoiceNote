@@ -10,6 +10,10 @@
 - ⚡ **实时进度**：SSE 推送，转写和摘要边出边看。
 - 📝 **查看 / 导出**：逐字稿带时间戳；摘要可「自定义提示重新生成」；一键复制或下载 Markdown。
 - 🩺 **依赖自检**：首页显示 ffmpeg / whisper-cli / 模型 / Ollama 是否就绪。
+- ⚡ **实时增量摘要**：实时录音时逐字稿边出字，摘要也按内容量滚动更新；结束后再生成一次高质量终版摘要。
+- ▶ **音频播放与逐字稿跟随**：历史会话可播放、下载原始音频；逐字稿按播放进度高亮当前句并自动滚动，点击任一句可跳转音频。
+- 🔒 **录音锁定**：录音 / 整理 / 上传进行中，禁止切换模式或视图，避免误操作终止录音。
+- ⚙️ **LLM 配置页**：应用内保存多套模型预设（本地 Ollama 或任意 OpenAI Chat 兼容 API），一键切换、测试连接，运行时即时生效，无需改 `.env` 重启。
 
 ## 快速开始
 
@@ -52,8 +56,11 @@ npm run build && npm start
 | `WHISPER_PROMPT` | 以下是普通话的句子。 | 解码预热，偏置中文输出 |
 | `OLLAMA_BASE_URL` | http://localhost:11434/v1 | OpenAI 兼容端点，可换成任意云 API |
 | `OLLAMA_MODEL` | qwen2.5:7b-instruct | 摘要模型 |
+| `OLLAMA_INCREMENTAL_MODEL` | 同 `OLLAMA_MODEL` | 实时增量摘要用的模型，缺省跟随 `OLLAMA_MODEL` |
+| `INCREMENTAL_THRESHOLD_CHARS` | 280 | 实时增量摘要：新增多少字符触发一次刷新 |
+| `INCREMENTAL_MIN_INTERVAL_MS` | 8000 | 实时增量摘要：两次刷新的最小间隔（毫秒） |
 
-**换云 LLM**：把 `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_API_KEY` 改成 DeepSeek、通义、OpenAI 等的值即可，无需改代码。
+**换云 LLM**：推荐直接在应用内「⚙ 设置」页配置——可保存多套预设（本地 Ollama / OpenAI / DeepSeek 等）、测试连接、运行时一键切换，对所有整理总结即时生效。也可仍用 `.env` 的 `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_API_KEY`（启动时作为「默认」预设）。
 
 ## 模型档位
 
@@ -71,12 +78,12 @@ npm run build && npm start
 voice-notes/
 ├── packages/backend/   Fastify + TS：API、流水线、SSE、文件存储
 │   └── src/
-│       ├── pipeline/   ffmpeg.ts / whisper.ts / summarize.ts / orchestrator.ts
-│       ├── store/      sessionStore.ts（文件系统，每会话一个目录）
-│       ├── routes/     sessions.ts（含 SSE、导出、重新摘要）
-│       └── config.ts   env + 依赖自检 + /api/health
-├── packages/frontend/  Vite + React + TS：录音/上传/进度/详情/列表
-└── scripts/            setup.sh / fetch-model.mjs / 冒烟测试
+│       ├── pipeline/   ffmpeg.ts / whisper.ts / summarize.ts / vad.ts / orchestrator.ts
+│       ├── store/      sessionStore.ts（每会话一个目录）+ settingsStore.ts（LLM 预设）
+│       ├── routes/     sessions.ts（SSE/导出/重摘要/音频）+ realtime.ts（WS 实时）+ settings.ts（配置页）
+│       └── config.ts   env + 依赖自检 + /api/health（llm 运行时可变）
+├── packages/frontend/  Vite + React + TS：录音/上传/实时/进度/详情/设置
+└── scripts/            setup.sh / fetch-model.mjs / 冒烟测试 / 打包脚本
 ```
 
 - **存储**：无数据库。每个会话是 `data/sessions/<id>/` 一个目录（`meta.json` + 源音频 + `audio.wav` + `transcript.json` + `summary.md`）。服务重启会自动把「运行中」的会话重置为可重跑。
