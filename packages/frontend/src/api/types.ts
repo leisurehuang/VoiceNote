@@ -44,4 +44,18 @@ export interface SessionMeta {
 export interface SessionDetail extends SessionMeta {
   transcript: TranscriptSegment[];
   summary: string | null;
+  hasAudio: boolean;
+}
+
+export interface LlmPreset {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export interface Settings {
+  activePresetId: string | null;
+  presets: LlmPreset[];
 }

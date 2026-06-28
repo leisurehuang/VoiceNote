@@ -13,6 +13,8 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
   const [recording, setRecording] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
+  const [liveSummary, setLiveSummary] = useState('');
+  const [summaryStreaming, setSummaryStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
@@ -64,6 +66,8 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
   const start = useCallback(async () => {
     setError(null);
     setSegments([]);
+    setLiveSummary('');
+    setSummaryStreaming(false);
     setFinalizing(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -94,7 +98,14 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
       ws.binaryType = 'arraybuffer';
       ws.onopen = () => ws.send(JSON.stringify({ type: 'start' }));
       ws.onmessage = (ev) => {
-        let m: { type: string; id?: string; segment?: TranscriptSegment; error?: string };
+        let m: {
+          type: string;
+          id?: string;
+          segment?: TranscriptSegment;
+          delta?: string;
+          summary?: string;
+          error?: string;
+        };
         try {
           m = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
         } catch {
@@ -103,6 +114,16 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
         if (m.type === 'ready' && m.id) idRef.current = m.id;
         else if (m.type === 'segment' && m.segment) {
           setSegments((s) => [...s, m.segment!]);
+        } else if (m.type === 'summary-start') {
+          setLiveSummary('');
+          setSummaryStreaming(true);
+        } else if (m.type === 'summary-token' && m.delta != null) {
+          setLiveSummary((s) => s + m.delta!);
+        } else if (m.type === 'summary-done' && m.summary != null) {
+          setLiveSummary(m.summary);
+          setSummaryStreaming(false);
+        } else if (m.type === 'summary-error') {
+          setSummaryStreaming(false); // 保留上一次 liveSummary
         } else if (m.type === 'done') {
           const id = m.id || idRef.current;
           closeSocket(); // 音频在 stop() 时已停，这里只关连接
@@ -131,5 +152,5 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  return { recording, finalizing, segments, error, analyserRef, start, stop };
+  return { recording, finalizing, segments, liveSummary, summaryStreaming, error, analyserRef, start, stop };
 }

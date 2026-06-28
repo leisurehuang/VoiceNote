@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { uploadAudio } from '../api/client';
 import { useRecorder } from '../hooks/useRecorder';
 import { Waveform } from './Waveform';
@@ -9,10 +9,21 @@ function fmt(s: number): string {
   return `${m}:${ss}`;
 }
 
-export function Recorder({ onCreated }: { onCreated: (id: string) => void }) {
+export function Recorder({
+  onCreated,
+  onBusyChange,
+}: {
+  onCreated: (id: string) => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const { recording, seconds, error, start, stop, analyserRef } = useRecorder();
   const [busy, setBusy] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  // 录音/上传进行中时通知父组件：禁止切走，否则组件卸载会终止或丢失录音
+  useEffect(() => {
+    onBusyChange?.(recording || busy);
+  }, [recording, busy, onBusyChange]);
 
   async function handleStop() {
     setBusy(true);

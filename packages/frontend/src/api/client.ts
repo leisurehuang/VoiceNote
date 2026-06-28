@@ -1,4 +1,4 @@
-import type { HealthStatus, SessionDetail, SessionMeta } from './types';
+import type { HealthStatus, SessionDetail, SessionMeta, Settings } from './types';
 
 const API = '/api';
 
@@ -58,6 +58,30 @@ export const deleteSession = (id: string): Promise<Response> =>
   fetch(`${API}/sessions/${id}`, { method: 'DELETE' });
 
 export const exportMarkdownUrl = (id: string): string => `${API}/sessions/${id}/export.md`;
+export const audioUrl = (id: string): string => `${API}/sessions/${id}/audio`;
+export const sourceUrl = (id: string): string => `${API}/sessions/${id}/source`;
+
+export const getSettings = async (): Promise<Settings> =>
+  (await (await fetch(`${API}/settings`)).json()) as Settings;
+
+export const updateSettings = async (body: Settings): Promise<Settings> =>
+  (await (await fetch(`${API}/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })).json()) as Settings;
+
+export const testConnection = async (body: {
+  baseUrl: string;
+  apiKey: string;
+}): Promise<{ ok: boolean; error?: string }> =>
+  (await (
+    await fetch(`${API}/settings/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  ).json()) as { ok: boolean; error?: string };
 export const exportMarkdownText = (id: string): Promise<string> =>
   fetch(exportMarkdownUrl(id)).then((r) => r.text());
 

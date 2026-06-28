@@ -1,3 +1,4 @@
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { config, SESSION_RUNNING_STATUSES } from '../config.js';
 import { runPipeline } from '../pipeline/orchestrator.js';
@@ -185,6 +186,60 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
     // 头必须是 ASCII：filename 给兜底名，filename* 给真实 UTF-8 文件名（RFC 5987）
     reply.header('Content-Disposition', `attachment; filename="voice-notes.md"; filename*=UTF-8''${utf8Name}`);
     return buildExportMarkdown(detail);
+  });
+
+  // 音频播放：流式返回 16kHz audio.wav（与逐字稿时间轴对齐），支持 Range 以便原生 <audio> 拖动 seek
+  app.get('/api/sessions/:id/audio', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!store.get(id)) return reply.code(404).send({ error: '会话不存在' });
+    const path = store.audioPath(id);
+    if (!existsSync(path)) return reply.code(404).send({ error: '无音频' });
+    const total = statSync(path).size;
+    reply.header('Content-Type', 'audio/wav');
+    reply.header('Accept-Ranges', 'bytes');
+    const range = req.headers.range;
+    if (!range) {
+      reply.header('Content-Length', total);
+      return reply.code(200).send(createReadStream(path));
+    }
+    const m = /^bytes=(\d+)-(\d*)$/.exec(range);
+    if (!m) {
+      reply.header('Content-Range', `bytes */${total}`);
+      return reply.code(416).send();
+    }
+    let start = parseInt(m[1]!, 10);
+    const endStr = m[2];
+    let end = endStr ? parseInt(endStr, 10) : total - 1;
+    if (start >= total) {
+      reply.header('Content-Range', `bytes */${total}`);
+      return reply.code(416).send();
+    }
+    if (end >= total) end = total - 1;
+    reply.header('Content-Range', `bytes ${start}-${end}/${total}`);
+    reply.header('Content-Length', end - start + 1);
+    return reply.code(206).send(createReadStream(path, { start, end }));
+  });
+
+  // 音频下载：上传会话给原始 source.<ext>；实时会话无原始文件，回退 audio.wav
+  app.get('/api/sessions/:id/source', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const meta = store.get(id);
+    if (!meta) return reply.code(404).send({ error: '会话不存在' });
+    const isRealtime = meta.sourceKind === 'record' && meta.sourceName === 'realtime';
+    const path = isRealtime ? store.audioPath(id) : store.sourcePath(id);
+    if (!existsSync(path)) return reply.code(404).send({ error: '无源文件' });
+    const contentType =
+      isRealtime || meta.mimeType === 'audio/realtime'
+        ? 'audio/wav'
+        : meta.mimeType || 'application/octet-stream';
+    const rawName = isRealtime ? `${(meta.title || 'realtime').slice(0, 60)}.wav` : meta.sourceName;
+    const utf8Name = encodeURIComponent(rawName.slice(0, 120));
+    reply.header('Content-Type', contentType);
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename="audio"; filename*=UTF-8''${utf8Name}`,
+    );
+    return reply.send(createReadStream(path));
   });
 
   // 删除

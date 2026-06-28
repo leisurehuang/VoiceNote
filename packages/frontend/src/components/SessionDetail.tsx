@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getSession, resummarize } from '../api/client';
+import { useEffect, useRef, useState } from 'react';
+import { getSession, resummarize, audioUrl, sourceUrl } from '../api/client';
 import type { SessionDetail as Detail } from '../api/types';
 import { TranscriptView } from './TranscriptView';
 import { SummaryView } from './SummaryView';
@@ -9,6 +9,29 @@ export function SessionDetail({ id }: { id: string }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  // 音频播放进度 → 高亮当前逐字稿句子
+  function handleTimeUpdate() {
+    const el = audioRef.current;
+    const segs = detail?.transcript;
+    if (!el || !segs) return;
+    const tMs = el.currentTime * 1000;
+    let idx = -1;
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      if (seg && seg.startMs <= tMs) idx = i;
+      else break;
+    }
+    setActiveIndex(idx);
+  }
+
+  // 点击逐字稿某句 → 跳转音频（只定位，不自动播放）
+  function handleSeek(ms: number) {
+    const el = audioRef.current;
+    if (el) el.currentTime = ms / 1000;
+  }
 
   useEffect(() => {
     let alive = true;
@@ -72,9 +95,29 @@ export function SessionDetail({ id }: { id: string }) {
         {err && <div className="alert err">{err}</div>}
       </section>
 
+      {detail.hasAudio && (
+        <section className="block audio-bar">
+          <h3 className="block-h">▶ 音频</h3>
+          <audio
+            ref={audioRef}
+            src={audioUrl(id)}
+            controls
+            preload="metadata"
+            onTimeUpdate={handleTimeUpdate}
+          />
+          <a className="ghost" href={sourceUrl(id)} download>
+            下载音频
+          </a>
+        </section>
+      )}
+
       <section className="block">
         <h3 className="block-h">💬 逐字稿</h3>
-        <TranscriptView segments={detail.transcript} />
+        <TranscriptView
+          segments={detail.transcript}
+          activeIndex={activeIndex}
+          onSeek={handleSeek}
+        />
       </section>
 
       <ExportBar id={id} />

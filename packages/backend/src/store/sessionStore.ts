@@ -41,6 +41,7 @@ export interface TranscriptSegment {
 export interface SessionDetail extends SessionMeta {
   transcript: TranscriptSegment[];
   summary: string | null;
+  hasAudio: boolean;
 }
 
 interface Entry {
@@ -136,6 +137,7 @@ export function getDetail(id: string): SessionDetail | undefined {
     ...meta,
     transcript: readTranscript(id),
     summary: readSummary(id),
+    hasAudio: existsSync(audioPath(id)),
   };
 }
 

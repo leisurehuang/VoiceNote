@@ -1,17 +1,30 @@
 import { useEffect, useRef } from 'react';
 import { useRealtime } from '../hooks/useRealtime';
 import { Waveform } from './Waveform';
+import { renderMarkdown } from '../api/markdown';
 import { fmtMs } from '../format';
 
-export function RealtimeView({ onDone }: { onDone: (id: string) => void }) {
-  const { recording, finalizing, segments, error, analyserRef, start, stop } = useRealtime({ onDone });
+export function RealtimeView({
+  onDone,
+  onBusyChange,
+}: {
+  onDone: (id: string) => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
+  const { recording, finalizing, segments, liveSummary, summaryStreaming, error, analyserRef, start, stop } =
+    useRealtime({ onDone });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 录音/整理进行中时通知父组件：禁止切走，否则 WS 关闭会终止录音
+  useEffect(() => {
+    onBusyChange?.(recording || finalizing);
+  }, [recording, finalizing, onBusyChange]);
 
   // 新句子进来自动滚到底
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [segments]);
+  }, [segments, liveSummary]);
 
   return (
     <div className="card record-card">
@@ -36,6 +49,22 @@ export function RealtimeView({ onDone }: { onDone: (id: string) => void }) {
               {finalizing ? '整理中…' : '结束并整理'}
             </button>
           </div>
+          {(liveSummary || summaryStreaming) && (
+            <div className="live-summary">
+              <h4>
+                实时摘要
+                {summaryStreaming && <span className="live-dot">●</span>}
+              </h4>
+              {liveSummary ? (
+                <div
+                  className="markdown summary-wrap"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(liveSummary) }}
+                />
+              ) : (
+                <p className="muted">生成中…</p>
+              )}
+            </div>
+          )}
           <div className="realtime-transcript" ref={scrollRef}>
             {segments.length === 0 ? (
               <p className="muted">开始说话，停顿后约 1–2 秒这里会逐句出现文字…</p>
@@ -50,7 +79,7 @@ export function RealtimeView({ onDone }: { onDone: (id: string) => void }) {
           </div>
         </div>
       )}
-      <p className="muted">边说边出字（句子级）；结束后自动生成摘要与标题。</p>
+      <p className="muted">边说边出字与实时摘要；结束后生成高质量终版摘要与标题。</p>
     </div>
   );
 }

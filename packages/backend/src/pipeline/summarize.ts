@@ -105,6 +105,38 @@ export async function summarize(transcript: string, opts: SummarizeOptions = {})
   return { text, model };
 }
 
+export interface IncrementalSummarizeOptions {
+  /** 覆盖增量摘要默认模型。 */
+  model?: string;
+  /** 覆盖增量摘要默认 system prompt。 */
+  systemPrompt?: string;
+  /** 流式回调：每收到一个 token 片段就触发，经 WebSocket 实时推送。 */
+  onToken?: (delta: string) => void;
+}
+
+/**
+ * 实时增量摘要（滚动更新）：把「上一版摘要 + 自上次以来的新增转写」合并为更新后的完整摘要。
+ * 复用 postChat 流式；prevSummary 为空（首版）时按新增文本从头生成。
+ */
+export async function summarizeIncremental(
+  prevSummary: string,
+  newText: string,
+  opts: IncrementalSummarizeOptions = {},
+): Promise<SummarizeResult> {
+  const model = opts.model ?? config.llm.incrementalModel;
+  const systemPrompt = opts.systemPrompt ?? config.llm.incrementalSummarySystemPrompt;
+  const draft = prevSummary.trim() ? prevSummary.trim() : '（暂无）';
+  const userContent = `【当前已有草稿】\n${draft}\n\n【本次新增转写文本】\n${newText}`;
+  const text = await postChat(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+    { model, stream: !!opts.onToken, onToken: opts.onToken },
+  );
+  return { text, model };
+}
+
 const TITLE_SYSTEM =
   '你擅长给内容起标题。根据用户提供的会议转写文本，生成一个简短的中文标题。' +
   '要求：不超过 18 个字；概括核心主题或关键事项；只输出标题文本本身；' +

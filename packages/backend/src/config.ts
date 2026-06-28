@@ -42,6 +42,11 @@ export interface LlmConfig {
   model: string;
   apiKey: string;
   summarySystemPrompt: string;
+  // —— 实时增量摘要（录音期间滚动更新）——
+  incrementalSummarySystemPrompt: string;
+  incrementalModel: string;
+  incrementalThresholdChars: number;
+  incrementalMinIntervalMs: number;
 }
 
 export interface AppConfig {
@@ -105,6 +110,21 @@ const SUMMARY_SYSTEM_PROMPT =
   '===== 内容处理要求 =====\n' +
   '全程严格忠于原始文稿，仅可修正口语冗余、同音错字、语序混乱问题，不得新增、篡改任何原文未提及的信息。';
 
+// 实时增量摘要：把「已有草稿 + 新增转写」滚动合并，篇幅精炼、优先速度，终版由 SUMMARY_SYSTEM_PROMPT 覆盖。
+const INCREMENTAL_SUMMARY_SYSTEM_PROMPT =
+  '你是实时会议纪要整理器。用户会持续给你两类输入：「当前已有草稿」与「本次新增转写文本」。\n' +
+  '===== 任务 =====\n' +
+  '把新增内容合并进已有草稿，输出重新组织后的完整纪要，不是简单追加。\n' +
+  '===== 输出规范 =====\n' +
+  '1. 仅输出纪要正文，首行即为内容，无前置话术；\n' +
+  '2. 开篇一句话概括核心结论；\n' +
+  '3. 用Markdown小标题划分板块，可选「主要议题」「关键决定」「待办事项」，无对应内容则删除该标题，禁止编造；\n' +
+  '4. 同类表述合并，按现状/问题/方案/分歧分维度梳理；\n' +
+  '5. 全程忠于原文，仅修正口语冗余与同音错字，不新增、不篡改、不评价；\n' +
+  '6. 篇幅精炼、优先速度；本结果会在结束后被高质量终版覆盖。\n' +
+  '===== 禁止 =====\n' +
+  '禁止寒暄、自我介绍、复述规则、对话式交互。';
+
 const dataDir = process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : join(projectRoot, 'data');
 
 export const config: AppConfig = {
@@ -132,6 +152,12 @@ export const config: AppConfig = {
     model: process.env.OLLAMA_MODEL ?? 'qwen2.5:7b-instruct',
     apiKey: process.env.OLLAMA_API_KEY ?? 'ollama',
     summarySystemPrompt: SUMMARY_SYSTEM_PROMPT,
+    incrementalSummarySystemPrompt:
+      process.env.INCREMENTAL_SUMMARY_SYSTEM_PROMPT ?? INCREMENTAL_SUMMARY_SYSTEM_PROMPT,
+    incrementalModel:
+      process.env.OLLAMA_INCREMENTAL_MODEL ?? process.env.OLLAMA_MODEL ?? 'qwen2.5:7b-instruct',
+    incrementalThresholdChars: Number(process.env.INCREMENTAL_THRESHOLD_CHARS ?? 280),
+    incrementalMinIntervalMs: Number(process.env.INCREMENTAL_MIN_INTERVAL_MS ?? 8000),
   },
 };
 

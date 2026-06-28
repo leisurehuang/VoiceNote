@@ -7,14 +7,20 @@ import { Uploader } from './components/Uploader';
 import { RealtimeView } from './components/RealtimeView';
 import { ProgressView } from './components/ProgressView';
 import { SessionDetail } from './components/SessionDetail';
+import { SettingsView } from './components/SettingsView';
 
-type View = { name: 'new' } | { name: 'processing'; id: string } | { name: 'detail'; id: string };
+type View =
+  | { name: 'new' }
+  | { name: 'processing'; id: string }
+  | { name: 'detail'; id: string }
+  | { name: 'settings' };
 
 export function App() {
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [view, setView] = useState<View>({ name: 'new' });
   const [tab, setTab] = useState<'record' | 'realtime' | 'upload'>('record');
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -45,11 +51,11 @@ export function App() {
 
   async function onDelete(id: string) {
     await deleteSession(id);
-    setView((v) => (v.name !== 'new' && v.id === id ? { name: 'new' } : v));
+    setView((v) => (v.name !== 'new' && v.name !== 'settings' && v.id === id ? { name: 'new' } : v));
     refresh();
   }
 
-  const activeId = view.name === 'new' ? null : view.id;
+  const activeId = view.name === 'new' || view.name === 'settings' ? null : view.id;
   const title =
     view.name === 'new'
       ? tab === 'record'
@@ -59,7 +65,9 @@ export function App() {
           : '上传音频'
       : view.name === 'processing'
         ? '处理中'
-        : sessions.find((s) => s.id === view.id)?.title || '会话';
+        : view.name === 'settings'
+          ? '设置'
+          : sessions.find((s) => s.id === view.id)?.title || '会话';
 
   return (
     <div className="shell">
@@ -67,8 +75,16 @@ export function App() {
         sessions={sessions}
         activeId={activeId}
         health={health}
-        onNew={() => setView({ name: 'new' })}
-        onOpen={(id) => setView({ name: 'detail', id })}
+        disabled={busy}
+        onNew={() => {
+          if (!busy) setView({ name: 'new' });
+        }}
+        onOpen={(id) => {
+          if (!busy) setView({ name: 'detail', id });
+        }}
+        onSettings={() => {
+          if (!busy) setView({ name: 'settings' });
+        }}
         onDelete={onDelete}
       />
 
@@ -81,19 +97,35 @@ export function App() {
           {view.name === 'new' && (
             <div className="content">
               <div className="segmented">
-                <button className={tab === 'record' ? 'seg active' : 'seg'} onClick={() => setTab('record')}>
+                <button
+                  className={tab === 'record' ? 'seg active' : 'seg'}
+                  onClick={() => setTab('record')}
+                  disabled={busy}
+                  title={busy ? '录音/整理中，无法切换' : undefined}
+                >
                   🎙 录音
                 </button>
-                <button className={tab === 'realtime' ? 'seg active' : 'seg'} onClick={() => setTab('realtime')}>
+                <button
+                  className={tab === 'realtime' ? 'seg active' : 'seg'}
+                  onClick={() => setTab('realtime')}
+                  disabled={busy}
+                  title={busy ? '录音/整理中，无法切换' : undefined}
+                >
                   ⚡ 实时
                 </button>
-                <button className={tab === 'upload' ? 'seg active' : 'seg'} onClick={() => setTab('upload')}>
+                <button
+                  className={tab === 'upload' ? 'seg active' : 'seg'}
+                  onClick={() => setTab('upload')}
+                  disabled={busy}
+                  title={busy ? '录音/整理中，无法切换' : undefined}
+                >
                   📁 上传
                 </button>
               </div>
-              {tab === 'record' && <Recorder onCreated={onCreated} />}
+              {tab === 'record' && <Recorder onCreated={onCreated} onBusyChange={setBusy} />}
               {tab === 'realtime' && (
                 <RealtimeView
+                  onBusyChange={setBusy}
                   onDone={(id) => {
                     setView({ name: 'detail', id });
                     refresh();
@@ -117,6 +149,8 @@ export function App() {
           )}
 
           {view.name === 'detail' && <SessionDetail id={view.id} />}
+
+          {view.name === 'settings' && <SettingsView onBack={() => setView({ name: 'new' })} />}
         </div>
       </main>
     </div>

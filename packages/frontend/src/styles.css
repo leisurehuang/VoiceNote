@@ -486,6 +486,20 @@ button:disabled {
 .transcript p {
   margin: 3px 0;
 }
+.transcript p.active {
+  background: var(--selected);
+  border-left: 3px solid var(--accent);
+  padding-left: 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease, border-color 0.15s ease, padding 0.15s ease;
+}
+.transcript p.active .ts {
+  color: var(--accent);
+}
+.audio-bar audio {
+  width: 100%;
+  margin-bottom: 10px;
+}
 .realtime-transcript {
   max-height: 260px;
   overflow-y: auto;
@@ -497,6 +511,39 @@ button:disabled {
 }
 .realtime-transcript p {
   margin: 3px 0;
+}
+.live-summary {
+  border-top: 1px solid var(--separator);
+  padding-top: 12px;
+}
+.live-summary h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.live-summary .summary-wrap {
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.live-dot {
+  color: var(--accent);
+  font-size: 10px;
+  animation: pulse 1.2s infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 .ts {
   color: var(--accent);
@@ -554,7 +601,8 @@ button:disabled {
   flex-direction: column;
   gap: 8px;
 }
-textarea {
+textarea,
+input {
   background: var(--fill);
   color: var(--text);
   border: 1px solid var(--separator);
@@ -591,6 +639,101 @@ textarea {
   background: rgba(255, 159, 10, 0.14);
   border: 1px solid rgba(255, 159, 10, 0.4);
   color: #ffbf5e;
+}
+.alert.ok {
+  background: rgba(48, 209, 88, 0.14);
+  border: 1px solid rgba(48, 209, 88, 0.4);
+  color: #4cd896;
+}
+
+/* ---------- 设置 / 模型配置 ---------- */
+.settings-btn {
+  margin-top: 10px;
+  background: var(--fill);
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-btn:hover:not(:disabled) {
+  background: var(--fill-2);
+}
+.settings-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.settings-head .block-h {
+  margin: 0;
+}
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.preset-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--fill-3);
+  border: 1px solid var(--separator);
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+.preset-item.preset-active {
+  border-color: var(--accent);
+}
+.preset-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.preset-info .muted {
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preset-badge {
+  color: var(--accent);
+  font-size: 11px;
+}
+.preset-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.settings-form {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--separator);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-form h4 {
+  margin: 0 0 6px;
+}
+.settings-form label {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.settings-form input {
+  width: 100%;
+  box-sizing: border-box;
 }
 code {
   background: var(--fill);

@@ -5,8 +5,10 @@ import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import { checkHealth, config } from './config.js';
 import { init as initSessions } from './store/sessionStore.js';
+import { init as initSettings } from './store/settingsStore.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerRealtimeRoute } from './routes/realtime.js';
+import { registerSettingsRoutes } from './routes/settings.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -25,6 +27,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerSessionRoutes(app);
   // 实时转写 WebSocket
   registerRealtimeRoute(app);
+  // LLM 配置（多预设 / 测试连接）
+  await registerSettingsRoutes(app);
 
   // 生产模式：托管前端构建产物（packages/frontend/dist），单进程单端口
   if (existsSync(config.frontendDist)) {
@@ -40,6 +44,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
 async function main() {
   initSessions();
+  initSettings();
 
   const app = await buildApp();
 

@@ -5,12 +5,14 @@ interface Props {
   sessions: SessionMeta[];
   activeId: string | null;
   health: HealthStatus | null;
+  disabled?: boolean;
   onNew: () => void;
   onOpen: (id: string) => void;
+  onSettings: () => void;
   onDelete: (id: string) => void;
 }
 
-export function Sidebar({ sessions, activeId, health, onNew, onOpen, onDelete }: Props) {
+export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDelete }: Props) {
   return (
     <aside className="sidebar">
       {/* 顶部拖拽区（让出交通灯位置） + 应用名 */}
@@ -22,6 +24,7 @@ export function Sidebar({ sessions, activeId, health, onNew, onOpen, onDelete }:
         <button
           className={'new-btn' + (activeId === null ? ' is-active' : '')}
           onClick={onNew}
+          disabled={disabled}
           title="新建会话"
         >
           <span className="new-btn-plus">＋</span>
@@ -30,6 +33,9 @@ export function Sidebar({ sessions, activeId, health, onNew, onOpen, onDelete }:
 
         <div className="nav-label">历史</div>
         <SessionList sessions={sessions} activeId={activeId} onOpen={onOpen} onDelete={onDelete} />
+        <button className="settings-btn" onClick={onSettings} disabled={disabled} title="模型配置">
+          ⚙ 设置
+        </button>
       </div>
 
       <div className="sidebar-foot">
