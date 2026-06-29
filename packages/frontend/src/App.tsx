@@ -150,7 +150,7 @@ export function App() {
 
           {view.name === 'detail' && <SessionDetail id={view.id} />}
 
-          {view.name === 'settings' && <SettingsView onBack={() => setView({ name: 'new' })} />}
+          {view.name === 'settings' && <SettingsView />}
         </div>
       </main>
     </div>

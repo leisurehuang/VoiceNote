@@ -594,6 +594,7 @@ button:disabled {
 .detail-tabs {
   margin-bottom: 14px;
   flex-shrink: 0;
+  align-self: flex-start; /* 详情页是纵向 flex，避免 tab 被交叉轴拉伸满宽 */
 }
 
 /* 逐字稿 tab 内音频条吸顶：随逐字稿滚动时固定在滚动容器顶端 */
@@ -789,9 +790,7 @@ input {
 
 /* 术语表编辑 */
 .glossary-box {
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: 1px solid var(--separator);
+  padding-top: 4px;
 }
 .glossary-box .block-h {
   margin-bottom: 6px;
@@ -843,6 +842,78 @@ input {
 .todo-meta {
   font-size: 12px;
   color: var(--text-3);
+}
+
+/* 模型管理 */
+.model-mgr {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--separator);
+}
+.model-section {
+  margin-bottom: 18px;
+}
+.model-section .block-h {
+  margin-bottom: 4px;
+}
+.model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--fill);
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.model-row.model-active {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.model-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.model-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.model-size {
+  font-size: 12px;
+}
+.model-ops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.model-prog {
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.model-pull {
+  margin-top: 10px;
+}
+.model-pull input {
+  flex: 1;
+}
+.model-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--fill-3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.model-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
 }
 
 /* ---------- 导出 ---------- */

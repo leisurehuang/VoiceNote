@@ -1,4 +1,4 @@
-import type { HealthStatus, SessionDetail, SessionMeta, Settings, TranscriptSegment, TodoItem } from './types';
+import type { HealthStatus, SessionDetail, SessionMeta, Settings, TranscriptSegment, TodoItem, WhisperModelsResult, LlmModelsResult } from './types';
 
 const API = '/api';
 
@@ -114,3 +114,32 @@ export const exportMarkdownText = (id: string): Promise<string> =>
 
 export const getHealth = async (): Promise<HealthStatus> =>
   (await (await fetch(`${API}/health`)).json()) as HealthStatus;
+
+// ---------- 模型管理 ----------
+export const listWhisperModels = async (): Promise<WhisperModelsResult> =>
+  (await (await fetch(`${API}/models/whisper`)).json()) as WhisperModelsResult;
+/** whisper 下载是 SSE 流，返回 URL 供组件 new EventSource。 */
+export const whisperDownloadUrl = (name: string): string =>
+  `${API}/models/whisper/download?name=${encodeURIComponent(name)}`;
+export const setWhisperActive = (name: string): Promise<Response> =>
+  fetch(`${API}/models/whisper/active`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+export const deleteWhisperModel = (name: string): Promise<Response> =>
+  fetch(`${API}/models/whisper/${encodeURIComponent(name)}`, { method: 'DELETE' });
+
+export const listLlmModels = async (): Promise<LlmModelsResult> =>
+  (await (await fetch(`${API}/models/llm`)).json()) as LlmModelsResult;
+/** ollama pull 也是 SSE 流。 */
+export const llmPullUrl = (name: string): string =>
+  `${API}/models/llm/pull?name=${encodeURIComponent(name)}`;
+export const setLlmActive = (name: string): Promise<Response> =>
+  fetch(`${API}/models/llm/active`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+export const deleteLlmModel = (name: string): Promise<Response> =>
+  fetch(`${API}/models/llm/${encodeURIComponent(name)}`, { method: 'DELETE' });

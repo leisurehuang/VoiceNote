@@ -66,3 +66,27 @@ export interface TodoItem {
   owner?: string;
   due?: string;
 }
+
+export interface WhisperModelInfo {
+  name: string;
+  label: string;
+  size: string;
+  url: string;
+  installed: boolean;
+  active: boolean;
+}
+export interface WhisperModelsResult {
+  dir: string;
+  packaged: boolean;
+  models: WhisperModelInfo[];
+}
+export interface LlmModelInfo {
+  name: string;
+  active: boolean;
+}
+export interface LlmModelsResult {
+  local: boolean;
+  models: LlmModelInfo[];
+  active: string;
+  error?: string;
+}

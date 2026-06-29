@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { getSettings, testConnection, updateSettings } from '../api/client';
 import type { LlmPreset, Settings } from '../api/types';
+import { ModelManager } from './ModelManager';
 
 const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '' };
 
-export function SettingsView({ onBack }: { onBack: () => void }) {
+export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [editing, setEditing] = useState<LlmPreset | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [glossaryDraft, setGlossaryDraft] = useState('');
+  const [tab, setTab] = useState<'models' | 'glossary'>('models');
 
   useEffect(() => {
     getSettings()
@@ -86,114 +88,134 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   return (
     <div className="content settings">
       <section className="block">
-        <div className="settings-head">
-          <button className="ghost" onClick={onBack}>
-            ← 返回
+        <div className="segmented settings-tabs">
+          <button
+            className={tab === 'models' ? 'seg active' : 'seg'}
+            onClick={() => setTab('models')}
+          >
+            模型配置
           </button>
-          <h3 className="block-h">⚙ 模型配置</h3>
+          <button
+            className={tab === 'glossary' ? 'seg active' : 'seg'}
+            onClick={() => setTab('glossary')}
+          >
+            术语表
+          </button>
         </div>
-        <p className="muted">
-          配置整理总结用的模型，支持本地 Ollama 或任意 OpenAI Chat 兼容 API。<b>激活的预设</b>对所有整理总结生效。
-        </p>
         {err && <div className="alert err">{err}</div>}
 
-        {!settings ? (
-          <p className="muted">加载中…</p>
-        ) : (
-          <>
-            <div className="preset-list">
-              {settings.presets.length === 0 && <p className="muted">尚无预设，点下方「新增」添加。</p>}
-              {settings.presets.map((p) => (
-                <div
-                  key={p.id}
-                  className={'preset-item' + (p.id === settings.activePresetId ? ' preset-active' : '')}
-                >
-                  <div className="preset-info">
-                    <b>{p.name || '未命名'}</b>
-                    <span className="muted">
-                      {p.model} · {p.baseUrl}
-                    </span>
-                    {p.id === settings.activePresetId && <span className="preset-badge">● 使用中</span>}
-                  </div>
-                  <div className="preset-actions">
-                    {p.id !== settings.activePresetId && (
-                      <button className="ghost" onClick={() => activate(p.id)}>
-                        设为激活
+        {/* 模型配置：预设管理 + whisper/ollama 模型管理。两 pane 常驻 DOM（display 切换）保留下载进度 */}
+        <div className={tab === 'models' ? '' : 'hidden'}>
+          {!settings ? (
+            <p className="muted">加载中…</p>
+          ) : (
+            <>
+              <p className="muted">
+                配置整理总结用的模型，支持本地 Ollama 或任意 OpenAI Chat 兼容 API。<b>激活的预设</b>对所有整理总结生效。
+              </p>
+              <div className="preset-list">
+                {settings.presets.length === 0 && <p className="muted">尚无预设，点下方「新增」添加。</p>}
+                {settings.presets.map((p) => (
+                  <div
+                    key={p.id}
+                    className={'preset-item' + (p.id === settings.activePresetId ? ' preset-active' : '')}
+                  >
+                    <div className="preset-info">
+                      <b>{p.name || '未命名'}</b>
+                      <span className="muted">
+                        {p.model} · {p.baseUrl}
+                      </span>
+                      {p.id === settings.activePresetId && <span className="preset-badge">● 使用中</span>}
+                    </div>
+                    <div className="preset-actions">
+                      {p.id !== settings.activePresetId && (
+                        <button className="ghost" onClick={() => activate(p.id)}>
+                          设为激活
+                        </button>
+                      )}
+                      <button
+                        className="ghost"
+                        onClick={() => {
+                          setEditing({ ...p });
+                          setTestResult(null);
+                        }}
+                      >
+                        编辑
                       </button>
-                    )}
+                      <button className="ghost" onClick={() => remove(p.id)}>
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button className="big" onClick={() => { setEditing({ ...EMPTY }); setTestResult(null); }}>
+                ＋ 新增预设
+              </button>
+
+              {editing && (
+                <div className="settings-form">
+                  <h4>{settings.presets.some((p) => p.id === editing.id) ? '编辑预设' : '新增预设'}</h4>
+                  <label>名称</label>
+                  <input
+                    value={editing.name}
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    placeholder="如：本地 Ollama / OpenAI"
+                  />
+                  <label>Base URL</label>
+                  <input
+                    value={editing.baseUrl}
+                    onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })}
+                    placeholder="http://localhost:11434/v1 或 https://api.openai.com/v1"
+                  />
+                  <label>API Key</label>
+                  <input
+                    value={editing.apiKey}
+                    onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
+                    placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
+                  />
+                  <label>模型</label>
+                  <input
+                    value={editing.model}
+                    onChange={(e) => setEditing({ ...editing, model: e.target.value })}
+                    placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
+                  />
+                  {testResult && (
+                    <div className={'alert ' + (testResult.ok ? 'ok' : 'err')}>
+                      {testResult.ok ? '✓ 连接成功' : '连接失败：' + (testResult.error ?? '未知错误')}
+                    </div>
+                  )}
+                  <div className="rec-controls">
+                    <button className="ghost" onClick={doTest} disabled={testing || !editing.baseUrl.trim()}>
+                      {testing ? '测试中…' : '测试连接'}
+                    </button>
+                    <button className="big" onClick={saveEdit}>
+                      保存
+                    </button>
                     <button
                       className="ghost"
                       onClick={() => {
-                        setEditing({ ...p });
+                        setEditing(null);
                         setTestResult(null);
                       }}
                     >
-                      编辑
-                    </button>
-                    <button className="ghost" onClick={() => remove(p.id)}>
-                      删除
+                      取消
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
 
-            <button className="big" onClick={() => { setEditing({ ...EMPTY }); setTestResult(null); }}>
-              ＋ 新增预设
-            </button>
+              <ModelManager activePresetId={settings.activePresetId ?? undefined} />
+            </>
+          )}
+        </div>
 
-            {editing && (
-              <div className="settings-form">
-                <h4>{settings.presets.some((p) => p.id === editing.id) ? '编辑预设' : '新增预设'}</h4>
-                <label>名称</label>
-                <input
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  placeholder="如：本地 Ollama / OpenAI"
-                />
-                <label>Base URL</label>
-                <input
-                  value={editing.baseUrl}
-                  onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })}
-                  placeholder="http://localhost:11434/v1 或 https://api.openai.com/v1"
-                />
-                <label>API Key</label>
-                <input
-                  value={editing.apiKey}
-                  onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
-                  placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
-                />
-                <label>模型</label>
-                <input
-                  value={editing.model}
-                  onChange={(e) => setEditing({ ...editing, model: e.target.value })}
-                  placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
-                />
-                {testResult && (
-                  <div className={'alert ' + (testResult.ok ? 'ok' : 'err')}>
-                    {testResult.ok ? '✓ 连接成功' : '连接失败：' + (testResult.error ?? '未知错误')}
-                  </div>
-                )}
-                <div className="rec-controls">
-                  <button className="ghost" onClick={doTest} disabled={testing || !editing.baseUrl.trim()}>
-                    {testing ? '测试中…' : '测试连接'}
-                  </button>
-                  <button className="big" onClick={saveEdit}>
-                    保存
-                  </button>
-                  <button
-                    className="ghost"
-                    onClick={() => {
-                      setEditing(null);
-                      setTestResult(null);
-                    }}
-                  >
-                    取消
-                  </button>
-                </div>
-              </div>
-            )}
-
+        {/* 术语表 */}
+        <div className={tab === 'glossary' ? '' : 'hidden'}>
+          {!settings ? (
+            <p className="muted">加载中…</p>
+          ) : (
             <div className="glossary-box">
               <h4 className="block-h">📖 术语表</h4>
               <p className="muted">
@@ -203,7 +225,7 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
                 className="glossary-edit"
                 value={glossaryDraft}
                 onChange={(e) => setGlossaryDraft(e.target.value)}
-                rows={6}
+                rows={8}
                 placeholder={'例如：\n鸿蒙\n信创\nPaaS'}
               />
               <div className="rec-controls">
@@ -212,8 +234,9 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
+
         <p className="muted settings-version">Voice Notes v{__APP_VERSION__}</p>
       </section>
     </div>

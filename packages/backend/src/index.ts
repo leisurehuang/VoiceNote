@@ -9,6 +9,7 @@ import { init as initSettings } from './store/settingsStore.js';
 import { registerSessionRoutes } from './routes/sessions.js';
 import { registerRealtimeRoute } from './routes/realtime.js';
 import { registerSettingsRoutes } from './routes/settings.js';
+import { registerModelRoutes } from './routes/models.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -29,6 +30,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerRealtimeRoute(app);
   // LLM 配置（多预设 / 测试连接）
   await registerSettingsRoutes(app);
+  // 模型管理（whisper / ollama 下载/切换/删除）
+  await registerModelRoutes(app);
 
   // 生产模式：托管前端构建产物（packages/frontend/dist），单进程单端口
   if (existsSync(config.frontendDist)) {
