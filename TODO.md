@@ -1,6 +1,6 @@
 # Voice Notes · 待办与路线图
 
-> **v0.3.0 已完成**：摘要/逐字稿就地编辑、全文搜索、术语表、视频拖入、待办抽取、进度真实化、详情页 tab 化、整理中动效、侧栏三段布局、实时录音 busy 泄漏修复、desktop dev 自动重建。
+> **v0.3.0 已完成**：摘要/逐字稿就地编辑、全文搜索、术语表、视频拖入、待办抽取、进度真实化、详情页 tab 化、整理中动效、侧栏三段布局、实时录音 busy 泄漏修复、desktop dev 自动重建、模型管理 UI（whisper/ollama 下载切换）、设置页 tab 化。
 
 ---
 
@@ -16,7 +16,6 @@
   - 真方案需引入 **Python pyannote sidecar**（类似现有 ollama sidecar），会显著加重本地启动 / Docker / 桌面打包，偏离「纯 Node 一键起」的轻量定位。
   - 弱版本（基于 `EnergyVad` 切段、按时序标注「说话人 A/B」）准确性不足、易误导，暂不做。
   - **待决策**：是否接受引入 Python 栈以换取真 diarization。
-- [ ] **模型管理 UI**：在设置页内直接下载 / 切换 whisper 与 ollama 模型，免去命令行。桌面版（无终端用户）尤其需要。
 - [ ] **测试框架**：全仓库零自动化测试，仅手动 smoke 脚本（`scripts/smoke-*.mjs`）。建议引入 vitest 覆盖纯逻辑：
   - `pipeline/whisper.ts` 的 `parseSegmentLine` / `parseWhisperJson`
   - `pipeline/orchestrator.ts` 状态机与错误兜底
