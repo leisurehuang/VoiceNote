@@ -34,18 +34,20 @@ FROM node:22-bookworm-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY --from=build /repo/resources/app/backend.cjs ./backend.cjs
-COPY --from=build /repo/packages/frontend/dist ./frontend-dist
-COPY --from=whisper /usr/local/bin/whisper-cli /usr/local/bin/whisper-cli
-
-# whisper turbo 模型（HF 失败自动换 hf-mirror）
+# whisper turbo 模型（~1.5GB）层前移到代码 COPY 之前：
+# 该层只依赖 base+apt，代码改动不会让它重建——push/pull 时不再重复传输这 1.5GB。
+# HF 失败自动换 hf-mirror。
 RUN mkdir -p /models \
  && (curl -fL --retry 8 --retry-delay 5 -C - -o /models/ggml-large-v3-turbo.bin \
        https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin \
      || curl -fL --retry 8 --retry-delay 5 -C - -o /models/ggml-large-v3-turbo.bin \
        https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin) \
  && ls -lh /models/ggml-large-v3-turbo.bin
+
+WORKDIR /app
+COPY --from=build /repo/resources/app/backend.cjs ./backend.cjs
+COPY --from=build /repo/packages/frontend/dist ./frontend-dist
+COPY --from=whisper /usr/local/bin/whisper-cli /usr/local/bin/whisper-cli
 
 ENV PORT=3000 \
     WHISPER_CLI=/usr/local/bin/whisper-cli \
