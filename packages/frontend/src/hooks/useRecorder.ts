@@ -78,6 +78,10 @@ export function useRecorder() {
 
   const start = useCallback(async () => {
     setError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('录音需要安全上下文（HTTPS 或 localhost）。请通过 https 访问，或改用「上传音频」。');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {

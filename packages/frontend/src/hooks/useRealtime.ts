@@ -69,6 +69,10 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
     setLiveSummary('');
     setSummaryStreaming(false);
     setFinalizing(false);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('实时转写需要安全上下文（HTTPS 或 localhost）。请通过 https 访问。');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
