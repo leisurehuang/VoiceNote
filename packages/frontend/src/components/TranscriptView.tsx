@@ -68,7 +68,7 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
         <div className="transcript-actions">
           {editing ? (
             <>
-              <button onClick={save} disabled={saving}>
+              <button className="big" onClick={save} disabled={saving}>
                 {saving ? '保存中…' : '保存'}
               </button>
               <button className="ghost" onClick={() => setEditing(false)} disabled={saving}>

@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Notes · 语音转笔记</title>
+    <script>
+      // 防闪烁：在 React 挂载前就根据偏好定主题（localStorage 优先，否则跟随系统）
+      (function () {
+        try {
+          var t = localStorage.getItem('vn-theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          }
+          document.documentElement.dataset.theme = t;
+        } catch (e) {
+          /* localStorage 受限等，默认深色不动 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -17,10 +17,43 @@
   --danger: #ff453a;
   --warn: #ff9f0a;
   --ok: #30d158;
+  /* 表面高亮：深色用白色半透明，浅色在 [data-theme="light"] 覆盖为黑色半透明 */
+  --hi-1: rgba(255, 255, 255, 0.12);
+  --hi-2: rgba(255, 255, 255, 0.22);
+  --hi-edge: rgba(255, 255, 255, 0.3);
+  --dashed: rgba(255, 255, 255, 0.18);
+  --surface: #2a2a2e;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 13px;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+}
+
+/* 浅色主题：根元素 data-theme="light" 时覆盖变量（macOS Light 风格） */
+[data-theme="light"] {
+  --accent: #0a84ff;
+  --accent-hover: #0071e3;
+  --text: rgba(0, 0, 0, 0.85);
+  --text-2: rgba(0, 0, 0, 0.55);
+  --text-3: rgba(0, 0, 0, 0.3);
+  --separator: rgba(0, 0, 0, 0.1);
+  --fill: rgba(0, 0, 0, 0.08);
+  --fill-2: rgba(0, 0, 0, 0.12);
+  --fill-3: rgba(0, 0, 0, 0.04);
+  --selected: rgba(10, 132, 255, 0.18);
+  --window: #ebebef;
+  --card: rgba(0, 0, 0, 0.03);
+  --danger: #ff3b30;
+  --warn: #ff9500;
+  --ok: #34c759;
+  --hi-1: rgba(0, 0, 0, 0.08);
+  --hi-2: rgba(0, 0, 0, 0.15);
+  --hi-edge: rgba(0, 0, 0, 0.15);
+  --dashed: rgba(0, 0, 0, 0.2);
+  --surface: #ffffff;
+}
+html[data-theme="light"] body {
+  background: var(--window) !important; /* 覆盖 html.is-electron body 的 transparent，遮住桌面深色毛玻璃 */
 }
 
 * {
@@ -95,6 +128,23 @@ html.is-electron body {
   padding: 9px 16px 12px;
   border-top: 1px solid var(--separator);
   font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.theme-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.theme-toggle:hover {
+  color: var(--text);
 }
 .foot-ok {
   color: var(--ok);
@@ -123,7 +173,7 @@ html.is-electron body {
   background: var(--accent-hover);
 }
 .new-btn.is-active {
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 0 1.5px var(--hi-edge);
 }
 .new-btn-plus {
   font-size: 15px;
@@ -202,7 +252,7 @@ html.is-electron body {
   border: none;
   color: var(--text-3);
   padding: 1px 5px;
-  border-radius: 5px;
+  border-radius: 6px;
   font-size: 11px;
   cursor: pointer;
 }
@@ -211,7 +261,7 @@ html.is-electron body {
 }
 .row-del:hover {
   background: var(--fill-2);
-  color: #fff;
+  color: var(--text);
 }
 
 /* ---------- 主区 ---------- */
@@ -288,8 +338,8 @@ html.is-electron body {
   color: var(--text);
 }
 .seg.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--hi-1);
+  color: var(--text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
@@ -326,9 +376,9 @@ button {
   background: var(--fill);
   color: var(--text);
   border: none;
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12.5px;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
@@ -356,6 +406,12 @@ button {
 .danger {
   background: var(--danger);
   color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 .big.danger:hover {
   background: #ff6359;
@@ -513,7 +569,7 @@ button:disabled {
 
 /* ---------- 上传 ---------- */
 .dropzone {
-  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  border: 1.5px dashed var(--dashed);
   border-radius: 10px;
   padding: 30px;
   text-align: center;
@@ -713,7 +769,7 @@ button:disabled {
 }
 .markdown h2 {
   font-size: 14.5px;
-  color: #fff;
+  color: var(--text);
 }
 .markdown h3 {
   font-size: 13.5px;
@@ -730,7 +786,7 @@ button:disabled {
   margin: 6px 0;
 }
 .markdown strong {
-  color: #fff;
+  color: var(--text);
 }
 .summary-actions {
   margin-top: 14px;
@@ -949,6 +1005,16 @@ input {
   border: 1px solid rgba(48, 209, 88, 0.4);
   color: #4cd896;
 }
+/* 浅色下 alert 文字改用更深的语义色，保证在浅底上的对比度 */
+[data-theme="light"] .alert.err {
+  color: #c4261b;
+}
+[data-theme="light"] .alert.warn {
+  color: #9a6400;
+}
+[data-theme="light"] .alert.ok {
+  color: #1a7f3c;
+}
 
 /* ---------- 设置 / 模型配置 ---------- */
 .settings-btn {
@@ -957,7 +1023,7 @@ input {
   background: var(--fill);
   color: var(--text);
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 8px 12px;
   font: inherit;
   font-size: 13px;
@@ -1072,7 +1138,7 @@ code {
   padding: 20px;
 }
 .modal {
-  background: #2a2a2e;
+  background: var(--surface);
   border: 1px solid var(--separator);
   border-radius: 12px;
   padding: 20px 22px;
@@ -1104,13 +1170,13 @@ code {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--hi-1);
   border-radius: 6px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--hi-2);
   background-clip: content-box;
 }
 ::-webkit-scrollbar-track {

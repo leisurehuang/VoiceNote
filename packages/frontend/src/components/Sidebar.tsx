@@ -17,6 +17,21 @@ interface Props {
 export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDelete }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SessionMeta[] | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light'
+      ? 'light'
+      : 'dark',
+  );
+
+  // 主题：写入根元素 data-theme + localStorage（index.html 内联脚本已设初始值，这里同步）
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem('vn-theme', theme);
+    } catch {
+      /* 无痕模式等，忽略 */
+    }
+  }, [theme]);
 
   // 搜索：300ms 防抖；空关键词回退到全量列表
   useEffect(() => {
@@ -82,6 +97,13 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
             ● 就绪
           </span>
         )}
+        <button
+          className="theme-toggle"
+          onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+          title={theme === 'light' ? '切换到深色' : '切换到浅色'}
+        >
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
       </div>
     </aside>
   );

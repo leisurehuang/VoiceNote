@@ -48,7 +48,7 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
       <div className="summary-actions">
         {editingBody ? (
           <>
-            <button onClick={saveBody} disabled={saving}>
+            <button className="big" onClick={saveBody} disabled={saving}>
               {saving ? '保存中…' : '保存'}
             </button>
             <button className="ghost" onClick={() => setEditingBody(false)} disabled={saving}>
@@ -83,7 +83,7 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
           />
-          <button onClick={() => onResummarize(prompt.trim() || undefined)} disabled={summarizing}>
+          <button className="big" onClick={() => onResummarize(prompt.trim() || undefined)} disabled={summarizing}>
             生成
           </button>
         </div>

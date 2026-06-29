@@ -84,7 +84,7 @@ export function SessionList({
               <button className="ghost" onClick={() => setPending(null)} disabled={deleting}>
                 取消
               </button>
-              <button className="danger" onClick={confirmDelete} disabled={deleting}>
+              <button className="big danger" onClick={confirmDelete} disabled={deleting}>
                 {deleting ? '删除中…' : '确认删除'}
               </button>
             </div>
