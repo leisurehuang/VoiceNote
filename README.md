@@ -147,11 +147,11 @@ npm install                 # 装 electron 等
 
 # 完整版（自带 qwen，开箱即用，~5.9GB）
 bash scripts/assemble-resources.sh
-npm run desktop:dist        # → release/Voice Notes-0.1.0-arm64.dmg
+npm run desktop:dist        # → release/Voice Notes-0.3.0-arm64.dmg
 
 # 瘦身版（不含 qwen，首启动自动 ollama pull，~1.5GB）
 RES="$PWD/resources-slim" SLIM=1 bash scripts/assemble-resources.sh
-RES="$PWD/resources-slim" SLIM=1 npm run desktop:dist   # → release/Voice Notes-0.1.0-slim-arm64.dmg
+RES="$PWD/resources-slim" SLIM=1 npm run desktop:dist   # → release/Voice Notes-0.3.0-slim-arm64.dmg
 ```
 
 - `assemble-resources.sh`：esbuild 后端单文件 + 前端 dist、拷 ollama、用 `bundle-dylibs.mjs` 收拢 whisper-cli/ffmpeg 的动态库并 ad-hoc 重签、拷 turbo 模型；完整版还从 `~/.ollama` 抽取 qwen 模型（`SLIM=1` 跳过）。可用 `RES=...` 指定输出目录。
@@ -161,8 +161,8 @@ RES="$PWD/resources-slim" SLIM=1 npm run desktop:dist   # → release/Voice Note
 产物（`packages/desktop/release/`）：
 
 ```
-Voice Notes-0.1.0-arm64.dmg        ~5.9GB  完整版，开箱即用
-Voice Notes-0.1.0-slim-arm64.dmg   ~1.5GB  瘦身版，首启动联网拉 qwen（~4.7GB）
+Voice Notes-0.3.0-arm64.dmg        ~5.9GB  完整版，开箱即用
+Voice Notes-0.3.0-slim-arm64.dmg   ~1.5GB  瘦身版，首启动联网拉 qwen（~4.7GB）
 ```
 
 ### 自动检查更新
