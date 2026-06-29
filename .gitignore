@@ -4,6 +4,7 @@ dist/
 *.log
 data/sessions/*
 !data/sessions/.gitkeep
+data/settings.json
 .DS_Store
 
 # 桌面打包产物（资源、安装包）

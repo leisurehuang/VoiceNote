@@ -35,6 +35,8 @@ export interface WhisperConfig {
   threads: number;
   language: string;
   prompt: string;
+  /** 专有名词术语表，运行时注入 whisper/摘要 prompt 偏置（由 settingsStore 同步）。 */
+  glossary: string[];
 }
 
 export interface LlmConfig {
@@ -146,6 +148,7 @@ export const config: AppConfig = {
     threads: Number(process.env.WHISPER_THREADS ?? 8),
     language: process.env.WHISPER_LANGUAGE ?? 'auto',
     prompt: process.env.WHISPER_PROMPT ?? '',
+    glossary: [], // 启动为空，由 settingsStore.init() 从 settings 应用
   },
   llm: {
     baseUrl: (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1').replace(/\/+$/, ''),

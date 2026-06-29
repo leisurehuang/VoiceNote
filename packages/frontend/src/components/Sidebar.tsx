@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import type { HealthStatus, SessionMeta } from '../api/types';
 import { SessionList } from './SessionList';
+import { searchSessions } from '../api/client';
 
 interface Props {
   sessions: SessionMeta[];
@@ -13,6 +15,24 @@ interface Props {
 }
 
 export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDelete }: Props) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SessionMeta[] | null>(null);
+
+  // 搜索：300ms 防抖；空关键词回退到全量列表
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      searchSessions(q).then(setResults).catch(() => setResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const shown = results ?? sessions;
+
   return (
     <aside className="sidebar">
       {/* 顶部拖拽区（让出交通灯位置） + 应用名 */}
@@ -21,18 +41,32 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
       </div>
 
       <div className="sidebar-body">
-        <button
-          className={'new-btn' + (activeId === null ? ' is-active' : '')}
-          onClick={onNew}
-          disabled={disabled}
-          title="新建会话"
-        >
-          <span className="new-btn-plus">＋</span>
-          <span>新建</span>
-        </button>
+        <div className="sidebar-top">
+          <button
+            className={'new-btn' + (activeId === null ? ' is-active' : '')}
+            onClick={onNew}
+            disabled={disabled}
+            title="新建会话"
+          >
+            <span className="new-btn-plus">＋</span>
+            <span>新建</span>
+          </button>
 
-        <div className="nav-label">历史</div>
-        <SessionList sessions={sessions} activeId={activeId} onOpen={onOpen} onDelete={onDelete} />
+          <div className="search-box">
+            <input
+              type="search"
+              placeholder="搜索标题 / 摘要 / 逐字稿…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="搜索会话"
+            />
+          </div>
+        </div>
+
+        <div className="sidebar-list">
+          <div className="nav-label">历史</div>
+          <SessionList sessions={shown} activeId={activeId} onOpen={onOpen} onDelete={onDelete} />
+        </div>
         <button className="settings-btn" onClick={onSettings} disabled={disabled} title="模型配置">
           ⚙ 设置
         </button>

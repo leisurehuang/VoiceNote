@@ -2,9 +2,9 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { config, SESSION_RUNNING_STATUSES } from '../config.js';
 import { runPipeline } from '../pipeline/orchestrator.js';
-import { summarize } from '../pipeline/summarize.js';
+import { summarize, extractTodos } from '../pipeline/summarize.js';
 import * as store from '../store/sessionStore.js';
-import type { SessionDetail } from '../store/sessionStore.js';
+import type { SessionDetail, TranscriptSegment } from '../store/sessionStore.js';
 
 function fmtMs(ms: number): string {
   const total = Math.floor(ms / 1000);
@@ -66,6 +66,9 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
 
   // 列表
   app.get('/api/sessions', async () => store.list());
+
+  // 全文搜索：标题 + 摘要 + 逐字稿
+  app.get('/api/search', async (req) => store.search((req.query as { q?: string }).q ?? ''));
 
   // 详情（含逐字稿 + 摘要）
   app.get('/api/sessions/:id', async (req, reply) => {
@@ -174,6 +177,56 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
     })();
 
     return reply.code(202).send({ id, status: 'resummarizing' });
+  });
+
+  // 编辑摘要正文（人工修订）；标 model='manual' 与 LLM 生成区分
+  app.put('/api/sessions/:id/summary', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!store.get(id)) return reply.code(404).send({ error: '会话不存在' });
+    const { summary } = (req.body ?? {}) as { summary?: string };
+    if (typeof summary !== 'string') return reply.code(400).send({ error: '缺少 summary' });
+    store.writeSummary(id, summary, 'manual');
+    return { ok: true };
+  });
+
+  // 编辑逐字稿（人工修订）；清洗仅保留合法字段，并触发 meta 广播
+  app.put('/api/sessions/:id/transcript', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!store.get(id)) return reply.code(404).send({ error: '会话不存在' });
+    const { segments } = (req.body ?? {}) as { segments?: TranscriptSegment[] };
+    if (!Array.isArray(segments)) return reply.code(400).send({ error: '缺少 segments' });
+    const clean: TranscriptSegment[] = [];
+    for (const s of segments) {
+      if (s && typeof s.text === 'string') {
+        clean.push({ text: s.text, startMs: Number(s.startMs) || 0, endMs: Number(s.endMs) || 0 });
+      }
+    }
+    store.writeTranscript(id, clean);
+    store.update(id, {}); // 触发 updatedAt + meta 广播
+    return { ok: true };
+  });
+
+  // 抽取待办事项（LLM 结构化，持久化到 todos.json）
+  app.post('/api/sessions/:id/todos', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!store.get(id)) return reply.code(404).send({ error: '会话不存在' });
+    const segments = store.readTranscript(id);
+    if (!segments.length) return reply.code(409).send({ error: '尚无逐字稿，无法抽取待办' });
+    const transcript = segments.map((s) => s.text).join('\n');
+    try {
+      const todos = await extractTodos(transcript);
+      store.writeTodos(id, todos);
+      return { todos };
+    } catch (e) {
+      return reply.code(500).send({ error: e instanceof Error ? e.message : '抽取待办失败' });
+    }
+  });
+
+  // 读取已抽取的待办（未抽取过返回空数组）
+  app.get('/api/sessions/:id/todos', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!store.get(id)) return reply.code(404).send({ error: '会话不存在' });
+    return { todos: store.readTodos(id) };
   });
 
   // 导出为 Markdown

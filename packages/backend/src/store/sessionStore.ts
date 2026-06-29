@@ -15,6 +15,7 @@ import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { config, SESSION_RUNNING_STATUSES, type SessionStatus } from '../config.js';
 import { newId } from '../util/id.js';
+import type { TodoItem } from '../pipeline/summarize.js';
 
 export interface SessionMeta {
   id: string;
@@ -77,6 +78,11 @@ function extFor(mimeType?: string, filename?: string): string {
     'audio/wave': '.wav',
     'audio/x-wav': '.wav',
     'audio/ogg': '.ogg',
+    // 视频：ffmpeg 会自动抽取音轨再转 wav，等价于音频上传
+    'video/mp4': '.mp4',
+    'video/quicktime': '.mov',
+    'video/x-matroska': '.mkv',
+    'video/webm': '.webm',
   };
   return (mimeType && map[mimeType]) ?? '.bin';
 }
@@ -128,6 +134,30 @@ export function list(): SessionMeta[] {
   return [...entries.values()]
     .map((e) => e.meta)
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+/**
+ * 全文搜索：标题 + 摘要 + 逐字稿，命中即返回该会话 meta。
+ * 大小写不敏感子串匹配；中文无需分词。空关键词返回全量（同 list）。
+ */
+export function search(q: string): SessionMeta[] {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return list();
+  const out: SessionMeta[] = [];
+  for (const e of entries.values()) {
+    const hay = (
+      e.meta.title +
+      '\n' +
+      (readSummary(e.meta.id) ?? '') +
+      '\n' +
+      readTranscript(e.meta.id)
+        .map((s) => s.text)
+        .join('\n')
+    ).toLowerCase();
+    if (hay.includes(needle)) out.push(e.meta);
+  }
+  out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return out;
 }
 
 export function getDetail(id: string): SessionDetail | undefined {
@@ -244,6 +274,24 @@ export function readSummary(id: string): string | null {
     return readFileSync(summaryPath(id), 'utf8');
   } catch {
     return null;
+  }
+}
+
+export function todosPath(id: string): string {
+  return join(sessionDir(id), 'todos.json');
+}
+
+/** 持久化抽取出的待办事项（独立于 summary/transcript，便于单独读取）。 */
+export function writeTodos(id: string, items: TodoItem[]): void {
+  writeFileSync(todosPath(id), JSON.stringify(items, null, 2));
+}
+
+export function readTodos(id: string): TodoItem[] {
+  try {
+    const arr = JSON.parse(readFileSync(todosPath(id), 'utf8')) as unknown;
+    return Array.isArray(arr) ? (arr as TodoItem[]) : [];
+  } catch {
+    return [];
   }
 }
 

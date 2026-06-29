@@ -14,6 +14,8 @@ export interface LlmPreset {
 export interface Settings {
   activePresetId: string | null;
   presets: LlmPreset[];
+  /** 专有名词术语表，转写/整理时注入 prompt 偏置。 */
+  glossary: string[];
 }
 
 const settingsPath = join(config.dataDir, 'settings.json');
@@ -27,7 +29,7 @@ function defaultSettings(): Settings {
     apiKey: config.llm.apiKey,
     model: config.llm.model,
   };
-  return { activePresetId: preset.id, presets: [preset] };
+  return { activePresetId: preset.id, presets: [preset], glossary: [] };
 }
 
 export function getSettings(): Settings {
@@ -41,9 +43,10 @@ export function getSettings(): Settings {
     return {
       activePresetId: parsed.activePresetId ?? null,
       presets: Array.isArray(parsed.presets) ? (parsed.presets as LlmPreset[]) : [],
+      glossary: Array.isArray(parsed.glossary) ? (parsed.glossary as string[]) : [],
     };
   } catch {
-    return { activePresetId: null, presets: [] };
+    return { activePresetId: null, presets: [], glossary: [] };
   }
 }
 
@@ -71,9 +74,13 @@ export function saveSettings(s: Settings): Settings {
       model: p.model.trim(),
     });
   }
+  const glossary = Array.isArray(s.glossary)
+    ? [...new Set(s.glossary.map((t) => String(t).trim()).filter(Boolean))]
+    : [];
   const cleaned: Settings = {
     activePresetId: presets.some((p) => p.id === s.activePresetId) ? s.activePresetId : null,
     presets,
+    glossary,
   };
   mkdirSync(config.dataDir, { recursive: true });
   const tmp = `${settingsPath}.tmp`;
@@ -91,9 +98,15 @@ export function applyPreset(p: LlmPreset): void {
   config.llm.incrementalModel = p.model;
 }
 
+/** 把术语表同步到运行时 config.whisper.glossary（whisper/摘要 prompt 注入用）。 */
+export function applyGlossary(terms: string[]): void {
+  config.whisper.glossary = terms;
+}
+
 /** 启动时调用：读 settings，应用激活预设到 config.llm。 */
 export function init(): void {
   const s = getSettings();
   const active = s.presets.find((p) => p.id === s.activePresetId);
   if (active) applyPreset(active);
+  applyGlossary(s.glossary);
 }

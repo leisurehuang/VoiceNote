@@ -38,7 +38,7 @@ export function Uploader({ onCreated }: { onCreated: (id: string) => void }) {
 
   return (
     <div className="card">
-      <h3>📁 上传音频文件</h3>
+      <h3>📁 上传音视频文件</h3>
       {error && <div className="alert err">{error}</div>}
       <div
         className={`dropzone${dragging ? ' drag' : ''}`}
@@ -58,9 +58,9 @@ export function Uploader({ onCreated }: { onCreated: (id: string) => void }) {
             <span className="muted">上传中 {Math.round(progress * 100)}%</span>
           </div>
         ) : (
-          <p>点击选择，或拖入音频文件（mp3 / m4a / wav / webm / aiff …）</p>
+          <p>点击选择，或拖入音频 / 视频文件（mp3 / m4a / wav / webm / mp4 / mov …，视频自动抽取音轨）</p>
         )}
-        <input ref={inputRef} type="file" accept="audio/*" onChange={onPick} hidden />
+        <input ref={inputRef} type="file" accept="audio/*,video/*" onChange={onPick} hidden />
       </div>
     </div>
   );

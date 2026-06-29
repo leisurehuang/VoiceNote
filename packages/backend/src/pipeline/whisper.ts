@@ -58,7 +58,13 @@ export async function transcribeWavFile(
     '-oj',
     '-of', wavPath,
   ];
-  if (config.whisper.prompt) args.push('--prompt', config.whisper.prompt);
+  // 把术语表拼进解码预热 prompt，偏置专有名词识别
+  const promptParts = [config.whisper.prompt];
+  if (config.whisper.glossary.length) {
+    promptParts.push('相关术语：' + config.whisper.glossary.join('、'));
+  }
+  const prompt = promptParts.filter(Boolean).join(' ');
+  if (prompt) args.push('--prompt', prompt);
 
   await run(cli, args, {
     onStdout: (line) => {

@@ -1,4 +1,4 @@
-import type { HealthStatus, SessionDetail, SessionMeta, Settings } from './types';
+import type { HealthStatus, SessionDetail, SessionMeta, Settings, TranscriptSegment, TodoItem } from './types';
 
 const API = '/api';
 
@@ -38,6 +38,9 @@ export function uploadAudio(
 export const listSessions = async (): Promise<SessionMeta[]> =>
   (await (await fetch(`${API}/sessions`)).json()) as SessionMeta[];
 
+export const searchSessions = async (q: string): Promise<SessionMeta[]> =>
+  (await (await fetch(`${API}/search?q=${encodeURIComponent(q)}`)).json()) as SessionMeta[];
+
 export const getSession = async (id: string): Promise<SessionDetail> =>
   (await (await fetch(`${API}/sessions/${id}`)).json()) as SessionDetail;
 
@@ -53,6 +56,30 @@ export const resummarize = (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body ?? {}),
   });
+
+export const updateSummary = (id: string, summary: string): Promise<Response> =>
+  fetch(`${API}/sessions/${id}/summary`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ summary }),
+  });
+
+export const updateTranscript = (id: string, segments: TranscriptSegment[]): Promise<Response> =>
+  fetch(`${API}/sessions/${id}/transcript`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ segments }),
+  });
+
+export const extractTodos = async (id: string): Promise<TodoItem[]> => {
+  const r = await fetch(`${API}/sessions/${id}/todos`, { method: 'POST' });
+  const j = (await r.json()) as { todos?: TodoItem[]; error?: string };
+  if (!r.ok) throw new Error(j.error ?? '抽取待办失败');
+  return j.todos ?? [];
+};
+
+export const getTodos = async (id: string): Promise<TodoItem[]> =>
+  ((await (await fetch(`${API}/sessions/${id}/todos`)).json()) as { todos: TodoItem[] }).todos ?? [];
 
 export const deleteSession = (id: string): Promise<Response> =>
   fetch(`${API}/sessions/${id}`, { method: 'DELETE' });

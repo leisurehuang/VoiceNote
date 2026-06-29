@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { applyPreset, getSettings, saveSettings, type Settings } from '../store/settingsStore.js';
+import { applyPreset, applyGlossary, getSettings, saveSettings, type Settings } from '../store/settingsStore.js';
 
 export async function registerSettingsRoutes(app: FastifyInstance): Promise<void> {
   // 读取配置（apiKey 明文返回，本地工具便于回显）
@@ -15,6 +15,7 @@ export async function registerSettingsRoutes(app: FastifyInstance): Promise<void
       const saved = saveSettings(body);
       const active = saved.presets.find((p) => p.id === saved.activePresetId);
       if (active) applyPreset(active);
+      applyGlossary(saved.glossary); // 术语表运行时即时注入 whisper/摘要 prompt
       return saved;
     } catch (e) {
       return reply.code(400).send({ error: e instanceof Error ? e.message : '保存失败' });

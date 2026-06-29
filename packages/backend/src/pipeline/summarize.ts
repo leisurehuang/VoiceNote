@@ -94,7 +94,11 @@ async function postChat(
 /** 生成结构化中文摘要。 */
 export async function summarize(transcript: string, opts: SummarizeOptions = {}): Promise<SummarizeResult> {
   const model = opts.model ?? config.llm.model;
-  const systemPrompt = opts.systemPrompt ?? config.llm.summarySystemPrompt;
+  let systemPrompt = opts.systemPrompt ?? config.llm.summarySystemPrompt;
+  if (config.whisper.glossary.length) {
+    systemPrompt +=
+      '\n\n文中可能出现的专有名词（请正确沿用、不要改写）：' + config.whisper.glossary.join('、');
+  }
   const text = await postChat(
     [
       { role: 'system', content: systemPrompt },
@@ -164,4 +168,45 @@ export async function generateTitle(transcript: string, model?: string): Promise
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned.slice(0, 40) || '未命名';
+}
+
+export interface TodoItem {
+  text: string;
+  owner?: string;
+  due?: string;
+}
+
+const TODOS_SYSTEM =
+  '你从会议转写中抽取「待办事项」。只输出一个 JSON 数组，不要任何解释、不要 markdown 代码块、不要前后缀文字。' +
+  '每个元素形如 {"text":"任务内容","owner":"负责人（可选）","due":"时限（可选）"}。' +
+  '没有待办就输出 []。任务表述精炼、忠于原文。';
+
+/** 从转写抽取结构化待办事项（复用 postChat 非流式，容错解析 JSON）。 */
+export async function extractTodos(transcript: string, model?: string): Promise<TodoItem[]> {
+  const m = model ?? config.llm.model;
+  const raw = await postChat(
+    [
+      { role: 'system', content: TODOS_SYSTEM },
+      { role: 'user', content: transcript.slice(0, 6000) },
+    ],
+    { model: m, stream: false },
+  );
+  // 容错：提取首个 JSON 数组再解析，模型偶尔会包 markdown 代码块
+  const match = raw.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+  try {
+    const arr = JSON.parse(match[0] ?? '[]') as unknown;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((it) => it as { text?: unknown; owner?: unknown; due?: unknown })
+      .filter((it) => typeof it.text === 'string' && it.text.trim())
+      .map((it) => {
+        const item: TodoItem = { text: String(it.text).trim() };
+        if (typeof it.owner === 'string' && it.owner.trim()) item.owner = it.owner.trim();
+        if (typeof it.due === 'string' && it.due.trim()) item.due = it.due.trim();
+        return item;
+      });
+  } catch {
+    return [];
+  }
 }

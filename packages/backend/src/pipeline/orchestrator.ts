@@ -17,10 +17,20 @@ async function convertStage(id: string): Promise<void> {
 /** 阶段 2：whisper.cpp 转写，逐段实时广播。 */
 async function transcribeStage(id: string): Promise<void> {
   await store.update(id, { status: 'transcribing', stage: '转写中（whisper）', progress: 0.1 });
+  // 音频总时长（毫秒）：convertStage 已写入 meta。实时会话或读取失败时为 null/0。
+  const durationMs = store.get(id)?.durationMs ?? 0;
   let count = 0;
+  let maxEndMs = 0; // 已转写到的最晚时间戳，用于估算进度
   const segments = await transcribe(audioPath(id), (seg) => {
     count++;
     store.emitter(id)?.emit('segment', { index: count, segment: seg });
+    // 按真实已转写时长 / 总时长线性估算进度，夹在 [0.1, 0.6) 区间。
+    if (seg.endMs > maxEndMs) maxEndMs = seg.endMs;
+    if (durationMs > 0) {
+      const ratio = Math.min(Math.max(maxEndMs / durationMs, 0), 1);
+      const progress = Math.min(0.1 + 0.5 * ratio, 0.6 - Number.EPSILON);
+      void store.update(id, { progress });
+    }
   });
   store.writeTranscript(id, segments);
   await store.update(id, { progress: 0.6 });

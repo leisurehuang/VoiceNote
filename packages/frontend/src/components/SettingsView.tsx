@@ -10,12 +10,18 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [glossaryDraft, setGlossaryDraft] = useState('');
 
   useEffect(() => {
     getSettings()
       .then(setSettings)
       .catch((e) => setErr(e instanceof Error ? e.message : '加载失败'));
   }, []);
+
+  // 术语表回显到编辑框（settings 加载 / 变更时同步）
+  useEffect(() => {
+    if (settings) setGlossaryDraft(settings.glossary?.join('\n') ?? '');
+  }, [settings]);
 
   async function persist(next: Settings) {
     try {
@@ -24,6 +30,15 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
     } catch (e) {
       setErr(e instanceof Error ? e.message : '保存失败');
     }
+  }
+
+  function saveGlossary() {
+    if (!settings) return;
+    const glossary = glossaryDraft
+      .split('\n')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    void persist({ ...settings, glossary });
   }
 
   function activate(id: string) {
@@ -178,6 +193,25 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
             )}
+
+            <div className="glossary-box">
+              <h4 className="block-h">📖 术语表</h4>
+              <p className="muted">
+                专有名词 / 人名 / 公司名，每行一个。转写与整理时自动偏置，提升识别准确率。
+              </p>
+              <textarea
+                className="glossary-edit"
+                value={glossaryDraft}
+                onChange={(e) => setGlossaryDraft(e.target.value)}
+                rows={6}
+                placeholder={'例如：\n鸿蒙\n信创\nPaaS'}
+              />
+              <div className="rec-controls">
+                <button className="ghost" onClick={saveGlossary}>
+                  保存术语表
+                </button>
+              </div>
+            </div>
           </>
         )}
         <p className="muted settings-version">Voice Notes v{__APP_VERSION__}</p>

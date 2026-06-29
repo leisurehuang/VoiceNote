@@ -58,4 +58,11 @@ export interface LlmPreset {
 export interface Settings {
   activePresetId: string | null;
   presets: LlmPreset[];
+  glossary?: string[];
+}
+
+export interface TodoItem {
+  text: string;
+  owner?: string;
+  due?: string;
 }
