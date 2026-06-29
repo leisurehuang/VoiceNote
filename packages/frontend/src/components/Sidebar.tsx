@@ -17,15 +17,32 @@ interface Props {
 export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDelete }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SessionMeta[] | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light'
-      ? 'light'
-      : 'dark',
+  const [theme, setTheme] = useState<'auto' | 'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('vn-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch {
+      /* ignore */
+    }
+    return 'auto';
+  });
+  const [systemLight, setSystemLight] = useState(
+    () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: light)').matches,
   );
 
-  // 主题：写入根元素 data-theme + localStorage（index.html 内联脚本已设初始值，这里同步）
+  // auto 模式下实时跟随系统主题变化
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    const mq = matchMedia('(prefers-color-scheme: light)');
+    const handler = (e: MediaQueryListEvent) => setSystemLight(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const resolved = theme === 'auto' ? (systemLight ? 'light' : 'dark') : theme;
+  useEffect(() => {
+    document.documentElement.dataset.theme = resolved;
+  }, [resolved]);
+  useEffect(() => {
     try {
       localStorage.setItem('vn-theme', theme);
     } catch {
@@ -99,10 +116,16 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
         )}
         <button
           className="theme-toggle"
-          onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
-          title={theme === 'light' ? '切换到深色' : '切换到浅色'}
+          onClick={() => setTheme((t) => (t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto'))}
+          title={
+            theme === 'auto'
+              ? '自动（跟随系统），点击切浅色'
+              : theme === 'light'
+                ? '浅色，点击切深色'
+                : '深色，点击切自动'
+          }
         >
-          {theme === 'light' ? '🌙' : '☀️'}
+          {theme === 'auto' ? '🌗' : theme === 'light' ? '☀️' : '🌙'}
         </button>
       </div>
     </aside>

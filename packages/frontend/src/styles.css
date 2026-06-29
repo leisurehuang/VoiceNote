@@ -146,6 +146,21 @@ html.is-electron body {
 .theme-toggle:hover {
   color: var(--text);
 }
+/* API Key 输入：掩码 + 眼睛切换 */
+.key-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.key-row input {
+  flex: 1;
+  min-width: 0;
+}
+.key-toggle {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  font-size: 14px;
+}
 .foot-ok {
   color: var(--ok);
 }

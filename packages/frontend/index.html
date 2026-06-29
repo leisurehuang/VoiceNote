@@ -8,11 +8,15 @@
       // 防闪烁：在 React 挂载前就根据偏好定主题（localStorage 优先，否则跟随系统）
       (function () {
         try {
-          var t = localStorage.getItem('vn-theme');
-          if (t !== 'light' && t !== 'dark') {
-            t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-          }
-          document.documentElement.dataset.theme = t;
+          var saved = localStorage.getItem('vn-theme');
+          var mode = saved === 'light' || saved === 'dark' ? saved : 'auto';
+          var resolved =
+            mode === 'auto'
+              ? window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+              : mode;
+          document.documentElement.dataset.theme = resolved;
         } catch (e) {
           /* localStorage 受限等，默认深色不动 */
         }

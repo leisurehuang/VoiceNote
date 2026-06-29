@@ -13,6 +13,7 @@ export function SettingsView() {
   const [err, setErr] = useState<string | null>(null);
   const [glossaryDraft, setGlossaryDraft] = useState('');
   const [tab, setTab] = useState<'models' | 'glossary'>('models');
+  const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
     getSettings()
@@ -61,7 +62,11 @@ export function SettingsView() {
       setErr('名称、Base URL、模型不能为空');
       return;
     }
-    const id = editing.id || crypto.randomUUID();
+    const id =
+      editing.id ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2) + Date.now().toString(36));
     const exists = settings.presets.some((p) => p.id === editing.id);
     const presets = exists
       ? settings.presets.map((p) => (p.id === editing.id ? { ...editing, id } : p))
@@ -170,11 +175,22 @@ export function SettingsView() {
                     placeholder="http://localhost:11434/v1 或 https://api.openai.com/v1"
                   />
                   <label>API Key</label>
-                  <input
-                    value={editing.apiKey}
-                    onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
-                    placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
-                  />
+                  <div className="key-row">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={editing.apiKey}
+                      onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
+                      placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
+                    />
+                    <button
+                      type="button"
+                      className="ghost key-toggle"
+                      onClick={() => setShowKey((v) => !v)}
+                      title={showKey ? '隐藏' : '显示'}
+                    >
+                      {showKey ? '🙈' : '👁'}
+                    </button>
+                  </div>
                   <label>模型</label>
                   <input
                     value={editing.model}
