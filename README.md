@@ -11,15 +11,9 @@
 
 ## 🎬 演示视频
 
-<div align="center">
-
-<iframe src="//player.bilibili.com/player.html?isOutside=true&aid=116867653962719&bvid=BV11zT16ZEfg&cid=39679952416&p=1"
-  scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"
-  width="800" height="450" style="max-width: 100%; border: none;"></iframe>
-
-<a href="https://www.bilibili.com/video/BV11zT16ZEfg/"><img src="https://i0.hdslb.com/bfs/archive/8b369880bf9745d7011d38f1b36d1bed4e24d93f.jpg" alt="VoiceNote 演示视频" width="800"/></a>
-
-</div>
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV11zT16ZEfg/"><img src="https://i0.hdslb.com/bfs/archive/8b369880bf9745d7011d38f1b36d1bed4e24d93f.jpg" alt="VoiceNote 演示视频" width="800"/></a>
+</p>
 
 ## 📸 截图
 
