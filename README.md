@@ -9,7 +9,7 @@
 
 一个**本地运行**的 Web 应用：浏览器录音或上传音频 → 本地 whisper.cpp 转写 → 本地 Ollama 生成中文摘要 → 查看逐字稿与摘要、导出 Markdown。全程不联网、数据不出本机，适合个人 / 小团队使用。
 
-## 🎬 演示视频
+## 🎬 [演示视频](https://www.bilibili.com/video/BV11zT16ZEfg)
 
 <p align="center">
   <a href="https://www.bilibili.com/video/BV11zT16ZEfg/"><img src="https://i0.hdslb.com/bfs/archive/8b369880bf9745d7011d38f1b36d1bed4e24d93f.jpg" alt="VoiceNote 演示视频" width="800"/></a>
