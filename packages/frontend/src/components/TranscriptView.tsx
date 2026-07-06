@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TranscriptSegment } from '../api/types';
 import { fmtMs } from '../format';
+import { speakerColor, speakerLabel } from '../speakers';
 
 interface Props {
   segments: TranscriptSegment[];
@@ -46,6 +47,14 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
       {editing
         ? draft.map((s, i) => (
             <p key={i} className="tedit">
+              {s.speaker != null && (
+                <span
+                  className="spk"
+                  style={{ color: speakerColor(s.speaker), borderColor: speakerColor(s.speaker) }}
+                >
+                  说话人 {speakerLabel(s.speaker)}
+                </span>
+              )}
               <b className="ts">[{fmtMs(s.startMs)}]</b>
               <textarea value={s.text} onChange={(e) => editAt(i, e.target.value)} rows={2} />
             </p>
@@ -60,6 +69,14 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
               onClick={onSeek ? () => onSeek(s.startMs) : undefined}
               style={onSeek ? { cursor: 'pointer' } : undefined}
             >
+              {s.speaker != null && (
+                <span
+                  className="spk"
+                  style={{ color: speakerColor(s.speaker), borderColor: speakerColor(s.speaker) }}
+                >
+                  说话人 {speakerLabel(s.speaker)}
+                </span>
+              )}
               <b className="ts">[{fmtMs(s.startMs)}]</b> {s.text}
             </p>
           ))}

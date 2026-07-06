@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TranscriptSegment } from '../api/types';
 import { fmtMs } from '../format';
+import { speakerColor, speakerLabel } from '../speakers';
 
 const STAGE_LABEL: Record<string, string> = {
   uploaded: '已上传，排队中…',
@@ -69,6 +70,14 @@ export function ProgressView({ id, onDone }: { id: string; onDone: () => void })
           <div className="transcript">
             {segments.map((s, i) => (
               <p key={i}>
+                {s.speaker != null && (
+                  <span
+                    className="spk"
+                    style={{ color: speakerColor(s.speaker), borderColor: speakerColor(s.speaker) }}
+                  >
+                    说话人 {speakerLabel(s.speaker)}
+                  </span>
+                )}
                 <b className="ts">[{fmtMs(s.startMs)}]</b> {s.text}
               </p>
             ))}

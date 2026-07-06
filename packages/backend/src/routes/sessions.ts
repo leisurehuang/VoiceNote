@@ -26,7 +26,8 @@ export function buildExportMarkdown(d: SessionDetail): string {
   }
   lines.push('## 逐字稿', '');
   for (const seg of d.transcript) {
-    lines.push(`**[${fmtMs(seg.startMs)}]** ${seg.text}`);
+    const spk = seg.speaker != null ? `**[说话人 ${String.fromCharCode(65 + seg.speaker)}]** ` : '';
+    lines.push(`${spk}**[${fmtMs(seg.startMs)}]** ${seg.text}`);
   }
   return lines.join('\n');
 }
@@ -198,7 +199,14 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
     const clean: TranscriptSegment[] = [];
     for (const s of segments) {
       if (s && typeof s.text === 'string') {
-        clean.push({ text: s.text, startMs: Number(s.startMs) || 0, endMs: Number(s.endMs) || 0 });
+        const seg: TranscriptSegment = {
+          text: s.text,
+          startMs: Number(s.startMs) || 0,
+          endMs: Number(s.endMs) || 0,
+        };
+        // 保留说话人标签(sherpa 引擎产出),人工编辑不丢
+        if (typeof s.speaker === 'number' && Number.isFinite(s.speaker)) seg.speaker = s.speaker;
+        clean.push(seg);
       }
     }
     store.writeTranscript(id, clean);

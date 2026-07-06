@@ -1,7 +1,8 @@
 import * as store from '../store/sessionStore.js';
 import { audioPath, sourcePath } from '../store/sessionStore.js';
+import { config } from '../config.js';
 import { convertToWav, DependencyMissingError } from './ffmpeg.js';
-import { transcribe } from './whisper.js';
+import { transcribeWithEngine, transcriptForLLM } from './transcribe.js';
 import { generateTitle, summarize } from './summarize.js';
 
 type Stage = (id: string) => Promise<void>;
@@ -14,23 +15,35 @@ async function convertStage(id: string): Promise<void> {
   store.emitter(id)?.emit('stage', { stage: 'transcribing' });
 }
 
-/** 阶段 2：whisper.cpp 转写，逐段实时广播。 */
+/** 阶段 2：转写，逐段实时广播。引擎由 config.transcription.engine 决定（whisper / sherpa）。 */
 async function transcribeStage(id: string): Promise<void> {
-  await store.update(id, { status: 'transcribing', stage: '转写中（whisper）', progress: 0.1 });
+  const engine = config.transcription.engine;
+  await store.update(id, {
+    status: 'transcribing',
+    stage: engine === 'sherpa' ? '转写中（sherpa 说话人分离）' : '转写中（whisper）',
+    progress: 0.1,
+  });
   // 音频总时长（毫秒）：convertStage 已写入 meta。实时会话或读取失败时为 null/0。
   const durationMs = store.get(id)?.durationMs ?? 0;
   let count = 0;
   let maxEndMs = 0; // 已转写到的最晚时间戳，用于估算进度
-  const segments = await transcribe(audioPath(id), (seg) => {
-    count++;
-    store.emitter(id)?.emit('segment', { index: count, segment: seg });
-    // 按真实已转写时长 / 总时长线性估算进度，夹在 [0.1, 0.6) 区间。
-    if (seg.endMs > maxEndMs) maxEndMs = seg.endMs;
-    if (durationMs > 0) {
-      const ratio = Math.min(Math.max(maxEndMs / durationMs, 0), 1);
-      const progress = Math.min(0.1 + 0.5 * ratio, 0.6 - Number.EPSILON);
+  const segments = await transcribeWithEngine(audioPath(id), {
+    onSegment: (seg) => {
+      count++;
+      store.emitter(id)?.emit('segment', { index: count, segment: seg });
+      // 按真实已转写时长 / 总时长线性估算进度，夹在 [0.1, 0.6) 区间。
+      if (seg.endMs > maxEndMs) maxEndMs = seg.endMs;
+      if (durationMs > 0) {
+        const ratio = Math.min(Math.max(maxEndMs / durationMs, 0), 1);
+        const progress = Math.min(0.1 + 0.5 * ratio, 0.6 - Number.EPSILON);
+        void store.update(id, { progress });
+      }
+    },
+    onProgress: (r) => {
+      // sherpa 专用：diarization 的 stderr progress 直接映射到 [0.1, 0.6)
+      const progress = Math.min(0.1 + 0.5 * r, 0.6 - Number.EPSILON);
       void store.update(id, { progress });
-    }
+    },
   });
   store.writeTranscript(id, segments);
   await store.update(id, { progress: 0.6 });
@@ -40,7 +53,8 @@ async function transcribeStage(id: string): Promise<void> {
 /** 阶段 3：LLM 生成摘要，token 实时广播。 */
 async function summarizeStage(id: string): Promise<void> {
   const segments = store.readTranscript(id);
-  const transcript = segments.map((s) => s.text).join('\n');
+  // 有 speaker 时标注说话人（说话人A：…），让纪要可按发言者组织
+  const transcript = transcriptForLLM(segments);
   if (!transcript.trim()) {
     await store.update(id, { progress: 0.98 });
     return;

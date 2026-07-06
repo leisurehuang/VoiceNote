@@ -39,6 +39,23 @@ export interface WhisperConfig {
   glossary: string[];
 }
 
+export type TranscriptionEngine = 'whisper' | 'sherpa';
+
+/** sherpa-onnx 引擎配置(说话人分离 + Paraformer 中文 ASR)。模型默认放 ~/.voice-notes-models/sherpa-onnx/models/。 */
+export interface SherpaConfig {
+  diarizationCli: string;
+  asrCli: string;
+  segmentationModel: string;
+  embeddingModel: string;
+  asrModel: string;
+  asrTokens: string;
+  /** 未知说话人数时的聚类阈值,越大说话人越少(默认 0.90)。 */
+  clusterThreshold: number;
+  /** 已知说话人数时优先用;null 走 clusterThreshold 自动聚类。 */
+  numSpeakers: number | null;
+  threads: number;
+}
+
 export interface LlmConfig {
   baseUrl: string;
   model: string;
@@ -61,6 +78,9 @@ export interface AppConfig {
   ffmpegBin: string | null;
   ffprobeBin: string | null;
   whisper: WhisperConfig;
+  sherpa: SherpaConfig;
+  /** 当前激活的转写引擎(被 settingsStore 运行时覆盖)。 */
+  transcription: { engine: TranscriptionEngine };
   llm: LlmConfig;
 }
 
@@ -92,6 +112,18 @@ function resolveWhisperCli(): string {
   if (prefix) return `${prefix}/bin/whisper-cli`;
   // Apple Silicon 默认安装位置
   return '/opt/homebrew/opt/whisper-cpp/bin/whisper-cli';
+}
+
+// sherpa-onnx 二进制 / 模型默认目录（brew 无 sherpa-onnx formula，靠 fetch-sherpa.sh 下预编译）
+const sherpaDir = process.env.SHERPA_DIR ?? join(process.env.HOME ?? '', '.voice-notes-models', 'sherpa-onnx');
+const sherpaModelsDir = process.env.SHERPA_MODELS_DIR ?? join(sherpaDir, 'models');
+
+/** 解析 sherpa-onnx 二进制路径：env 优先 → PATH 探测 → 默认下载目录。 */
+function resolveSherpaCli(name: string, envKey: string): string {
+  if (process.env[envKey]) return process.env[envKey] as string;
+  const fromPath = which(name);
+  if (fromPath) return fromPath;
+  return join(sherpaDir, 'bin', name);
 }
 
 
@@ -150,6 +182,28 @@ export const config: AppConfig = {
     prompt: process.env.WHISPER_PROMPT ?? '',
     glossary: [], // 启动为空，由 settingsStore.init() 从 settings 应用
   },
+  sherpa: {
+    diarizationCli: resolveSherpaCli('sherpa-onnx-offline-speaker-diarization', 'SHERPA_DIARIZATION_CLI'),
+    asrCli: resolveSherpaCli('sherpa-onnx-offline', 'SHERPA_ASR_CLI'),
+    segmentationModel:
+      process.env.SHERPA_SEGMENTATION_MODEL ??
+      join(sherpaModelsDir, 'sherpa-onnx-pyannote-segmentation-3-0', 'model.onnx'),
+    embeddingModel:
+      process.env.SHERPA_EMBEDDING_MODEL ??
+      join(sherpaModelsDir, '3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx'),
+    asrModel:
+      process.env.SHERPA_ASR_MODEL ??
+      join(sherpaModelsDir, 'sherpa-onnx-paraformer-zh-2024-03-09', 'model.int8.onnx'),
+    asrTokens:
+      process.env.SHERPA_ASR_TOKENS ??
+      join(sherpaModelsDir, 'sherpa-onnx-paraformer-zh-2024-03-09', 'tokens.txt'),
+    clusterThreshold: Number(process.env.SHERPA_CLUSTER_THRESHOLD ?? 0.90),
+    numSpeakers: process.env.SHERPA_NUM_SPEAKERS ? Number(process.env.SHERPA_NUM_SPEAKERS) : null,
+    threads: Number(process.env.SHERPA_THREADS ?? 8),
+  },
+  transcription: {
+    engine: process.env.TRANSCRIPTION_ENGINE === 'sherpa' ? 'sherpa' : 'whisper',
+  },
   llm: {
     baseUrl: (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1').replace(/\/+$/, ''),
     model: process.env.OLLAMA_MODEL ?? 'qwen2.5:7b-instruct',
@@ -164,6 +218,16 @@ export const config: AppConfig = {
   },
 };
 
+export interface SherpaHealth {
+  ok: boolean;
+  diarizationCli: boolean;
+  asrCli: boolean;
+  segmentationModel: boolean;
+  embeddingModel: boolean;
+  asrModel: boolean;
+  asrTokens: boolean;
+}
+
 export interface HealthStatus {
   ok: boolean;
   ffmpeg: boolean;
@@ -174,6 +238,9 @@ export interface HealthStatus {
   whisperModelPath: string;
   ollama: boolean;
   ollamaBaseUrl: string;
+  transcriptionEngine: TranscriptionEngine;
+  /** sherpa 是可选引擎;sherpa.ok 全 false 不影响顶层 ok。 */
+  sherpa: SherpaHealth;
 }
 
 /** 运行时探测所有外部依赖；前端用此渲染「缺依赖」横幅。 */
@@ -181,6 +248,15 @@ export async function checkHealth(): Promise<HealthStatus> {
   const ffmpegPath = config.ffmpegBin ?? which('ffmpeg');
   const whisperCliOk = fileAccessible(config.whisper.cli);
   const whisperModelOk = existsSync(config.whisper.model);
+
+  const sherpaDiarOk = fileAccessible(config.sherpa.diarizationCli);
+  const sherpaAsrCliOk = fileAccessible(config.sherpa.asrCli);
+  const sherpaSegOk = existsSync(config.sherpa.segmentationModel);
+  const sherpaEmbOk = existsSync(config.sherpa.embeddingModel);
+  const sherpaAsrModelOk = existsSync(config.sherpa.asrModel);
+  const sherpaAsrTokensOk = existsSync(config.sherpa.asrTokens);
+  const sherpaOk =
+    sherpaDiarOk && sherpaAsrCliOk && sherpaSegOk && sherpaEmbOk && sherpaAsrModelOk && sherpaAsrTokensOk;
 
   let ollama = false;
   try {
@@ -193,6 +269,7 @@ export async function checkHealth(): Promise<HealthStatus> {
     ollama = false;
   }
 
+  // sherpa 是可选引擎，ok 不依赖它；whisper 仍是基线依赖。
   const ok = !!(ffmpegPath && whisperCliOk && whisperModelOk && ollama);
   return {
     ok,
@@ -204,6 +281,16 @@ export async function checkHealth(): Promise<HealthStatus> {
     whisperModelPath: config.whisper.model,
     ollama,
     ollamaBaseUrl: config.llm.baseUrl,
+    transcriptionEngine: config.transcription.engine,
+    sherpa: {
+      ok: sherpaOk,
+      diarizationCli: sherpaDiarOk,
+      asrCli: sherpaAsrCliOk,
+      segmentationModel: sherpaSegOk,
+      embeddingModel: sherpaEmbOk,
+      asrModel: sherpaAsrModelOk,
+      asrTokens: sherpaAsrTokensOk,
+    },
   };
 }
 
