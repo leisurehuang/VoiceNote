@@ -106,9 +106,11 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
           type: string;
           id?: string;
           segment?: TranscriptSegment;
+          segments?: TranscriptSegment[];
           delta?: string;
           summary?: string;
           error?: string;
+          message?: string;
         };
         try {
           m = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
@@ -118,6 +120,11 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
         if (m.type === 'ready' && m.id) idRef.current = m.id;
         else if (m.type === 'segment' && m.segment) {
           setSegments((s) => [...s, m.segment!]);
+        } else if (m.type === 'transcript-replaced' && m.segments) {
+          // finalize 后整段回填说话人标签，整体替换（非增量）
+          setSegments(m.segments);
+        } else if (m.type === 'warning' && m.message) {
+          setError(m.message);
         } else if (m.type === 'summary-start') {
           setLiveSummary('');
           setSummaryStreaming(true);

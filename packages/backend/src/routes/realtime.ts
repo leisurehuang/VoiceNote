@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from '@fastify/websocket';
 import { config } from '../config.js';
-import { transcribeWavFile } from '../pipeline/whisper.js';
+import { transcribeUtteranceWithEngine, transcriptForLLM } from '../pipeline/transcribe.js';
+import { transcribeWithDiarization } from '../pipeline/sherpa.js';
 import { summarize, summarizeIncremental, generateTitle } from '../pipeline/summarize.js';
 import { EnergyVad } from '../pipeline/vad.js';
 import { writeWav } from '../util/wav.js';
@@ -85,7 +86,10 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
       const wavPath = join(store.sessionDir(sessionId), `utt-${n}.wav`);
       try {
         writeWav(wavPath, pcm);
-        const segs = await transcribeWavFile(wavPath, { language: config.whisper.language });
+        const segs = await transcribeUtteranceWithEngine(wavPath, {
+          language: config.whisper.language,
+          durationMs: Math.max(0, _endMs - startMs),
+        });
         for (const seg of segs) {
           // whisper 给的是单句内时间戳，叠加本句在会话中的起点
           const abs = {
@@ -130,8 +134,28 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
         });
         pcmChunks = []; // 释放内存
 
+        // sherpa 引擎：对完整 audio.wav 跑 diarization，回填说话人标签覆盖实时裸转写。
+        // 失败不阻断——保留原转写并提示，仍继续生成摘要。
+        if (config.transcription.engine === 'sherpa') {
+          try {
+            store.update(sessionId, { stage: '说话人分离中' });
+            const diarized = await transcribeWithDiarization(store.audioPath(sessionId));
+            if (diarized.length) {
+              store.writeTranscript(sessionId, diarized);
+              send(socket, { type: 'transcript-replaced', segments: diarized });
+            }
+          } catch (diaErr) {
+            send(socket, {
+              type: 'warning',
+              message:
+                '说话人分离失败，已保留原转写：' + (diaErr instanceof Error ? diaErr.message : String(diaErr)),
+            });
+          }
+        }
+
         const segs = store.readTranscript(sessionId);
-        const transcript = segs.map((s) => s.text).join('\n');
+        // 有 speaker 时标注说话人（说话人A：…），让纪要可按发言者组织
+        const transcript = transcriptForLLM(segs);
         if (transcript.trim()) {
           store.update(sessionId, { status: 'summarizing', stage: '生成摘要' });
           const { text, model } = await summarize(transcript);

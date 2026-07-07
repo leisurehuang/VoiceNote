@@ -656,6 +656,20 @@ button:disabled {
 .transcript p.active .ts {
   color: var(--accent);
 }
+
+/* 说话人徽章（sherpa 引擎产出；颜色由内联 style 注入） */
+.spk {
+  display: inline-block;
+  padding: 0 7px;
+  margin-right: 6px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 0.8em;
+  font-weight: 600;
+  line-height: 1.7;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
 .audio-bar audio {
   width: 100%;
   margin-bottom: 10px;
@@ -1205,4 +1219,19 @@ code {
 textarea {
   -webkit-user-select: text;
   user-select: text;
+}
+
+/* 设置页：转写引擎选择卡片 */
+.engine-select {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--separator);
+}
+.engine-select .segmented {
+  margin: 10px 0;
+}
+.engine-select code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--fill);
 }

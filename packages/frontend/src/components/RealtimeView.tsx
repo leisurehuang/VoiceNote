@@ -3,6 +3,7 @@ import { useRealtime } from '../hooks/useRealtime';
 import { Waveform } from './Waveform';
 import { renderMarkdown } from '../api/markdown';
 import { fmtMs } from '../format';
+import { speakerColor, speakerLabel } from '../speakers';
 
 export function RealtimeView({
   onDone,
@@ -87,6 +88,14 @@ export function RealtimeView({
             ) : (
               segments.map((s, i) => (
                 <p key={i}>
+                  {s.speaker != null && (
+                    <span
+                      className="spk"
+                      style={{ color: speakerColor(s.speaker), borderColor: speakerColor(s.speaker) }}
+                    >
+                      说话人 {speakerLabel(s.speaker)}
+                    </span>
+                  )}
                   <b className="ts">[{fmtMs(s.startMs)}]</b>
                   {s.text}
                 </p>

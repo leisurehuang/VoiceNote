@@ -1,5 +1,15 @@
 // 前后端共享的类型定义（前端侧副本，与后端 config.ts / sessionStore.ts 对应）
 
+export interface SherpaHealth {
+  ok: boolean;
+  diarizationCli: boolean;
+  asrCli: boolean;
+  segmentationModel: boolean;
+  embeddingModel: boolean;
+  asrModel: boolean;
+  asrTokens: boolean;
+}
+
 export interface HealthStatus {
   ok: boolean;
   ffmpeg: boolean;
@@ -10,6 +20,9 @@ export interface HealthStatus {
   whisperModelPath: string;
   ollama: boolean;
   ollamaBaseUrl: string;
+  transcriptionEngine: 'whisper' | 'sherpa';
+  /** sherpa 是可选引擎；sherpa.ok 为 false 不影响顶层 ok。 */
+  sherpa: SherpaHealth;
 }
 
 export type SessionStatus =
@@ -24,6 +37,8 @@ export interface TranscriptSegment {
   text: string;
   startMs: number;
   endMs: number;
+  /** 说话人编号（0-based）；仅 sherpa-onnx 引擎产出。 */
+  speaker?: number;
 }
 
 export interface SessionMeta {
@@ -55,10 +70,17 @@ export interface LlmPreset {
   model: string;
 }
 
+export interface SherpaSettings {
+  numSpeakers?: number | null;
+  clusterThreshold?: number;
+}
+
 export interface Settings {
   activePresetId: string | null;
   presets: LlmPreset[];
   glossary?: string[];
+  transcriptionEngine: 'whisper' | 'sherpa';
+  sherpa: SherpaSettings;
 }
 
 export interface TodoItem {

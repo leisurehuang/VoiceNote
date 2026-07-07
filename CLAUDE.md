@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Voice Notes 是一个**本地优先**的语音转笔记应用。浏览器录音或上传音频 → 本地 `whisper.cpp` 转写 → OpenAI 兼容 LLM（默认 Ollama `qwen2.5:7b-instruct`）生成结构化中文摘要 → 查看逐字稿与摘要、导出 Markdown。UI、代码注释、LLM system prompt 均为中文——改动面向用户的文案时请保持中文。
+Voice Notes 是一个**本地优先**的语音转笔记应用。浏览器录音或上传音频 → 本地转写（`whisper.cpp`，或可切换的 `sherpa-onnx` 带说话人分离）→ OpenAI 兼容 LLM（默认 Ollama `qwen2.5:7b-instruct`）生成结构化中文摘要 → 查看逐字稿与摘要、导出 Markdown。UI、代码注释、LLM system prompt 均为中文——改动面向用户的文案时请保持中文。
 
 ## 常用命令
 
@@ -24,6 +24,12 @@ node scripts/smoke-m3.mjs <音频>      # SSE 转写 + 摘要全链路
 node scripts/verify-prod.mjs         # 生产模式自检
 ```
 
+可选：sherpa-onnx 说话人分离（设置页可切换引擎；仅中文、不支持术语偏置）：
+
+```bash
+bash scripts/fetch-sherpa.sh   # 下 universal2 二进制 + 3 个 ONNX 模型到 ~/.voice-notes-models/sherpa-onnx/
+```
+
 桌面 `.dmg` 打包：先 `bash scripts/assemble-resources.sh`，再 `npm run desktop:dist` → `packages/desktop/release/`。
 
 **没有测试框架、没有 linter**——`npm run typecheck` 是唯一的静态校验关卡。全仓库 ESM（`"type": "module"`）。
@@ -41,11 +47,17 @@ npm workspaces，三个包：
 
 启动时 `sessionStore.init()` 扫描历史会话，把停在「运行中」状态的重置为 `error`（避免崩溃后留下僵尸会话）。`config.ts` 里的 `SESSION_RUNNING_STATUSES` 定义了哪些状态算「运行中」。
 
-**两条输入路径共用同一套转写内核：**
-- **批处理**（`POST /api/sessions` → `POST /:id/process`）：`pipeline/orchestrator.ts` 串行跑三阶段——`convertStage`（ffmpeg→wav）、`transcribeStage`（whisper）、`summarizeStage`（LLM），进度经 SSE（`/api/sessions/:id/events`）推送。`runPipeline` **绝不能抛错**：任何阶段失败都捕获并落成 `error` 态，前端可重试。
-- **实时**（`routes/realtime.ts` 里的 `GET /api/realtime` WebSocket）：浏览器流式上传 16kHz PCM；`pipeline/vad.ts`（`EnergyVad`）切分成句；每句用**同一个** `transcribeWavFile()` 转写并追加进逐字稿。**滚动增量摘要**并行运行（按阈值门控，用一个 promise `chain` 串行化，避免 whisper/摘要并发竞态）。收到 `stop` 时 `finalize()` 拼接全部 PCM → `audio.wav`，并跑一次高质量终版摘要。
+**转写引擎可切换（whisper / sherpa-onnx），运行时可变。** 仿 LLM preset 的覆盖模式：`config.transcription.engine`（默认 `'whisper'` fail-open）被 `store/settingsStore.ts::applyTranscriptionEngine()` 运行时覆盖——设置页切换即时生效，无需重启。`pipeline/transcribe.ts` 是分发层：`transcribeWithEngine()`（批处理）/ `transcribeUtteranceWithEngine()`（实时单句）按当前引擎选 whisper 或 sherpa。
+- **whisper**：`pipeline/whisper.ts::transcribeWavFile()` 是 whisper-cli 封装（边解析 stdout 行做流式，结束后再读 JSON）。
+- **sherpa**（带说话人分离）：`pipeline/sherpa.ts::transcribeWithDiarization()` 跑 `sherpa-onnx-offline-speaker-diarization` 切 speaker 段 → 逐段 ffmpeg 切片 + `sherpa-onnx-offline`（Paraformer）ASR → 组装 `{text, startMs, endMs, speaker}`。**两个 CLI 输出流不一致，见下方易踩坑。**
 
-两条路径都调用 `pipeline/whisper.ts::transcribeWavFile()`——唯一的 whisper-cli 封装（边解析 stdout 行做流式，结束后再读 JSON）。都调用 `pipeline/summarize.ts::postChat()`——唯一的 OpenAI 兼容 `/chat/completions` 客户端（流式 + 非流式）。
+`TranscriptSegment` 多了可选 `speaker?: number`（仅 sherpa 产出，0-based 连续）。前端按 speaker 着色彩色徽章（`speakers.ts`）；`transcribe.ts::transcriptForLLM()` 给摘要拼「说话人A：…」前缀。
+
+**两条输入路径：**
+- **批处理**（`POST /api/sessions` → `POST /:id/process`）：`pipeline/orchestrator.ts` 串行跑三阶段——`convertStage`（ffmpeg→wav）、`transcribeStage`（调 `transcribeWithEngine`；sherpa 走 stderr 的 `progress %` 推 SSE 进度，跑完批量出段）、`summarizeStage`（LLM）。`runPipeline` **绝不能抛错**：任何阶段失败都捕获并落成 `error` 态，前端可重试。
+- **实时**（`routes/realtime.ts` 里的 `GET /api/realtime` WebSocket）：浏览器流式上传 16kHz PCM；`pipeline/vad.ts`（`EnergyVad`）切分成句；每句调 `transcribeUtteranceWithEngine`（**两引擎均不出 speaker**——单句无法聚类）。**滚动增量摘要**并行运行（按阈值门控，用一个 promise `chain` 串行化，避免 whisper/摘要并发竞态）。收到 `stop` 时 `finalize()` 拼接全部 PCM → `audio.wav`：若引擎是 sherpa，对完整 audio.wav 跑一次 `transcribeWithDiarization` **回填 speaker**（覆盖裸转写，WS 推 `transcript-replaced` 整体替换），再跑一次高质量终版摘要。
+
+两条路径都调用 `pipeline/summarize.ts::postChat()`——唯一的 OpenAI 兼容 `/chat/completions` 客户端（流式 + 非流式）。
 
 **LLM 可插拔、运行时可变。** 后端只对接一个 OpenAI 兼容的 `/chat/completions` 端点。`config.ts` 在启动时从 env 构造 `config.llm`，但 `store/settingsStore.ts` 会**运行时覆盖**它：应用内设置页把预设存进 `data/settings.json`；`applyPreset()` 直接改 `config.llm.{baseUrl,apiKey,model,incrementalModel}`——无需重启。每次摘要调用都在调用时读取 `config.llm`。**终版**和**增量**的 system prompt 是 `config.ts` 里的硬编码常量（`SUMMARY_SYSTEM_PROMPT`、`INCREMENTAL_SUMMARY_SYSTEM_PROMPT`）。
 
@@ -57,6 +69,9 @@ npm workspaces，三个包：
 - `config.ts` 手写了自己的 `.env` 解析器（不依赖 `dotenv`）；进程已有的环境变量优先于文件值。
 - `runPipeline` 是 fire-and-forget（`void runPipeline(id)`）；路由立即返回 `202`。
 - 实时 WS 的增量摘要状态只在内存里；只有终版摘要会落盘到 `summary.md`。
+- **sherpa CLI 输出流反直觉**：`sherpa-onnx-offline`（ASR）把 config dump + 结果 JSON **都打到 stderr**（stdout 空）；而 `sherpa-onnx-offline-speaker-diarization` 的 speaker 行（`0.000 -- 2.530 speaker_00`）走 **stdout**、`progress %` 走 stderr。`sherpa.ts::runAsr` 解析 stderr、`runDiarization` 解析 stdout——别混。
+- **diarization CLI 不接受全局 `--num-threads`**（报 `Invalid option`），要拆 `--segmentation.num-threads` + `--embedding.num-threads`；ASR CLI 的 `--num-threads` 才是全局的。
+- **sherpa 聚类编号可能不从 0 起、不连续**（如单人 TTS 给 `speaker_01`）；`transcribeWithDiarization` 末尾重映射成连续 0-based，前端/摘要才正常。
 
 ## 前端架构
 

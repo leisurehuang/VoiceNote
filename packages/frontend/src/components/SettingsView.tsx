@@ -51,6 +51,7 @@ export function SettingsView() {
   function remove(id: string) {
     if (!settings) return;
     persist({
+      ...settings,
       activePresetId: settings.activePresetId === id ? null : settings.activePresetId,
       presets: settings.presets.filter((p) => p.id !== id),
     });
@@ -115,6 +116,33 @@ export function SettingsView() {
             <p className="muted">加载中…</p>
           ) : (
             <>
+              <div className="engine-select">
+                <h4 className="block-h">🎙️ 转写引擎</h4>
+                <p className="muted">
+                  语音转文字的本地引擎。sherpa-onnx 可区分不同说话人（逐字稿带彩色标签）；whisper.cpp 为原引擎。
+                </p>
+                <div className="segmented">
+                  <button
+                    className={settings.transcriptionEngine === 'sherpa' ? 'seg active' : 'seg'}
+                    onClick={() => persist({ ...settings, transcriptionEngine: 'sherpa' })}
+                  >
+                    sherpa-onnx（说话人分离）
+                  </button>
+                  <button
+                    className={settings.transcriptionEngine === 'whisper' ? 'seg active' : 'seg'}
+                    onClick={() => persist({ ...settings, transcriptionEngine: 'whisper' })}
+                  >
+                    whisper.cpp
+                  </button>
+                </div>
+                {settings.transcriptionEngine === 'sherpa' && (
+                  <p className="muted">
+                    ⚠️ sherpa 仅支持中文识别，且不支持术语表偏置；需先运行{' '}
+                    <code>bash scripts/fetch-sherpa.sh</code> 安装二进制与模型。
+                  </p>
+                )}
+              </div>
+
               <p className="muted">
                 配置整理总结用的模型，支持本地 Ollama 或任意 OpenAI Chat 兼容 API。<b>激活的预设</b>对所有整理总结生效。
               </p>

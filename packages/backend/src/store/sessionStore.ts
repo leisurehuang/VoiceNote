@@ -37,6 +37,8 @@ export interface TranscriptSegment {
   text: string;
   startMs: number;
   endMs: number;
+  /** 说话人编号(0-based);仅 sherpa-onnx 引擎产出,whisper 恒为 undefined。 */
+  speaker?: number;
 }
 
 export interface SessionDetail extends SessionMeta {
