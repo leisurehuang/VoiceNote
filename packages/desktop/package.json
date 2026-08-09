@@ -5,6 +5,10 @@
   "description": "Voice Notes 桌面外壳（Electron）",
   "main": "src/main.cjs",
   "author": "voice-notes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leisurehuang/VoiceNote.git"
+  },
   "scripts": {
     "dev": "npm --prefix ../.. run bundle:backend && npm --prefix ../.. run build && electron .",
     "dev:linux": "npm --prefix ../.. run bundle:backend && npm --prefix ../.. run build && electron . --no-sandbox",
