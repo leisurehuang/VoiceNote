@@ -219,7 +219,12 @@ function createWindow() {
     minHeight: 480,
     title: 'Voice Notes',
     backgroundColor: '#1d1d20',
-    webPreferences: { contextIsolation: true, sandbox: true },
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      // 添加预加载脚本以安全地暴露 API
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
   };
   if (isMac) {
     // macOS 原生标题栏：隐藏标准标题栏、保留交通灯并内嵌

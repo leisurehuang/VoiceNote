@@ -1235,3 +1235,137 @@ textarea {
   border-radius: 4px;
   background: var(--fill);
 }
+
+/* ---------- 自动更新横幅 ---------- */
+.update-banner {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.update-banner.available {
+  background: var(--fill-2);
+  border: 1px solid var(--accent);
+}
+
+.update-banner.downloading {
+  background: var(--fill-2);
+  border: 1px solid var(--warning);
+}
+
+.update-banner.downloaded {
+  background: #1a3d1a;
+  border: 1px solid #4caf50;
+}
+
+.update-banner.error {
+  background: var(--error-bg);
+  border: 1px solid var(--error);
+}
+
+.update-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.update-icon {
+  font-size: 20px;
+}
+
+.update-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.update-notes {
+  margin: 10px 0;
+  padding: 10px;
+  background: var(--fill);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.update-progress {
+  margin: 12px 0;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--fill);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.update-banner.downloading .progress-fill {
+  background: var(--warning);
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.update-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.update-actions .btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.update-actions .btn:hover {
+  opacity: 0.9;
+}
+
+.update-actions .btn.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.update-actions .btn.secondary {
+  background: var(--fill);
+  color: var(--text);
+  border: 1px solid var(--dashed);
+}
+
+.update-actions .btn.text {
+  background: transparent;
+  color: var(--text-2);
+  border: none;
+}
+
+.error-message {
+  margin: 10px 0;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.update-checking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+}

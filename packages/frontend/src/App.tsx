@@ -8,6 +8,7 @@ import { RealtimeView } from './components/RealtimeView';
 import { ProgressView } from './components/ProgressView';
 import { SessionDetail } from './components/SessionDetail';
 import { SettingsView } from './components/SettingsView';
+import { UpdateBanner } from './components/UpdateBanner';
 
 type View =
   | { name: 'new' }
@@ -71,6 +72,7 @@ export function App() {
 
   return (
     <div className="shell">
+      <UpdateBanner />
       <Sidebar
         sessions={sessions}
         activeId={activeId}
