@@ -19,9 +19,18 @@ echo "==> [1/7] 后端单文件 + 前端 dist"
 rm -rf "$RES/app/frontend-dist"
 cp -R "$ROOT/packages/frontend/dist" "$RES/app/frontend-dist"
 
-echo "==> [2/7] ollama 二进制（仅系统框架依赖，直接拷）"
-cp -fL "$(command -v ollama)" "$RES/bin/ollama"
-chmod +x "$RES/bin/ollama"
+echo "==> [2/7] ollama 二进制（从 GitHub Releases）"
+OLLAMA_VERSION="v0.32.6"
+OLLAMA_URL="https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-darwin.tgz"
+OLLAMA_TAR="$RES/bin/ollama.tgz"
+if [ -f "$RES/bin/ollama" ]; then
+  echo "    ollama 已存在"
+else
+  curl -L -o "$OLLAMA_TAR" "$OLLAMA_URL"
+  tar -xf "$OLLAMA_TAR" -C "$RES/bin/"
+  rm "$OLLAMA_TAR"
+  chmod +x "$RES/bin/ollama"
+fi
 
 echo "==> [3/7] whisper-cli + ffmpeg + ffprobe（Node 收拢 dylib + 重签）"
 rm -rf "$RES/bin/libs"

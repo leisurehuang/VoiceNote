@@ -19,7 +19,9 @@
     "desktop:dist": "npm run dist -w @voice-notes/desktop"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "^1.8.0",
     "concurrently": "^9.1.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.24.0",
     "typescript": "^5.6.3"
   }
