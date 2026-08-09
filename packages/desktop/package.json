@@ -35,10 +35,9 @@
       "output": "release"
     },
     "files": [
-      "packages/backend/dist/**",
-      "packages/frontend/dist/**",
-      "packages/desktop/src/**",
-      "resources/app/**",
+      "src/**",
+      "../backend/dist/**",
+      "../frontend/dist/**",
       "!**/*.ts",
       "!**/*.map",
       "!**/node_modules/*/{TEST,test,__tests__,tests}/**",
@@ -49,7 +48,6 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "resources/bin/**",
       "node_modules/@anthropic-ai/sdk/**"
     ],
     "mac": {
