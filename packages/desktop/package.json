@@ -115,6 +115,32 @@
     "appImage": {
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
+    "extraResources": [
+      {
+        "from": "../../resources/bin/whisper-cli${Platform_exe}",
+        "to": "bin/whisper-cli${Platform_exe}"
+      },
+      {
+        "from": "../../resources/bin/ffmpeg${Platform_exe}",
+        "to": "bin/ffmpeg${Platform_exe}"
+      },
+      {
+        "from": "../../resources/bin/ffprobe${Platform_exe}",
+        "to": "bin/ffprobe${Platform_exe}"
+      },
+      {
+        "from": "../../resources/bin/ollama${Platform_exe}",
+        "to": "bin/ollama${Platform_exe}"
+      },
+      {
+        "from": "../../resources/models/",
+        "to": "models/"
+      },
+      {
+        "from": "../../resources/ollama-models/",
+        "to": "ollama-models/"
+      }
+    ],
     "publish": {
       "provider": "github",
       "owner": "leisurehuang",
