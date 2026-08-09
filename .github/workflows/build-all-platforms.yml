@@ -159,8 +159,12 @@ jobs:
 
           # 下载 ffmpeg (使用预编译静态版本)
           curl -L -o ffmpeg.tar.xz https://github.com/BtbN/ffmpeg-builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
-          tar -xf ffmpeg.tar.xz --strip-components=1 -C resources/bin/linux
+          tar -xf ffmpeg.tar.xz
+          # 查找并复制 ffmpeg 和 ffprobe
+          find . -type f -name "ffmpeg" -exec cp {} resources/bin/linux/ \;
+          find . -type f -name "ffprobe" -exec cp {} resources/bin/linux/ \;
           rm ffmpeg.tar.xz
+          rm -rf ffmpeg*
           chmod +x resources/bin/linux/ffmpeg resources/bin/linux/ffprobe
 
           # 下载 ollama
