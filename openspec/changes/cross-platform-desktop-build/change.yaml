@@ -1,0 +1,6 @@
+name: cross-platform-desktop-build
+title: Cross-Platform Desktop Build
+status: planning
+created: 2026-08-09
+schema: spec-driven
+description: Windows/Linux/macOS 桌面应用打包，迁移到 electron-builder，实现跨平台自动更新

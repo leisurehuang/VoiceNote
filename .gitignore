@@ -10,3 +10,5 @@ data/settings.json
 # 桌面打包产物（资源、安装包）
 resources*/
 packages/desktop/release/
+.agents/
+.claude/
