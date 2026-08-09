@@ -157,9 +157,9 @@ jobs:
         run: |
           mkdir -p resources/bin/linux
 
-          # 下载 ffmpeg
-          curl -L -o ffmpeg.tar.xz https://github.com/gyan-dev/ffmpeg-linux-builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
-          tar -xf ffmpeg.tar.xz --strip-components=1 -C resources/bin/linux --wildcards "*/ffmpeg" "*/ffprobe"
+          # 下载 ffmpeg (使用预编译静态版本)
+          curl -L -o ffmpeg.tar.xz https://github.com/BtbN/ffmpeg-builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          tar -xf ffmpeg.tar.xz --strip-components=1 -C resources/bin/linux
           rm ffmpeg.tar.xz
           chmod +x resources/bin/linux/ffmpeg resources/bin/linux/ffprobe
 
