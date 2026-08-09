@@ -160,72 +160,70 @@ docker compose logs -f ollama-init
 
 > compose 里 `app` 同时写了 `build: .` 和 `image:`：本地没镜像就自动构建并打同名 tag；想直接用 CI 预构建镜像就先 `docker compose pull`。
 
-## 桌面应用（Mac .app / .dmg）
+## 桌面应用（全平台支持）
 
-可打包成**双击即用的自包含 Mac 应用**（Electron 原生窗口，arm64）。所有依赖——whisper-cli、ffmpeg、Ollama、whisper 模型、qwen2.5:7b——全部打进 app，拷到别的 Apple Silicon Mac 无需安装任何东西。
+🎉 **现已支持 Windows、Linux、macOS 全平台桌面应用！**
 
-### 打包步骤
+可打包成**双击即用的自包含应用**（Electron 原生窗口）。所有依赖——whisper-cli、ffmpeg、Ollama、whisper 模型——全部内置，无需安装任何依赖。
+
+### 📦 下载安装
+
+[**下载最新版本**](https://github.com/leisurehuang/VoiceNote/releases/latest)
+
+| 平台 | 文件格式 | 说明 |
+|------|----------|------|
+| 🪟 **Windows** | [.exe 安装程序](https://github.com/leisurehuang/VoiceNote/releases/latest) / [portable.zip](https://github.com/leisurehuang/VoiceNote/releases/latest) | NSIS 安装 / 免安装绿色版 |
+| 🐧 **Linux** | [.AppImage](https://github.com/leisurehuang/VoiceNote/releases/latest) | 通用格式，双击运行 |
+| 🍎 **macOS** | [.dmg](https://github.com/leisurehuang/VoiceNote/releases/latest) | Apple Silicon (arm64) |
+
+### 本地构建
 
 ```bash
-npm install                 # 装 electron 等
+npm install
 
-# 完整版（自带 qwen，开箱即用，~5.9GB）
-bash scripts/assemble-resources.sh
-npm run desktop:dist        # → release/Voice Notes-0.3.0-arm64.dmg
+# macOS (arm64)
+npm run dist:mac
 
-# 瘦身版（不含 qwen，首启动自动 ollama pull，~1.5GB）
-RES="$PWD/resources-slim" SLIM=1 bash scripts/assemble-resources.sh
-RES="$PWD/resources-slim" SLIM=1 npm run desktop:dist   # → release/Voice Notes-0.3.0-slim-arm64.dmg
+# Windows
+npm run dist:win
+
+# Linux
+npm run dist:linux
+
+# 全平台
+npm run dist:all
 ```
 
-- `assemble-resources.sh`：esbuild 后端单文件 + 前端 dist、拷 ollama、用 `bundle-dylibs.mjs` 收拢 whisper-cli/ffmpeg 的动态库并 ad-hoc 重签、拷 turbo 模型；完整版还从 `~/.ollama` 抽取 qwen 模型（`SLIM=1` 跳过）。可用 `RES=...` 指定输出目录。
-- `build-app.sh`（由 `desktop:dist` 调用）：拷 Electron 自带 `Electron.app` → 注入 app 代码 + resources + 图标 → 改 Info.plist → 重签 → `hdiutil` 生成可拖拽安装的 dmg。（不依赖 electron-builder，规避其原生辅助下载问题。）
-- **图标**：`scripts/make-icon.mjs` 纯 Node 生成蓝底白话筒 `.icns`，`build-app.sh` 自动注入并设 `CFBundleIconFile`。
+### 自动更新
 
-产物（`packages/desktop/release/`）：
+应用内置自动更新功能：
+- 启动时自动检查新版本
+- 后台下载更新包
+- 下载完成后提示安装重启
+- 支持跳过特定版本
 
-```
-Voice Notes-0.3.0-arm64.dmg        ~5.9GB  完整版，开箱即用
-Voice Notes-0.3.0-slim-arm64.dmg   ~1.5GB  瘦身版，首启动联网拉 qwen（~4.7GB）
-```
+可通过菜单「检查更新…」手动触发。
 
-### 自动检查更新
+### 自动构建
 
-默认关闭。发布前在 `packages/desktop/src/main.cjs` 改 `UPDATE_URL`（或构建/启动时设 `VOICE_NOTES_UPDATE_URL` 环境变量）为你托管的版本清单 JSON：
+GitHub Actions 自动构建全平台安装包：
 
-```json
-{ "version": "0.2.0", "url": "https://your.host/voice-notes-0.2.0.dmg", "note": "修复若干问题" }
-```
-
-启动时若 `version` 高于当前版本，弹窗提示并带「前往下载」按钮（未签名 app 不做静默自更新，只引导下载）。也可在菜单「Voice Notes → 检查更新…」手动触发。
-
-### 自动构建（GitHub Actions）
-
-仓库自带 `.github/workflows/build-mac.yml`：
-
-- **触发**：推送 `v*` tag → 在 `macos-14`（arm64）构建**瘦身版 dmg**，自动建/更新 Release 并挂载；也可在 Actions 页手动运行（只产 artifact）。
-- **为什么只建瘦身版**：GitHub release 单文件上限 **2GB**，完整版 ~5.9GB 挂不上；瘦身版 ~1.5GB 可挂，首启动自动拉 qwen，最适合分发。
-- whisper 模型走缓存（首次下载，之后命中）；CI 自动 `brew install whisper-cpp ffmpeg ollama`。
+- **触发**：推送 `v*` tag → 自动构建三平台安装包
+- **产物**：自动上传到 GitHub Releases
+- **架构**：Windows (x64)、Linux (x64)、macOS (arm64)
 
 发版只需：
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.4.0 && git push origin v0.4.0
 ```
-
-CI 跑完，Release 页就有 `Voice Notes-0.2.0-slim-arm64.dmg`，旧版 app 启动自动检测到。
-
-> 完整版 dmg（~5.9GB）超 release 单文件限制，无法作 release 资源——请在本地构建后走网盘/对象存储等分发。
 
 ### 分发须知
 
-- **架构**：仅 Apple Silicon（arm64）。Intel Mac 无法运行。
-- **未签名**（无 Apple 开发者账号）：收件人首次打开会被 Gatekeeper 拦，两种放行方式：
-  - 右键 app →「打开」→ 确认；或
-  - 终端执行 `xattr -cr "/Applications/Voice Notes.app"`
-- **体积**：完整版 ~5.9GB（两个模型占大头）；瘦身版 ~1.5GB，但首启动要联网拉 qwen（~4.7GB，约几分钟到十几分钟，取决于网速）。
-- **瘦身版首启动**：app 自动判断 qwen 缺失，用自带 ollama 拉到用户目录并显示进度 splash，拉完即可用（仅这一次）。
-- 启动日志在 `~/Library/Application Support/voice-notes/main.log`，排查问题看这里。
+- **macOS**：仅 Apple Silicon (arm64)，未签名需右键「打开」放行
+- **Windows**：需要 Visual C++ Redistributable（2015-2022）
+- **Linux**：AppImage 格式，添加可执行权限后运行
+- **首次启动**：需联网下载模型（约 1.5GB），完成后即可离线使用
 
 ### 桌面开发模式
 
