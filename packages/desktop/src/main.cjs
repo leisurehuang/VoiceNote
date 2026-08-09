@@ -6,6 +6,7 @@ const { fork, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
+const { initAutoUpdater, checkForUpdates: checkAutoUpdates } = require('./autoUpdater.cjs');
 
 const BACKEND_PORT = 3100;
 const OLLAMA_PORT = 11435; // 避开系统常占的 11434
@@ -177,6 +178,30 @@ async function startBackend() {
     env.OLLAMA_MODEL = OLLAMA_MODEL;
   } else {
     env.FRONTEND_DIST = path.join(projectRoot, 'packages', 'frontend', 'dist');
+    // Linux 开发模式：使用系统已安装的工具
+    if (process.platform === 'linux') {
+      // 尝试找到 whisper-cli
+      let whisperCli = process.env.WHISPER_CLI;
+      if (!whisperCli) {
+        const userWhisper = path.join(process.env.HOME || '', '.voice-notes-models', 'bin', 'whisper-cli');
+        if (fs.existsSync(userWhisper)) {
+          whisperCli = userWhisper;
+        }
+      }
+      if (whisperCli) env.WHISPER_CLI = whisperCli;
+
+      // 尝试找到 whisper 模型
+      let whisperModel = process.env.WHISPER_MODEL;
+      if (!whisperModel) {
+        const userModel = path.join(process.env.HOME || '', '.voice-notes-models', 'ggml-large-v3-turbo.bin');
+        if (fs.existsSync(userModel)) {
+          whisperModel = userModel;
+        }
+      }
+      if (whisperModel) env.WHISPER_MODEL = whisperModel;
+
+      // ffmpeg 和 ffprobe 默认在 PATH 中
+    }
   }
   backendProc = fork(backendFile, [], { env, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
   backendProc.stdout?.on('data', (d) => process.stdout.write('[backend] ' + d));
@@ -186,21 +211,24 @@ async function startBackend() {
 
 function createWindow() {
   const isMac = process.platform === 'darwin';
-  win = new BrowserWindow({
+  const isLinux = process.platform === 'linux';
+  const windowOpts = {
     width: 1080,
     height: 740,
     minWidth: 760,
     minHeight: 480,
     title: 'Voice Notes',
-    // macOS 原生标题栏：隐藏标准标题栏、保留交通灯并内嵌
-    titleBarStyle: isMac ? 'hiddenInset' : 'default',
-    trafficLightPosition: isMac ? { x: 15, y: 17 } : undefined,
-    // 毛玻璃：侧栏等透明区域透出桌面模糊
-    vibrancy: isMac ? 'under-window' : undefined,
-    visualEffectState: 'active',
     backgroundColor: '#1d1d20',
     webPreferences: { contextIsolation: true, sandbox: true },
-  });
+  };
+  if (isMac) {
+    // macOS 原生标题栏：隐藏标准标题栏、保留交通灯并内嵌
+    windowOpts.titleBarStyle = 'hiddenInset';
+    windowOpts.trafficLightPosition = { x: 15, y: 17 };
+    windowOpts.vibrancy = 'under-window';
+    windowOpts.visualEffectState = 'active';
+  }
+  win = new BrowserWindow(windowOpts);
   win.loadURL(BACKEND_URL);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(BACKEND_URL) || url.startsWith('http://127.0.0.1:')) return { action: 'allow' };
@@ -210,6 +238,9 @@ function createWindow() {
   win.on('closed', () => {
     win = null;
   });
+
+  // 初始化自动更新（使用 electron-updater）
+  initAutoUpdater(win);
 }
 
 function cmpVer(a, b) {
@@ -284,7 +315,7 @@ function buildMenu() {
     {
       label: 'Voice Notes',
       submenu: [
-        { label: '检查更新…', click: () => void checkForUpdate() },
+        { label: '检查更新…', click: () => void checkAutoUpdates() },
         { type: 'separator' },
         { role: 'quit' },
       ],

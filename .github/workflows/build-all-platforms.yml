@@ -1,0 +1,240 @@
+# Cross-Platform Desktop Build Workflow
+# 构建 Windows/Linux/macOS 桌面应用
+
+name: Build All Platforms
+
+on:
+  push:
+    tags: ['v*']          # 发布标签时触发
+    branches: ['main']    # main 分支也可触发（测试用）
+  pull_request:
+    branches: ['main']
+  workflow_dispatch:      # 允许手动触发
+
+jobs:
+  # ==================== 构建配置 ====================
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS (Apple Silicon)
+          - os: macos-14
+            platform: macos
+            arch: arm64
+            slim: true
+
+          # Windows (x64)
+          - os: windows-2022
+            platform: windows
+            arch: x64
+            slim: true
+
+          # Linux (x64)
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+            slim: true
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # ==================== 代码检出 ====================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # ==================== 环境设置 ====================
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # ==================== 安装依赖 ====================
+      - name: Install dependencies
+        run: npm ci
+
+      # ==================== 构建前端 ====================
+      - name: Build frontend
+        run: npm run build --workspace=@voice-notes/frontend
+
+      # ==================== 构建后端 ====================
+      - name: Build backend
+        run: npm run bundle:backend
+
+      # ==================== 平台特定步骤 ====================
+
+      # macOS: 安装系统依赖
+      - name: Install macOS dependencies
+        if: matrix.platform == 'macos'
+        run: |
+          brew install whisper-cpp ffmpeg ollama
+          brew list ffmpeg
+
+      # Windows: 下载预编译二进制
+      - name: Download Windows binaries
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          # 创建 bin 目录
+          New-Item -ItemType Directory -Force -Path resources/bin/windows
+
+          # 下载 ffmpeg
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile ffmpeg.zip
+          Expand-Archive -Path ffmpeg.zip -DestinationPath temp_ffmpeg
+          Copy-Item temp_ffmpeg\ffmpeg-master-latest-win64-gpl\bin\*.exe resources/bin/windows/
+          Remove-Item -Recurse -Force ffmpeg.zip, temp_ffmpeg
+
+          # 下载 ollama
+          Invoke-WebRequest -Uri "https://ollama.com/download/ollama-windows-amd64.zip" -OutFile ollama.zip
+          Expand-Archive -Path ollama.zip -DestinationPath resources/bin/windows
+          Remove-Item ollama.zip
+
+      # Windows: 编译 whisper.cpp
+      - name: Build whisper.cpp (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          # 克隆仓库
+          if (-not (Test-Path .deps/whisper.cpp)) {
+            git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git .deps/whisper.cpp
+          }
+
+          # 构建
+          cmake -S .deps/whisper.cpp -B .build/whisper -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_SERVER=OFF -DWHISPER_BUILD_TESTS=OFF
+          cmake --build .build/whisper --config Release
+
+          # 复制二进制
+          Copy-Item .build/whisper/bin/Release/whisper-cli.exe resources/bin/windows/ -ErrorAction SilentlyContinue
+          if (-not $?) {
+            Copy-Item .build/whisper/bin/whisper-cli.exe resources/bin/windows/
+          }
+
+      # Linux: 安装构建依赖
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            git \
+            curl \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswresample-dev
+
+      # Linux: 编译 whisper.cpp
+      - name: Build whisper.cpp (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          # 克隆仓库
+          if [ ! -d .deps/whisper.cpp ]; then
+            git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git .deps/whisper.cpp
+          fi
+
+          # 构建
+          cmake -B .build/whisper -S .deps/whisper.cpp \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_SERVER=OFF \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+
+          cmake --build .build/whisper -j$(nproc)
+
+          # 复制二进制
+          mkdir -p resources/bin/linux
+          cp .build/whisper/bin/whisper-cli resources/bin/linux/
+          chmod +x resources/bin/linux/whisper-cli
+
+      # Linux: 下载其他二进制
+      - name: Download Linux binaries
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p resources/bin/linux
+
+          # 下载 ffmpeg
+          curl -L -o ffmpeg.tar.xz https://github.com/gyan-dev/ffmpeg-linux-builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          tar -xf ffmpeg.tar.xz --strip-components=1 -C resources/bin/linux --wildcards "*/ffmpeg" "*/ffprobe"
+          rm ffmpeg.tar.xz
+          chmod +x resources/bin/linux/ffmpeg resources/bin/linux/ffprobe
+
+          # 下载 ollama
+          curl -L -o resources/bin/linux/ollama https://ollama.com/download/ollama-linux-amd64
+          chmod +x resources/bin/linux/ollama
+
+      # ==================== 准备资源 ====================
+      - name: Prepare resources
+        run: |
+          mkdir -p resources/bin
+          mkdir -p resources/models
+          mkdir -p resources/app/frontend-dist
+
+          # 复制前端构建产物
+          cp -r packages/frontend/dist resources/app/
+
+          # 下载/复制 whisper 模型（slim 模式跳过大模型）
+          if [ "${{ matrix.slim }}" = "true" ]; then
+            echo "Slim mode: skipping large model download"
+          fi
+
+        shell: bash
+
+      # ==================== 使用 electron-builder 打包 ====================
+      - name: Build with electron-builder
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run dist --workspace=@voice-notes/desktop
+
+      # ==================== 上传产物 ====================
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-notes-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.slim && '-slim' || '' }}
+          path: |
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.AppImage
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ==================== 发布到 Release ====================
+  release:
+    name: Publish Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.zip
+            artifacts/**/*.AppImage
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

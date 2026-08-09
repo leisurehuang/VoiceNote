@@ -66,6 +66,9 @@ export interface LlmConfig {
   incrementalModel: string;
   incrementalThresholdChars: number;
   incrementalMinIntervalMs: number;
+  // —— 输入长度限制（防止超过模型上下文窗口）——
+  /** 单次摘要允许的最大输入字符数。超出时从尾部截取（最新内容优先），避免超过上下文窗口。 */
+  maxTranscriptChars: number;
 }
 
 export interface AppConfig {
@@ -108,9 +111,16 @@ function fileAccessible(p: string): boolean {
 
 function resolveWhisperCli(): string {
   if (process.env.WHISPER_CLI) return process.env.WHISPER_CLI;
-  const prefix = shell('brew --prefix whisper-cpp');
+  // 首先检查 PATH 中是否有 whisper-cli
+  const fromPath = which('whisper-cli');
+  if (fromPath) return fromPath;
+  // 检查 Linux 安装脚本的默认位置
+  const userInstalled = join(process.env.HOME ?? '', '.voice-notes-models', 'bin', 'whisper-cli');
+  if (fileAccessible(userInstalled)) return userInstalled;
+  // 检查 macOS Homebrew 位置作为后备
+  const prefix = shell('brew --prefix whisper-cpp 2>/dev/null');
   if (prefix) return `${prefix}/bin/whisper-cli`;
-  // Apple Silicon 默认安装位置
+  // macOS Apple Silicon 默认安装位置
   return '/opt/homebrew/opt/whisper-cpp/bin/whisper-cli';
 }
 
@@ -215,6 +225,7 @@ export const config: AppConfig = {
       process.env.OLLAMA_INCREMENTAL_MODEL ?? process.env.OLLAMA_MODEL ?? 'qwen2.5:7b-instruct',
     incrementalThresholdChars: Number(process.env.INCREMENTAL_THRESHOLD_CHARS ?? 280),
     incrementalMinIntervalMs: Number(process.env.INCREMENTAL_MIN_INTERVAL_MS ?? 8000),
+    maxTranscriptChars: Number(process.env.MAX_TRANSCRIPT_CHARS ?? 15000),
   },
 };
 

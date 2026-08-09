@@ -1,0 +1,169 @@
+# VoiceNote Electron Builder 配置
+# 全平台桌面应用打包配置
+
+appId: com.voicenotes.app
+productName: Voice Notes
+copyright: Copyright © 2026 leisurehuang
+artifactName: "${productName}-${version}-${arch}.${ext}"
+
+directories:
+  buildResources: resources
+  output: packages/desktop/release
+  buildResourcesRelativePath: resources
+
+# 文件包含/排除规则
+files:
+  - "packages/backend/dist/**"           # 后端单文件
+  - "packages/frontend/dist/**"          # 前端构建产物
+  - "packages/desktop/src/**"            # Electron 主进程
+  - "resources/app/**"                   # app 资源（前端 dist）
+  - "!**/*.ts"                            # 排除 TypeScript 源文件
+  - "!**/*.map"                           # 排除 sourcemap
+  - "!**/node_modules/*/{TEST,test,__tests__,tests}/**"  # 排除测试
+  - "!**/node_modules/.github"
+  - "!**/*.md"
+  - "!**/.env*"
+  - "!**/.*"
+
+# asar 打包配置
+asar: true
+asarUnpack:
+  - "resources/bin/**"                    # 二进制文件不打包进 asar
+  - "node_modules/@anthropic-ai/sdk/**"  # 如果需要
+
+# ==================== macOS 配置 ====================
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        # - x64  # 预留 Intel 支持，暂不构建
+  category: public.app-category.utilities
+  icon: packages/desktop/build/icon.icns
+  minimumSystemVersion: "11.0"           # Big Sur 最低
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: packages/desktop/build/entitlements.mac.plist
+  entitlementsInherit: packages/desktop/build/entitlements.mac.plist
+
+# macOS DMG 特定配置
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+  sign: false                             # 预留签名配置
+  background: null
+
+# ==================== Windows 配置 ====================
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: packages/desktop/build/icon.ico
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+# Windows NSIS 安装程序配置
+nsis:
+  oneClick: false                         # 允许自定义安装路径
+  allowToChangeInstallationDirectory: true
+  perMachine: false                       # 用户级安装（不需要管理员）
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Voice Notes
+
+  # 安装程序 UI
+  installerIcon: packages/desktop/build/icon.ico
+  uninstallerIcon: packages/desktop/build/icon.ico
+
+  # 许可证（如果有）
+  license: null
+
+  # 预留签名配置
+  signDlls: false
+  signAndEditExecutable: false
+
+# Windows Portable 配置
+portable:
+  artifactName: "${productName}-${version}-portable.${ext}"
+
+# ==================== Linux 配置 ====================
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: packages/desktop/build/icons
+  category: "AudioVideo;Audio;Recorder"
+  description: "本地语音转笔记应用"
+  synopsis: "Local-first speech-to-notes app"
+
+  # 桌面集成
+  desktop:
+    StartupWMClass: Voice Notes
+    Keywords: "audio;transcription;speech;notes;"
+
+# Linux AppImage 特定配置
+appImage:
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+  license: null
+  category: "Audio"
+
+# ==================== 通用发布配置 ====================
+publish:
+  provider: github
+  owner: leisurehuang
+  repo: VoiceNote
+  # 发布前自动发布到 GitHub Releases
+
+# ==================== 额外资源 ====================
+extraResources:
+  - from: "resources/bin/whisper-cli${Platform_exe}"
+    to: "bin/whisper-cli${Platform_exe}"
+  - from: "resources/bin/ffmpeg${Platform_exe}"
+    to: "bin/ffmpeg${Platform_exe}"
+  - from: "resources/bin/ffprobe${Platform_exe}"
+    to: "bin/ffprobe${Platform_exe}"
+  - from: "resources/bin/ollama${Platform_exe}"
+    to: "bin/ollama${Platform_exe}"
+  - from: "resources/models/"
+    to: "models/"
+  - from: "resources/ollama-models/"
+    to: "ollama-models/"
+
+# ==================== 打包后钩子 ====================
+afterPack: scripts/after-pack.cjs
+afterSign: scripts/after-sign.cjs        # 预留签名钩子
+beforePack: scripts/before-pack.cjs       # 预留前置钩子
+
+# ==================== 构建优化 ====================
+# 减小包体积
+compression: maximum
+# node_modules 只打包必要的
+nodeGypRebuild: false
+# npm rebuild 跳过
+npmRebuild: false
+
+# ==================== 开发配置 ====================
+# 构建时显示详细输出
+extends: null
+
+# ==================== 元数据 ====================
+metadata:
+  description: "本地运行的语音转笔记应用"
+  keywords:
+    - voice
+    - transcription
+    - whisper
+    - ollama
+    - privacy

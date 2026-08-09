@@ -7,9 +7,22 @@
   "author": "voice-notes",
   "scripts": {
     "dev": "npm --prefix ../.. run bundle:backend && npm --prefix ../.. run build && electron .",
-    "dist": "bash ../../scripts/build-app.sh"
+    "dev:linux": "npm --prefix ../.. run bundle:backend && npm --prefix ../.. run build && electron . --no-sandbox",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac",
+    "dist:all": "electron-builder --win --linux --mac"
   },
   "devDependencies": {
-    "electron": "33.4.11"
+    "electron": "33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0",
+    "electron-log": "^5.2.0"
+  },
+  "build": {
+    "extends": null
   }
 }

@@ -85,7 +85,30 @@ SSE 在 `components/ProgressView.tsx` 消费；实时 WS 在 `hooks/useRealtime.
 
 `packages/desktop/src/main.cjs` 是 Electron 主进程。它 **fork `backend.cjs`**（esbuild 打出的 bundle）到端口 `3100`，并在打包态另起一个自带 `ollama serve` 在 `11435`（避开系统常占的 `11434`）。`isPackaged` 靠检查自带 `vn/bin/ollama` 是否存在来判断——**而非** `app.isPackaged`，因为 app 代码放在 `Resources/app`（非 asar），`app.isPackaged` 不可靠。瘦身版检测到 qwen 缺失时，首启动会 `ollama pull` 并带进度 splash。
 
-`scripts/assemble-resources.sh` 收拢全部资源（esbuild 后端、拷 ollama、用 bundle-dylibs 收拢 whisper-cli/ffmpeg 动态库并重签、拷模型）；`scripts/build-app.sh` 拿 Electron 自带的 `Electron.app` 注入资源/图标后生成 `.dmg`——刻意避开 `electron-builder`。仅支持 Apple Silicon（arm64）；app 未签名。
+### 跨平台构建（electron-builder）
+
+项目使用 electron-builder 实现跨平台打包：
+- `electron-builder.yml` - 统一构建配置（Windows NSIS/portable、Linux AppImage、macOS DMG）
+- `scripts/assemble-resources.sh` - 准备自包含资源（二进制、模型）
+- `scripts/before-pack.cjs` - 打包前平台检测
+- `scripts/after-pack.cjs` - 打包后设置权限、macOS 重签名
+
+```bash
+npm run desktop:dist        # 构建当前平台
+npm run dist:win            # Windows
+npm run dist:linux          # Linux
+npm run dist:mac            # macOS
+```
+
+### 自动更新
+
+`packages/desktop/src/autoUpdater.cjs` 使用 electron-updater 实现自动更新：
+- 启动时检查更新（GitHub Releases）
+- 后台下载更新包
+- 下载完成后提示安装
+- 支持"跳过版本"
+
+更新源通过 `electron-builder.yml` 的 `publish` 配置或环境变量 `VOICE_NOTES_UPDATE_URL` 指定。
 
 ## 端口速查
 - `3000` — 后端（开发 + 生产 web）
@@ -93,3 +116,17 @@ SSE 在 `components/ProgressView.tsx` 消费；实时 WS 在 `hooks/useRealtime.
 - `3100` — Electron 下运行的后端
 - `11434` — 系统 Ollama（开发）
 - `11435` — Electron 自带的 Ollama
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default triage label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout (CONTEXT.md at repo root, docs/adr/ for ADRs). See `docs/agents/domain.md`.

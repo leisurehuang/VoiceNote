@@ -1,5 +1,18 @@
 import { config } from '../config.js';
 
+/** 截断文本到最大长度，优先保留尾部（最新内容）。 */
+function truncateToMaxLength(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  // 从尾部截取，并添加省略标记
+  const truncated = text.slice(-maxChars);
+  // 尝试在第一个换行符后截断，避免截断句子
+  const firstNewlineIndex = truncated.indexOf('\n');
+  if (firstNewlineIndex > 0 && firstNewlineIndex < 100) {
+    return truncated.slice(firstNewlineIndex + 1);
+  }
+  return truncated;
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -99,10 +112,12 @@ export async function summarize(transcript: string, opts: SummarizeOptions = {})
     systemPrompt +=
       '\n\n文中可能出现的专有名词（请正确沿用、不要改写）：' + config.whisper.glossary.join('、');
   }
+  // 截断输入以避免超过上下文窗口
+  const truncatedTranscript = truncateToMaxLength(transcript, config.llm.maxTranscriptChars);
   const text = await postChat(
     [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: transcript },
+      { role: 'user', content: truncatedTranscript },
     ],
     { model, stream: !!opts.onToken, onToken: opts.onToken },
   );
@@ -131,10 +146,12 @@ export async function summarizeIncremental(
   const systemPrompt = opts.systemPrompt ?? config.llm.incrementalSummarySystemPrompt;
   const draft = prevSummary.trim() ? prevSummary.trim() : '（暂无）';
   const userContent = `【当前已有草稿】\n${draft}\n\n【本次新增转写文本】\n${newText}`;
+  // 截断输入以避免超过上下文窗口
+  const truncatedContent = truncateToMaxLength(userContent, config.llm.maxTranscriptChars);
   const text = await postChat(
     [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
+      { role: 'user', content: truncatedContent },
     ],
     { model, stream: !!opts.onToken, onToken: opts.onToken },
   );
