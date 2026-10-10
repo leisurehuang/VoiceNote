@@ -295,7 +295,9 @@ jobs:
           done
 
       # ==================== 上传产物 ====================
-      - name: Upload artifacts
+      # windows 的打包输出在 C:/vn-release（绝对路径），单独上传（一个 artifact 不能混两种根目录）
+      - name: Upload artifacts (mac/linux)
+        if: matrix.platform != 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: Voice-Notes-${{ matrix.platform }}-${{ matrix.arch }}
@@ -305,6 +307,15 @@ jobs:
             packages/desktop/release/*.exe
             packages/desktop/release/*.AppImage
             packages/desktop/release/latest*.yml
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload artifacts (windows)
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voice-Notes-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
             C:/vn-release/*.exe
             C:/vn-release/latest*.yml
           retention-days: 7
