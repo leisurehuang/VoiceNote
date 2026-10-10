@@ -122,6 +122,13 @@ jobs:
           Copy-Item temp_ollama/ollama.exe resources/bin/
           if (Test-Path temp_ollama/lib) { Copy-Item -Recurse -Force temp_ollama/lib resources/bin/ }
           Remove-Item -Recurse -Force ollama.zip, temp_ollama
+          # 剔除 GPU runner（cuda/rocm/vulkan ~1GB+）：ollama 回落 CPU 推理，
+          # 否则 NSIS 中间 7z 超 2GB，makensis mmap 失败
+          if (Test-Path resources/bin/lib/ollama) {
+            Get-ChildItem resources/bin/lib/ollama -Directory |
+              Where-Object { $_.Name -match '^(cuda|rocm|vulkan|mlx)' } |
+              Remove-Item -Recurse -Force
+          }
           Get-ChildItem resources/bin | Select-Object Name, Length
 
       - name: Windows — build whisper.cpp

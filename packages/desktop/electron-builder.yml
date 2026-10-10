@@ -7,6 +7,8 @@ directories:
 # NSIS bundle 3.12（>2GB 安装包支持）。不设置会用 legacy NSIS 3.0.4.1，超大载荷 makensis mmap 失败
 toolsets:
   nsis: "1.2.1"
+# 最大压缩：Windows 载荷 ~3GB，需把中间 7z 压到 2GB 以内（makensis 对单个 >2GB 文件 mmap 会失败）
+compression: maximum
 # 只打包桌面外壳代码；后端单文件 / 前端 dist / 二进制 / 模型都走 extraResources
 files:
   - src/**
@@ -56,6 +58,8 @@ linux:
     - target: AppImage
       arch: x64
   icon: build/icons
+  # eb26 校验可执行名不能含 @ 等字符（默认取包名 @voice-notes/desktop 会被拒）
+  executableName: voice-notes
   category: AudioVideo;Audio;Recorder
   description: 本地语音转笔记应用
   synopsis: Local-first speech-to-notes app
