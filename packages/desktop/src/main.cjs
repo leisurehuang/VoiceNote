@@ -13,6 +13,8 @@ const OLLAMA_PORT = 11435; // 避开系统常占的 11434
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b-instruct';
 const VER = app.getVersion();
+// Windows 上的自带二进制带 .exe 后缀
+const EXE = process.platform === 'win32' ? '.exe' : '';
 // 自动检查更新：默认查 GitHub 仓库的最新 release（发布带 tag 的 release 即触发；无 release 静默跳过）。
 // 也可用 VOICE_NOTES_UPDATE_URL 覆盖成自托管的清单 JSON（{version,url,note?}）。
 const UPDATE_URL =
@@ -21,7 +23,7 @@ const UPDATE_URL =
 
 // 注意：app.isPackaged 在「代码放在 Resources/app 文件夹（非 app.asar）」时为 false，不可靠。
 // 改用是否存在自带 resources 目录来判断打包态。
-const isPackaged = fs.existsSync(path.join(process.resourcesPath, 'vn', 'bin', 'ollama'));
+const isPackaged = fs.existsSync(path.join(process.resourcesPath, 'vn', 'bin', 'ollama' + EXE));
 const projectRoot = isPackaged ? null : path.resolve(app.getAppPath(), '..', '..');
 
 let ollamaProc = null;
@@ -87,7 +89,7 @@ function waitUrl(url, timeoutMs) {
 
 async function startOllama() {
   if (!isPackaged) return; // dev：用系统 ollama
-  const bin = resPath('bin', 'ollama');
+  const bin = resPath('bin', 'ollama' + EXE);
   logf('ollama bin: ' + bin + ' exists=' + fs.existsSync(bin));
   ollamaProc = spawn(bin, ['serve'], {
     env: {
@@ -125,7 +127,7 @@ async function ensureQwenModel() {
   logf('qwen 缺失，开始 ollama pull ' + OLLAMA_MODEL);
   const splash = createSplash('准备中…');
   await new Promise((resolve) => {
-    const p = spawn(resPath('bin', 'ollama'), ['pull', OLLAMA_MODEL], {
+    const p = spawn(resPath('bin', 'ollama' + EXE), ['pull', OLLAMA_MODEL], {
       env: {
         ...process.env,
         OLLAMA_HOST: `127.0.0.1:${OLLAMA_PORT}`,
@@ -170,10 +172,10 @@ async function startBackend() {
   };
   if (isPackaged) {
     env.FRONTEND_DIST = resPath('app', 'frontend-dist');
-    env.WHISPER_CLI = resPath('bin', 'whisper-cli');
+    env.WHISPER_CLI = resPath('bin', 'whisper-cli' + EXE);
     env.WHISPER_MODEL = resPath('models', 'ggml-large-v3-turbo.bin');
-    env.FFMPEG = resPath('bin', 'ffmpeg');
-    env.FFPROBE = resPath('bin', 'ffprobe');
+    env.FFMPEG = resPath('bin', 'ffmpeg' + EXE);
+    env.FFPROBE = resPath('bin', 'ffprobe' + EXE);
     env.OLLAMA_BASE_URL = `http://127.0.0.1:${OLLAMA_PORT}/v1`;
     env.OLLAMA_MODEL = OLLAMA_MODEL;
   } else {

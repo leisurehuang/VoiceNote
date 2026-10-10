@@ -20,16 +20,27 @@ rm -rf "$RES/app/frontend-dist"
 cp -R "$ROOT/packages/frontend/dist" "$RES/app/frontend-dist"
 
 echo "==> [2/7] ollama 二进制（从 GitHub Releases）"
-OLLAMA_VERSION="v0.32.6"
-OLLAMA_URL="https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-darwin.tgz"
-OLLAMA_TAR="$RES/bin/ollama.tgz"
-if [ -f "$RES/bin/ollama" ]; then
-  echo "    ollama 已存在"
-else
-  curl -L -o "$OLLAMA_TAR" "$OLLAMA_URL"
-  tar -xf "$OLLAMA_TAR" -C "$RES/bin/"
-  rm "$OLLAMA_TAR"
+OLLAMA_VERSION="${OLLAMA_VERSION:-v0.32.6}"
+if [ ! -f "$RES/bin/ollama" ]; then
+  OLLAMA_URL="https://github.com/ollama/ollama/releases/download/${OLLAMA_VERSION}/ollama-darwin.tgz"
+  OLLAMA_TMP="$(mktemp -d)"
+  curl -fL --retry 5 -o "$OLLAMA_TMP/ollama.tgz" "$OLLAMA_URL"
+  tar -xf "$OLLAMA_TMP/ollama.tgz" -C "$OLLAMA_TMP"
+  # 压缩包内布局可能是 bin/ollama 或根级 ollama，统一查找后平铺；
+  # lib/ollama（GPU/CPU runner）放到二进制同级，ollama 三平台都会在同级 lib/ollama 查找
+  OLLAMA_BIN="$(find "$OLLAMA_TMP" -type f -name ollama | head -1)"
+  [ -n "$OLLAMA_BIN" ] || { echo "    ✗ 压缩包内未找到 ollama 二进制"; exit 1; }
+  cp "$OLLAMA_BIN" "$RES/bin/ollama"
   chmod +x "$RES/bin/ollama"
+  OLLAMA_LIB="$(dirname "$OLLAMA_BIN")/lib"
+  [ -d "$OLLAMA_LIB" ] || OLLAMA_LIB="$(dirname "$(dirname "$OLLAMA_BIN")")/lib"
+  if [ -d "$OLLAMA_LIB" ]; then
+    mkdir -p "$RES/bin/lib"
+    cp -R "$OLLAMA_LIB/." "$RES/bin/lib/"
+  fi
+  rm -rf "$OLLAMA_TMP"
+else
+  echo "    ollama 已存在"
 fi
 
 echo "==> [3/7] whisper-cli + ffmpeg + ffprobe（Node 收拢 dylib + 重签）"

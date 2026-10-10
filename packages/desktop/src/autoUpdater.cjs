@@ -19,7 +19,7 @@ const skippedVersionsPath = path.join(app.getPath('userData'), 'skipped-versions
 /**
  * 读取跳过的版本列表
  */
-function getSkippedVersions(): string[] {
+function getSkippedVersions() {
   try {
     const data = fs.readFileSync(skippedVersionsPath, 'utf-8');
     return JSON.parse(data);
@@ -31,7 +31,7 @@ function getSkippedVersions(): string[] {
 /**
  * 保存跳过的版本列表
  */
-function saveSkippedVersions(versions: string[]): void {
+function saveSkippedVersions(versions) {
   try {
     fs.writeFileSync(skippedVersionsPath, JSON.stringify(versions, null, 2));
   } catch (err) {
@@ -42,7 +42,7 @@ function saveSkippedVersions(versions: string[]): void {
 /**
  * 检查版本是否被跳过
  */
-function isVersionSkipped(version: string): boolean {
+function isVersionSkipped(version) {
   const skipped = getSkippedVersions();
   return skipped.includes(version);
 }
@@ -50,7 +50,7 @@ function isVersionSkipped(version: string): boolean {
 /**
  * 跳过指定版本
  */
-function skipVersion(version: string): void {
+function skipVersion(version) {
   const skipped = getSkippedVersions();
   if (!skipped.includes(version)) {
     skipped.push(version);
@@ -62,7 +62,7 @@ function skipVersion(version: string): void {
 /**
  * 清除跳过的版本（用于测试或用户手动重置）
  */
-function clearSkippedVersions(): void {
+function clearSkippedVersions() {
   try {
     fs.unlinkSync(skippedVersionsPath);
     log.info('已清除所有跳过的版本');

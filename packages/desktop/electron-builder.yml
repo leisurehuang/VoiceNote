@@ -25,3 +25,40 @@ mac:
     - target: zip
       arch: arm64
   artifactName: ${productName}-${version}-${arch}.${ext}
+
+# ==================== Windows ====================
+win:
+  target:
+    - target: nsis
+      arch: x64
+    - target: portable
+      arch: x64
+  icon: build/icon.ico
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Voice Notes
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+# ==================== Linux ====================
+linux:
+  target:
+    - target: AppImage
+      arch: x64
+  icon: build/icons
+  category: AudioVideo;Audio;Recorder
+  description: 本地语音转笔记应用
+  synopsis: Local-first speech-to-notes app
+  desktop:
+    StartupWMClass: Voice Notes
+    Keywords: audio;transcription;speech;notes;
+
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}

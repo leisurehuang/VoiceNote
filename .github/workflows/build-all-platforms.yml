@@ -1,6 +1,10 @@
-# Cross-Platform Desktop Build Workflow
-# 构建 Windows/Linux/macOS 桌面应用
-
+# 全平台桌面构建：macOS（dmg/zip）· Windows（NSIS/portable）· Linux（AppImage）
+#
+# 打包走 packages/desktop/electron-builder.yml（唯一构建配置）。
+# resources/ 被 gitignore，CI 现场组装：三平台统一布局 resources/bin/<name>[.exe]（平铺）+
+# resources/bin/lib/ollama（ollama runner）+ resources/app/{backend.cjs,frontend-dist} +
+# resources/models/ggml-large-v3-turbo.bin（whisper 转写模型，三平台都带）。
+# qwen 摘要模型不内置（瘦身版）：首启动由 app 内置 ollama 自动 pull。
 name: Build All Platforms
 
 on:
@@ -11,8 +15,11 @@ on:
     branches: ['main']
   workflow_dispatch:      # 允许手动触发
 
+permissions:
+  contents: write # release job 创建 release / 上传资产
+
 jobs:
-  # ==================== 构建配置 ====================
+  # ==================== 三平台构建 ====================
   build:
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
     strategy:
@@ -23,204 +30,208 @@ jobs:
           - os: macos-14
             platform: macos
             arch: arm64
-            slim: true
-
           # Windows (x64)
           - os: windows-2022
             platform: windows
             arch: x64
-            slim: true
-
           # Linux (x64)
           - os: ubuntu-22.04
             platform: linux
             arch: x64
-            slim: true
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
 
     steps:
-      # ==================== 代码检出 ====================
+      # ==================== 代码检出 + 环境 ====================
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      # ==================== 环境设置 ====================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      # ==================== 安装依赖 ====================
       - name: Install dependencies
         run: npm ci
 
-      # ==================== 构建前端 ====================
+      # 构建前端（mac 平台 assemble-resources.sh 内部也会再跑一次，这里统一保证三平台都有 dist）
       - name: Build frontend
         run: npm run build --workspace=@voice-notes/frontend
 
-      # ==================== 构建后端 ====================
-      - name: Build backend
-        run: npm run bundle:backend
+      # tag 构建时把版本号写进 package.json（app.getVersion / electron-updater 用）。
+      # 放在 npm ci 之后，避免改 package.json 导致 lockfile 校验失败。
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          VER="${TAG_NAME#v}"
+          echo "version=$VER"
+          node -e 'const fs=require("fs");for(const p of["package.json","packages/desktop/package.json"]){const j=JSON.parse(fs.readFileSync(p,"utf8"));j.version=process.env.TAG_NAME.replace(/^v/,"");fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")}'
 
-      # ==================== 平台特定步骤 ====================
+      # ==================== whisper turbo 模型（三平台共用，~1.5GB，缓存）====================
+      - name: Cache whisper model
+        id: wmodel
+        uses: actions/cache@v4
+        with:
+          path: ~/.voice-notes-models
+          key: whisper-turbo-2026-06
 
-      # macOS: 安装系统依赖
-      - name: Install macOS dependencies
+      - name: Download whisper model
+        if: steps.wmodel.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.voice-notes-models"
+          F="$HOME/.voice-notes-models/ggml-large-v3-turbo.bin"
+          for U in \
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin" \
+            "https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"; do
+            echo "下载尝试：$U"
+            if curl -fL --retry 8 --retry-delay 5 -C - -o "$F" "$U"; then echo "✓ 下载成功"; break; fi
+            echo "✗ 该源失败，换下一个"
+          done
+          ls -lh "$F" || { echo "所有源均失败"; exit 1; }
+
+      # ==================== macOS：brew 二进制 + dylib 收拢 + 官方 ollama ====================
+      - name: macOS — assemble resources
         if: matrix.platform == 'macos'
         run: |
-          brew install whisper-cpp ffmpeg ollama
-          brew list ffmpeg
+          brew install whisper-cpp ffmpeg
+          RES="$PWD/resources" SLIM=1 bash scripts/assemble-resources.sh
 
-      # Windows: 下载预编译二进制
-      - name: Download Windows binaries
+      # ==================== Windows：下载 ffmpeg/ollama + 编译 whisper.cpp ====================
+      - name: Windows — download ffmpeg & ollama
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          # 创建 bin 目录
-          New-Item -ItemType Directory -Force -Path resources/bin/windows
+          New-Item -ItemType Directory -Force -Path resources/bin | Out-Null
 
-          # 下载 ffmpeg
+          # ffmpeg 静态构建（含 ffprobe）
           Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile ffmpeg.zip
           Expand-Archive -Path ffmpeg.zip -DestinationPath temp_ffmpeg
-          Copy-Item temp_ffmpeg\ffmpeg-master-latest-win64-gpl\bin\*.exe resources/bin/windows/
+          Copy-Item temp_ffmpeg/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe resources/bin/
+          Copy-Item temp_ffmpeg/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe resources/bin/
           Remove-Item -Recurse -Force ffmpeg.zip, temp_ffmpeg
 
-          # 下载 ollama
-          Invoke-WebRequest -Uri "https://ollama.com/download/ollama-windows-amd64.zip" -OutFile ollama.zip
-          Expand-Archive -Path ollama.zip -DestinationPath resources/bin/windows
-          Remove-Item ollama.zip
+          # ollama：解出 ollama.exe + lib/ollama（runner 放二进制同级 lib/ollama，官方查找规则覆盖）
+          Invoke-WebRequest -Uri "https://github.com/ollama/ollama/releases/download/v0.32.6/ollama-windows-amd64.zip" -OutFile ollama.zip
+          Expand-Archive -Path ollama.zip -DestinationPath temp_ollama
+          Copy-Item temp_ollama/ollama.exe resources/bin/
+          if (Test-Path temp_ollama/lib) { Copy-Item -Recurse -Force temp_ollama/lib resources/bin/ }
+          Remove-Item -Recurse -Force ollama.zip, temp_ollama
+          Get-ChildItem resources/bin | Select-Object Name, Length
 
-      # Windows: 编译 whisper.cpp
-      - name: Build whisper.cpp (Windows)
+      - name: Windows — build whisper.cpp
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          # 克隆仓库
           if (-not (Test-Path .deps/whisper.cpp)) {
             git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git .deps/whisper.cpp
           }
-
-          # 构建
-          cmake -S .deps/whisper.cpp -B .build/whisper -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_SERVER=OFF -DWHISPER_BUILD_TESTS=OFF
+          cmake -S .deps/whisper.cpp -B .build/whisper `
+            -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_SERVER=OFF -DWHISPER_BUILD_TESTS=OFF `
+            -DGGML_NATIVE=OFF
           cmake --build .build/whisper --config Release
+          New-Item -ItemType Directory -Force -Path resources/bin | Out-Null
+          $exe = @(".build/whisper/bin/Release/whisper-cli.exe", ".build/whisper/bin/whisper-cli.exe") |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) { throw "whisper-cli.exe 未找到，编译失败" }
+          Copy-Item $exe resources/bin/
+          Write-Host "copied $exe"
 
-          # 复制二进制
-          Copy-Item .build/whisper/bin/Release/whisper-cli.exe resources/bin/windows/ -ErrorAction SilentlyContinue
-          if (-not $?) {
-            Copy-Item .build/whisper/bin/whisper-cli.exe resources/bin/windows/
-          }
-
-      # Linux: 安装构建依赖
-      - name: Install Linux build dependencies
+      # ==================== Linux：编译 whisper.cpp + 下载 ffmpeg/ollama ====================
+      - name: Linux — build whisper.cpp
         if: matrix.platform == 'linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            git \
-            curl \
-            libavcodec-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswresample-dev
-
-      # Linux: 编译 whisper.cpp
-      - name: Build whisper.cpp (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          # 克隆仓库
           if [ ! -d .deps/whisper.cpp ]; then
             git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git .deps/whisper.cpp
           fi
-
-          # 构建
           cmake -B .build/whisper -S .deps/whisper.cpp \
             -DBUILD_SHARED_LIBS=OFF \
             -DWHISPER_BUILD_SERVER=OFF \
             -DWHISPER_BUILD_TESTS=OFF \
+            -DGGML_NATIVE=OFF \
             -DCMAKE_BUILD_TYPE=Release
+          cmake --build .build/whisper -j"$(nproc)"
+          mkdir -p resources/bin
+          cp .build/whisper/bin/whisper-cli resources/bin/
+          chmod +x resources/bin/whisper-cli
 
-          cmake --build .build/whisper -j$(nproc)
-
-          # 复制二进制
-          mkdir -p resources/bin/linux
-          cp .build/whisper/bin/whisper-cli resources/bin/linux/
-          chmod +x resources/bin/linux/whisper-cli
-
-      # Linux: 下载其他二进制
-      - name: Download Linux binaries
+      - name: Linux — download ffmpeg & ollama
         if: matrix.platform == 'linux'
         run: |
-          mkdir -p resources/bin/linux
-
-          # 下载 ffmpeg (使用预编译静态版本)
-          curl -L -o ffmpeg.tar.xz https://github.com/BtbN/ffmpeg-builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
-          tar -xf ffmpeg.tar.xz
-          # 查找并复制 ffmpeg 和 ffprobe
-          find . -type f -name "ffmpeg" -exec cp {} resources/bin/linux/ \;
-          find . -type f -name "ffprobe" -exec cp {} resources/bin/linux/ \;
-          rm ffmpeg.tar.xz
-          rm -rf ffmpeg*
-          chmod +x resources/bin/linux/ffmpeg resources/bin/linux/ffprobe
-
-          # 下载 ollama
-          curl -L -o resources/bin/linux/ollama https://ollama.com/download/ollama-linux-amd64
-          chmod +x resources/bin/linux/ollama
-
-      # ==================== 准备资源 ====================
-      - name: Prepare resources
-        run: |
+          sudo apt-get update && sudo apt-get install -y zstd
           mkdir -p resources/bin
-          mkdir -p resources/models
-          mkdir -p resources/app/frontend-dist
 
-          # 复制前端构建产物
-          cp -r packages/frontend/dist resources/app/
+          # ffmpeg 静态构建（含 ffprobe）
+          curl -fL --retry 5 -o ffmpeg.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          tar -xf ffmpeg.tar.xz
+          cp ffmpeg-master-latest-linux64-gpl/bin/ffmpeg resources/bin/
+          cp ffmpeg-master-latest-linux64-gpl/bin/ffprobe resources/bin/
+          chmod +x resources/bin/ffmpeg resources/bin/ffprobe
+          rm -rf ffmpeg.tar.xz ffmpeg-master-latest-linux64-gpl
 
-          # 下载/复制 whisper 模型（slim 模式跳过大模型）
-          if [ "${{ matrix.slim }}" = "true" ]; then
-            echo "Slim mode: skipping large model download"
+          # ollama：tar.zst 内是 bin/ollama + lib/ollama，解到临时目录再平铺
+          curl -fL --retry 5 -o ollama.tar.zst https://github.com/ollama/ollama/releases/download/v0.32.6/ollama-linux-amd64.tar.zst
+          rm -rf /tmp/ollama-extract && mkdir -p /tmp/ollama-extract
+          tar --zstd -xf ollama.tar.zst -C /tmp/ollama-extract
+          OLLAMA_BIN="$(find /tmp/ollama-extract -type f -name ollama | head -1)"
+          [ -n "$OLLAMA_BIN" ] || { echo "ollama 二进制未找到"; exit 1; }
+          cp "$OLLAMA_BIN" resources/bin/ollama
+          chmod +x resources/bin/ollama
+          OLLAMA_LIB="$(dirname "$OLLAMA_BIN")/lib"
+          [ -d "$OLLAMA_LIB" ] || OLLAMA_LIB="$(dirname "$(dirname "$OLLAMA_BIN")")/lib"
+          if [ -d "$OLLAMA_LIB" ]; then
+            mkdir -p resources/bin/lib
+            cp -R "$OLLAMA_LIB/." resources/bin/lib/
           fi
+          rm -f ollama.tar.zst
+          ls -lh resources/bin/
 
+      # ==================== 组装资源（win/linux；mac 已由脚本完成）====================
+      - name: Assemble resources (backend + frontend + whisper model)
+        if: matrix.platform != 'macos'
         shell: bash
+        run: |
+          mkdir -p resources/app resources/models
+          npm run bundle:backend
+          rm -rf resources/app/frontend-dist
+          mkdir -p resources/app/frontend-dist
+          cp -R packages/frontend/dist/. resources/app/frontend-dist/
+          cp "$HOME/.voice-notes-models/ggml-large-v3-turbo.bin" resources/models/
+          ls -lh resources/app resources/bin resources/models
 
-      # ==================== 使用 electron-builder 打包 ====================
+      # ==================== electron-builder 打包 ====================
       - name: Build with electron-builder
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm run dist --workspace=@voice-notes/desktop
+        run: npm run dist --workspace=@voice-notes/desktop -- --publish never
 
       # ==================== 上传产物 ====================
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: voice-notes-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.slim && '-slim' || '' }}
+          name: Voice-Notes-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
             packages/desktop/release/*.dmg
-            packages/desktop/release/*.exe
             packages/desktop/release/*.zip
+            packages/desktop/release/*.exe
             packages/desktop/release/*.AppImage
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
 
-  # ==================== 发布到 Release ====================
+  # ==================== 发布到 Release（仅 tag）====================
   release:
     name: Publish Release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -236,8 +247,8 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/**/*.dmg
-            artifacts/**/*.exe
             artifacts/**/*.zip
+            artifacts/**/*.exe
             artifacts/**/*.AppImage
           fail_on_unmatched_files: false
         env:

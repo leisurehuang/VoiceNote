@@ -88,8 +88,9 @@ SSE 在 `components/ProgressView.tsx` 消费；实时 WS 在 `hooks/useRealtime.
 ### 跨平台构建（electron-builder）
 
 项目使用 electron-builder 实现跨平台打包：
-- `electron-builder.yml` - 统一构建配置（Windows NSIS/portable、Linux AppImage、macOS DMG）
-- `scripts/assemble-resources.sh` - 准备自包含资源（二进制、模型）
+- `packages/desktop/electron-builder.yml` - 唯一构建配置（macOS DMG/zip、Windows NSIS/portable、Linux AppImage）
+- `scripts/assemble-resources.sh` - 准备自包含资源（mac 用：brew 二进制收拢 dylib + 官方 ollama + 模型）
+- `scripts/make-icons-cross.mjs` - 生成 icon.ico/icons PNG（win/linux 图标）
 - `scripts/before-pack.cjs` - 打包前平台检测
 - `scripts/after-pack.cjs` - 打包后设置权限、macOS 重签名
 
@@ -108,7 +109,7 @@ npm run dist:mac            # macOS
 - 下载完成后提示安装
 - 支持"跳过版本"
 
-更新源通过 `electron-builder.yml` 的 `publish` 配置或环境变量 `VOICE_NOTES_UPDATE_URL` 指定。
+更新源通过 `packages/desktop/electron-builder.yml` 的 `publish` 配置或环境变量 `VOICE_NOTES_UPDATE_URL` 指定。
 
 ## 端口速查
 - `3000` — 后端（开发 + 生产 web）
