@@ -119,8 +119,37 @@ const pngOf = (size) => {
 // ==================== 输出 ====================
 writeFileSync(join(OUT, 'icon.png'), pngOf(512));
 
+// ICO 用 BMP(DIB) 条目（非 PNG 压缩），最大化 rcedit / NSIS / 旧版 Explorer 兼容性
 const icoSizes = [256, 128, 64, 32, 16];
-const pngs = icoSizes.map(pngOf);
+const dibOf = (size) => {
+  const { rgba } = images.get(size);
+  // XOR（像素，BGRA，自下而上）
+  const xor = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    const srcY = size - 1 - y; // 自下而上
+    for (let x = 0; x < size; x++) {
+      const i = (srcY * size + x) * 4;
+      const o = (y * size + x) * 4;
+      xor[o] = rgba[i + 2]; // B
+      xor[o + 1] = rgba[i + 1]; // G
+      xor[o + 2] = rgba[i]; // R
+      xor[o + 3] = rgba[i + 3]; // A
+    }
+  }
+  // AND 掩码（1bpp，自下而上，行按 4 字节对齐；32bpp 下全 0 = 按 alpha 处理）
+  const rowSize = Math.ceil(size / 32) * 4;
+  const and = Buffer.alloc(rowSize * size);
+  const h = Buffer.alloc(40);
+  h.writeUInt32LE(40, 0);
+  h.writeInt32LE(size, 4);
+  h.writeInt32LE(size * 2, 8); // XOR + AND 两倍高
+  h.writeUInt16LE(1, 12);
+  h.writeUInt16LE(32, 14);
+  h.writeUInt32LE(0, 16); // BI_RGB
+  h.writeUInt32LE(xor.length + and.length, 20);
+  return Buffer.concat([h, xor, and]);
+};
+const dibs = icoSizes.map(dibOf);
 const dir = Buffer.alloc(6);
 dir.writeUInt16LE(0, 0);
 dir.writeUInt16LE(1, 2); // type: icon
@@ -129,18 +158,18 @@ const entries = [];
 let offset = 6 + 16 * icoSizes.length;
 icoSizes.forEach((size, i) => {
   const e = Buffer.alloc(16);
-  e.writeUInt8(size >= 256 ? 0 : size, 0); // 256 → 0
+  e.writeUInt8(size >= 256 ? 0 : size, 0);
   e.writeUInt8(size >= 256 ? 0 : size, 1);
-  e.writeUInt8(0, 2); // 调色板色数（PNG 条目为 0）
+  e.writeUInt8(0, 2); // 调色板色数（truecolor 为 0）
   e.writeUInt8(0, 3);
   e.writeUInt16LE(1, 4); // planes
   e.writeUInt16LE(32, 6); // bpp
-  e.writeUInt32LE(pngs[i].length, 8);
+  e.writeUInt32LE(dibs[i].length, 8);
   e.writeUInt32LE(offset, 12);
-  offset += pngs[i].length;
+  offset += dibs[i].length;
   entries.push(e);
 });
-writeFileSync(join(OUT, 'icon.ico'), Buffer.concat([dir, ...entries, ...pngs]));
+writeFileSync(join(OUT, 'icon.ico'), Buffer.concat([dir, ...entries, ...dibs]));
 
 mkdirSync(join(OUT, 'icons'), { recursive: true });
 for (const size of [512, 256, 128, 64, 32, 16]) {

@@ -205,10 +205,23 @@ jobs:
           ls -lh resources/app resources/bin resources/models
 
       # ==================== electron-builder 打包 ====================
+      # 完整日志落盘：失败时作为 artifact 上传，便于排查（Actions 网页日志无法被脚本读取）
       - name: Build with electron-builder
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist --workspace=@voice-notes/desktop -- --publish never
+        run: |
+          set -o pipefail
+          npm run dist --workspace=@voice-notes/desktop -- --publish never 2>&1 | tee build-log.txt
+
+      - name: Upload build log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.platform }}-${{ matrix.arch }}
+          path: build-log.txt
+          retention-days: 7
+          if-no-files-found: ignore
 
       # ==================== 上传产物 ====================
       - name: Upload artifacts
