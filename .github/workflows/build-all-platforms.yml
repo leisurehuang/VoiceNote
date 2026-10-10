@@ -207,13 +207,22 @@ jobs:
 
       # ==================== electron-builder 打包 ====================
       # 完整日志落盘：失败时作为 artifact 上传，便于排查（Actions 网页日志无法被脚本读取）
+      # Windows：工作区在 D:（仅 ~14GB），打包峰值 ~9GB 会把盘写爆（表现为 electron dist
+      # 拷贝阶段静默退出），因此把 release 输出指到空间更大的 C:
       - name: Build with electron-builder
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
-          npm run dist --workspace=@voice-notes/desktop -- --publish never 2>&1 | tee build-log.txt
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            (df -h /d /c || true) > build-log.txt
+            npm run dist --workspace=@voice-notes/desktop -- --publish never \
+              --config.directories.output="C:/vn-release" 2>&1 | tee -a build-log.txt
+            (df -h /d /c || true) >> build-log.txt
+          else
+            npm run dist --workspace=@voice-notes/desktop -- --publish never 2>&1 | tee build-log.txt
+          fi
 
       - name: Upload build log (on failure)
         if: failure()
@@ -249,6 +258,7 @@ jobs:
             packages/desktop/release/*.zip
             packages/desktop/release/*.exe
             packages/desktop/release/*.AppImage
+            C:/vn-release/*.exe
           retention-days: 7
           if-no-files-found: error
 
