@@ -26,18 +26,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # TODO(临时)：诊断 Windows 失败期间只跑 windows，修复后恢复 macos/linux
           # macOS (Apple Silicon)
-          - os: macos-14
-            platform: macos
-            arch: arm64
+          # - os: macos-14
+          #   platform: macos
+          #   arch: arm64
           # Windows (x64)
           - os: windows-2022
             platform: windows
             arch: x64
           # Linux (x64)
-          - os: ubuntu-22.04
-            platform: linux
-            arch: x64
+          # - os: ubuntu-22.04
+          #   platform: linux
+          #   arch: x64
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -223,18 +224,18 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      # 把日志尾行发成 error 注解：注解可通过 API 匿名读取（日志/artifact 都需要登录）
+      # 把日志发成 error 注解：注解可通过 API 匿名读取（日志/artifact 都需要登录）
       - name: Emit failure log to annotations
         if: failure()
         shell: bash
         run: |
-          tail -n 40 build-log.txt | sed 's/%/%25/g' | while IFS= read -r line; do
+          sed 's/%/%25/g' build-log.txt | head -n 60 | while IFS= read -r line; do
             [ -n "$line" ] && echo "::error::${line:0:400}"
           done
           {
-            echo '### Build log tail'
+            echo '### Build log (full)'
             echo '```'
-            tail -n 40 build-log.txt
+            cat build-log.txt
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
 
