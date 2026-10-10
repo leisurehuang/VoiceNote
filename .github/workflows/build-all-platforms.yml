@@ -233,18 +233,39 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      # 把日志发成 error 注解：注解可通过 API 匿名读取（日志/artifact 都需要登录）
-      - name: Emit failure log to annotations
+      # 把日志/现场发成 error 注解：注解可匿名读取，但每步上限 10 条，故分多个步骤各发 10 行
+      - name: Emit log tail to annotations
         if: failure()
         shell: bash
         run: |
-          sed 's/%/%25/g' build-log.txt | head -n 60 | while IFS= read -r line; do
-            [ -n "$line" ] && echo "::error::${line:0:400}"
+          tail -n 10 build-log.txt | sed 's/%/%25/g' | while IFS= read -r line; do
+            [ -n "$line" ] && echo "::error::[log] ${line:0:380}"
+          done
+
+      - name: Emit filesystem state to annotations
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "== release dir (workspace) =="
+            ls -la packages/desktop/release/ 2>/dev/null | head -10
+            echo "== win-unpacked (workspace) =="
+            du -sh packages/desktop/release/win-unpacked/* 2>/dev/null | head -12
+            echo "== C:/vn-release =="
+            ls -la /c/vn-release/ 2>/dev/null | head -10
+            echo "== C:/vn-release/win-unpacked =="
+            du -sh /c/vn-release/win-unpacked/* 2>/dev/null | head -12
+            echo "== eb cache =="
+            ls "$LOCALAPPDATA/electron-builder/Cache" 2>/dev/null
+            ls "$LOCALAPPDATA/electron-builder/Cache/nsis" 2>/dev/null | head -5
+          } > diag.txt
+          sed 's/%/%25/g' diag.txt | grep -v "^$" | head -n 10 | while IFS= read -r line; do
+            echo "::error::[fs] ${line:0:380}"
           done
           {
-            echo '### Build log (full)'
+            echo '### diag.txt'
             echo '```'
-            cat build-log.txt
+            cat diag.txt
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
 
