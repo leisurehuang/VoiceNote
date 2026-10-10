@@ -234,12 +234,36 @@ jobs:
           if-no-files-found: ignore
 
       # 把日志/现场发成 error 注解：注解可匿名读取，但每步上限 10 条，故分多个步骤各发 10 行
-      - name: Emit log tail to annotations
+      - name: Emit log tail 1 (lines -40..-31)
         if: failure()
         shell: bash
         run: |
-          tail -n 10 build-log.txt | sed 's/%/%25/g' | while IFS= read -r line; do
-            [ -n "$line" ] && echo "::error::[log] ${line:0:380}"
+          tail -n 40 build-log.txt | sed -n '1,10p' | sed 's/%/%25/g' | while IFS= read -r line; do
+            echo "::error::[log1] ${line:0:380}"
+          done
+
+      - name: Emit log tail 2 (lines -30..-21)
+        if: failure()
+        shell: bash
+        run: |
+          tail -n 40 build-log.txt | sed -n '11,20p' | sed 's/%/%25/g' | while IFS= read -r line; do
+            echo "::error::[log2] ${line:0:380}"
+          done
+
+      - name: Emit log tail 3 (lines -20..-11)
+        if: failure()
+        shell: bash
+        run: |
+          tail -n 40 build-log.txt | sed -n '21,30p' | sed 's/%/%25/g' | while IFS= read -r line; do
+            echo "::error::[log3] ${line:0:380}"
+          done
+
+      - name: Emit log tail 4 (lines -10..-1)
+        if: failure()
+        shell: bash
+        run: |
+          tail -n 40 build-log.txt | sed -n '31,40p' | sed 's/%/%25/g' | while IFS= read -r line; do
+            echo "::error::[log4] ${line:0:380}"
           done
 
       - name: Emit filesystem state to annotations
@@ -248,26 +272,21 @@ jobs:
         run: |
           {
             echo "== release dir (workspace) =="
-            ls -la packages/desktop/release/ 2>/dev/null | head -10
+            ls -la packages/desktop/release/ 2>/dev/null | head -8
             echo "== win-unpacked (workspace) =="
-            du -sh packages/desktop/release/win-unpacked/* 2>/dev/null | head -12
+            du -sh packages/desktop/release/win-unpacked/* 2>/dev/null | head -10
             echo "== C:/vn-release =="
-            ls -la /c/vn-release/ 2>/dev/null | head -10
+            ls -la /c/vn-release/ 2>/dev/null | head -8
             echo "== C:/vn-release/win-unpacked =="
-            du -sh /c/vn-release/win-unpacked/* 2>/dev/null | head -12
+            du -sh /c/vn-release/win-unpacked/* 2>/dev/null | head -10
             echo "== eb cache =="
-            ls "$LOCALAPPDATA/electron-builder/Cache" 2>/dev/null
-            ls "$LOCALAPPDATA/electron-builder/Cache/nsis" 2>/dev/null | head -5
+            ls "$LOCALAPPDATA/electron-builder/Cache" 2>/dev/null | head -6
+            ls "$LOCALAPPDATA/electron-builder/Cache/nsis" 2>/dev/null | head -4
           } > diag.txt
-          sed 's/%/%25/g' diag.txt | grep -v "^$" | head -n 10 | while IFS= read -r line; do
+          wc -l diag.txt
+          sed 's/%/%25/g' diag.txt | grep -v "^$" | sed -n '1,10p' | while IFS= read -r line; do
             echo "::error::[fs] ${line:0:380}"
           done
-          {
-            echo '### diag.txt'
-            echo '```'
-            cat diag.txt
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
 
       # ==================== 上传产物 ====================
       - name: Upload artifacts
