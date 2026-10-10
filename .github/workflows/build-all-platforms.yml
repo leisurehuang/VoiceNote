@@ -26,19 +26,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # TODO(临时)：诊断 Windows 失败期间只跑 windows，修复后恢复 macos/linux
           # macOS (Apple Silicon)
-          # - os: macos-14
-          #   platform: macos
-          #   arch: arm64
+          - os: macos-14
+            platform: macos
+            arch: arm64
           # Windows (x64)
           - os: windows-2022
             platform: windows
             arch: x64
           # Linux (x64)
-          # - os: ubuntu-22.04
-          #   platform: linux
-          #   arch: x64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -298,7 +297,9 @@ jobs:
             packages/desktop/release/*.zip
             packages/desktop/release/*.exe
             packages/desktop/release/*.AppImage
+            packages/desktop/release/latest*.yml
             C:/vn-release/*.exe
+            C:/vn-release/latest*.yml
           retention-days: 7
           if-no-files-found: error
 
@@ -329,6 +330,7 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.exe
             artifacts/**/*.AppImage
+            artifacts/**/latest*.yml
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
