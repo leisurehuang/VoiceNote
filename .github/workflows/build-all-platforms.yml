@@ -223,6 +223,21 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      # 把日志尾行发成 error 注解：注解可通过 API 匿名读取（日志/artifact 都需要登录）
+      - name: Emit failure log to annotations
+        if: failure()
+        shell: bash
+        run: |
+          tail -n 40 build-log.txt | sed 's/%/%25/g' | while IFS= read -r line; do
+            [ -n "$line" ] && echo "::error::${line:0:400}"
+          done
+          {
+            echo '### Build log tail'
+            echo '```'
+            tail -n 40 build-log.txt
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       # ==================== 上传产物 ====================
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
