@@ -194,6 +194,11 @@ jobs:
           if [ -d "$OLLAMA_LIB" ]; then
             mkdir -p resources/bin/lib
             cp -R "$OLLAMA_LIB/." resources/bin/lib/
+            # 剔除 GPU runner（cuda/rocm/vulkan ~1GB+，同 Windows）：AppImage 必须控制在
+            # GitHub Release 单文件 2GiB 限制内；ollama 回落 CPU 推理
+            find resources/bin/lib/ollama -maxdepth 1 -type d \
+              \( -name 'cuda*' -o -name 'rocm*' -o -name 'vulkan*' -o -name 'mlx*' \) \
+              -exec rm -rf {} + 2>/dev/null || true
           fi
           rm -f ollama.tar.zst
           ls -lh resources/bin/
