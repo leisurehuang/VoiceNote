@@ -15,12 +15,18 @@ async function convertStage(id: string): Promise<void> {
   store.emitter(id)?.emit('stage', { stage: 'transcribing' });
 }
 
-/** 阶段 2：转写，逐段实时广播。引擎由 config.transcription.engine 决定（whisper / sherpa）。 */
+/** 阶段 2：转写，逐段实时广播。引擎由 config.transcription.engine 决定（whisper / sherpa / 云端 API）。 */
+const ENGINE_STAGE_LABEL: Record<string, string> = {
+  whisper: '转写中（whisper）',
+  sherpa: '转写中（sherpa 说话人分离）',
+  api: '转写中（云端 API）',
+};
+
 async function transcribeStage(id: string): Promise<void> {
   const engine = config.transcription.engine;
   await store.update(id, {
     status: 'transcribing',
-    stage: engine === 'sherpa' ? '转写中（sherpa 说话人分离）' : '转写中（whisper）',
+    stage: ENGINE_STAGE_LABEL[engine] ?? '转写中',
     progress: 0.1,
   });
   // 音频总时长（毫秒）：convertStage 已写入 meta。实时会话或读取失败时为 null/0。

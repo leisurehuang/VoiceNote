@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Voice Notes 是一个**本地优先**的语音转笔记应用。浏览器录音或上传音频 → 本地转写（`whisper.cpp`，或可切换的 `sherpa-onnx` 带说话人分离）→ OpenAI 兼容 LLM（默认 Ollama `qwen2.5:7b-instruct`）生成结构化中文摘要 → 查看逐字稿与摘要、导出 Markdown。UI、代码注释、LLM system prompt 均为中文——改动面向用户的文案时请保持中文。
+Voice Notes 是一个**本地优先**的语音转笔记应用。浏览器录音或上传音频 → 转写（`whisper.cpp` / `sherpa-onnx` 带说话人分离 / 云端 OpenAI 兼容 /audio/transcriptions API，如硅基流动 SenseVoiceSmall）→ OpenAI 兼容 LLM（默认 Ollama `qwen2.5:7b-instruct`）生成结构化中文摘要 → 查看逐字稿与摘要、导出 Markdown。UI、代码注释、LLM system prompt 均为中文——改动面向用户的文案时请保持中文。
 
 ## 常用命令
 

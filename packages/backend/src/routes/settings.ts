@@ -6,6 +6,7 @@ import {
   applyTranscriptionEngine,
   applySherpaSettings,
   applyWhisperModelPath,
+  applyAsrApi,
   getSettings,
   saveSettings,
   type Settings,
@@ -25,6 +26,12 @@ export async function registerSettingsRoutes(app: FastifyInstance): Promise<void
     if (modelPath && !existsSync(modelPath)) {
       return reply.code(400).send({ error: `whisper 模型文件不存在：${modelPath}` });
     }
+    if (
+      body.transcriptionEngine === 'api' &&
+      (!body.asrApi?.baseUrl?.trim() || !body.asrApi?.model?.trim())
+    ) {
+      return reply.code(400).send({ error: '云端转写引擎需要填写 Base URL 和模型名' });
+    }
     try {
       const saved = saveSettings(body);
       const active = saved.presets.find((p) => p.id === saved.activePresetId);
@@ -32,6 +39,7 @@ export async function registerSettingsRoutes(app: FastifyInstance): Promise<void
       applyGlossary(saved.glossary); // 术语表运行时即时注入 whisper/摘要 prompt
       applyTranscriptionEngine(saved.transcriptionEngine); // 转写引擎即时切换
       applySherpaSettings(saved.sherpa);
+      applyAsrApi(saved.asrApi); // 云端转写配置即时生效
       if (modelPath) applyWhisperModelPath(saved.whisperModelPath);
       return saved;
     } catch (e) {

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { config, type TranscriptionEngine } from '../config.js';
+import { config, type AsrApiConfig, type TranscriptionEngine } from '../config.js';
 import { newId } from '../util/id.js';
 
 export interface LlmPreset {
@@ -21,6 +21,24 @@ export interface SherpaSettings {
   clusterThreshold?: number;
 }
 
+/** 云端转写 API（engine==='api' 时启用；OpenAI 兼容 /audio/transcriptions 形态）。 */
+export type AsrApiSettings = AsrApiConfig;
+
+const ENGINE_VALUES: readonly TranscriptionEngine[] = ['whisper', 'sherpa', 'api'];
+
+function parseEngine(v: unknown): TranscriptionEngine {
+  return ENGINE_VALUES.includes(v as TranscriptionEngine) ? (v as TranscriptionEngine) : 'whisper';
+}
+
+function parseAsrApi(v: unknown): AsrApiSettings {
+  const x = (v ?? {}) as Partial<AsrApiConfig>;
+  return {
+    baseUrl: typeof x.baseUrl === 'string' ? x.baseUrl : config.asrApi.baseUrl,
+    apiKey: typeof x.apiKey === 'string' ? x.apiKey : config.asrApi.apiKey,
+    model: typeof x.model === 'string' ? x.model : config.asrApi.model,
+  };
+}
+
 export interface Settings {
   activePresetId: string | null;
   presets: LlmPreset[];
@@ -32,6 +50,8 @@ export interface Settings {
   sherpa: SherpaSettings;
   /** 当前激活 whisper 模型文件的绝对路径（用户切换/自定义后持久化，重启保持）。 */
   whisperModelPath?: string;
+  /** 云端转写 API 配置（engine==='api' 时生效）。 */
+  asrApi: AsrApiSettings;
 }
 
 const settingsPath = join(config.dataDir, 'settings.json');
@@ -45,7 +65,14 @@ function defaultSettings(): Settings {
     apiKey: config.llm.apiKey,
     model: config.llm.model,
   };
-  return { activePresetId: preset.id, presets: [preset], glossary: [], transcriptionEngine: 'whisper', sherpa: {} };
+  return {
+    activePresetId: preset.id,
+    presets: [preset],
+    glossary: [],
+    transcriptionEngine: 'whisper',
+    sherpa: {},
+    asrApi: parseAsrApi(undefined),
+  };
 }
 
 export function getSettings(): Settings {
@@ -60,9 +87,10 @@ export function getSettings(): Settings {
       activePresetId: parsed.activePresetId ?? null,
       presets: Array.isArray(parsed.presets) ? (parsed.presets as LlmPreset[]) : [],
       glossary: Array.isArray(parsed.glossary) ? (parsed.glossary as string[]) : [],
-      transcriptionEngine: parsed.transcriptionEngine === 'sherpa' ? 'sherpa' : 'whisper',
+      transcriptionEngine: parseEngine(parsed.transcriptionEngine),
       whisperModelPath:
         typeof parsed.whisperModelPath === 'string' ? parsed.whisperModelPath : undefined,
+      asrApi: parseAsrApi(parsed.asrApi),
       sherpa: {
         numSpeakers:
           typeof parsed.sherpa?.numSpeakers === 'number' && (parsed.sherpa.numSpeakers as number) > 0
@@ -82,6 +110,7 @@ export function getSettings(): Settings {
       transcriptionEngine: 'whisper',
       sherpa: {},
       whisperModelPath: undefined,
+      asrApi: parseAsrApi(undefined),
     };
   }
 }
@@ -118,8 +147,9 @@ export function saveSettings(s: Settings): Settings {
     activePresetId: presets.some((p) => p.id === s.activePresetId) ? s.activePresetId : null,
     presets,
     glossary,
-    transcriptionEngine: s.transcriptionEngine === 'sherpa' ? 'sherpa' : 'whisper',
+    transcriptionEngine: parseEngine(s.transcriptionEngine),
     whisperModelPath: typeof s.whisperModelPath === 'string' ? s.whisperModelPath.trim() : undefined,
+    asrApi: parseAsrApi(s.asrApi),
     sherpa: {
       numSpeakers:
         typeof s.sherpa?.numSpeakers === 'number' && (s.sherpa.numSpeakers as number) > 0
@@ -174,7 +204,16 @@ export function applyWhisperModelPath(p?: string | null): boolean {
   return true;
 }
 
-/** 启动时调用：读 settings，应用激活预设到 config.llm、恢复激活的 whisper 模型路径。 */
+/** 把云端转写 API 配置同步到运行时 config.asrApi（engine==='api' 时使用）。 */
+export function applyAsrApi(a: AsrApiSettings): void {
+  config.asrApi = {
+    baseUrl: a.baseUrl.trim(),
+    apiKey: a.apiKey.trim(),
+    model: a.model.trim(),
+  };
+}
+
+/** 启动时调用：读 settings，应用激活预设到 config.llm、恢复激活的 whisper 模型路径与云端转写配置。 */
 export function init(): void {
   const s = getSettings();
   const active = s.presets.find((p) => p.id === s.activePresetId);
@@ -183,4 +222,5 @@ export function init(): void {
   applyTranscriptionEngine(s.transcriptionEngine);
   applySherpaSettings(s.sherpa);
   applyWhisperModelPath(s.whisperModelPath);
+  applyAsrApi(s.asrApi);
 }

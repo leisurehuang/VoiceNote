@@ -163,8 +163,15 @@ export function App() {
 function DependencyNote({ health, onSettings }: { health: HealthStatus; onSettings: () => void }) {
   const missing: string[] = [];
   if (!health.ffmpeg) missing.push('ffmpeg');
-  if (!health.whisperCli) missing.push('whisper-cli');
-  if (!health.whisperModel) missing.push('转写模型（录音转写前需下载）');
+  if (health.transcriptionEngine === 'sherpa') {
+    if (!health.sherpa.ok) missing.push('sherpa 二进制与模型（scripts/fetch-sherpa.sh）');
+  } else if (health.transcriptionEngine === 'api') {
+    if (!health.asrApiConfigured) missing.push('云端转写 API 配置（Base URL / Key / 模型）');
+    else if (!health.asrApiOk) missing.push('云端转写 API 不可达（检查地址/密钥）');
+  } else {
+    if (!health.whisperCli) missing.push('whisper-cli');
+    if (!health.whisperModel) missing.push('转写模型（录音转写前需下载）');
+  }
   if (!health.ollama) missing.push('Ollama');
   else if (!health.llmModelOk) missing.push('摘要模型（首次需下载）');
   return (

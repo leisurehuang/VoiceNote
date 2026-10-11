@@ -126,7 +126,8 @@ export function SettingsView() {
               <div className="engine-select">
                 <h4 className="block-h">🎙️ 转写引擎</h4>
                 <p className="muted">
-                  语音转文字的本地引擎。sherpa-onnx 可区分不同说话人（逐字稿带彩色标签）；whisper.cpp 为原引擎。
+                  语音转文字引擎：whisper.cpp 为本地原引擎；sherpa-onnx 本地可区分说话人（逐字稿带彩色标签）；
+                  云端 API 走 OpenAI 兼容 /audio/transcriptions 接口（如硅基流动），无需本地模型。
                 </p>
                 <div className="segmented">
                   <button
@@ -141,12 +142,87 @@ export function SettingsView() {
                   >
                     whisper.cpp
                   </button>
+                  <button
+                    className={settings.transcriptionEngine === 'api' ? 'seg active' : 'seg'}
+                    onClick={() => persist({ ...settings, transcriptionEngine: 'api' })}
+                  >
+                    ☁ 云端 API
+                  </button>
                 </div>
                 {settings.transcriptionEngine === 'sherpa' && (
                   <p className="muted">
                     ⚠️ sherpa 仅支持中文识别，且不支持术语表偏置；需先运行{' '}
                     <code>bash scripts/fetch-sherpa.sh</code> 安装二进制与模型。
                   </p>
+                )}
+                {settings.transcriptionEngine === 'api' && (
+                  <div className="settings-form">
+                    <h4>云端转写 API（OpenAI 兼容）</h4>
+                    <label>Base URL</label>
+                    <input
+                      value={settings.asrApi?.baseUrl ?? ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          asrApi: { ...settings.asrApi, baseUrl: e.target.value },
+                        })
+                      }
+                      placeholder="https://api.siliconflow.cn/v1"
+                    />
+                    <label>API Key</label>
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={settings.asrApi?.apiKey ?? ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          asrApi: { ...settings.asrApi, apiKey: e.target.value },
+                        })
+                      }
+                      placeholder="sk-..."
+                    />
+                    <label>模型</label>
+                    <input
+                      value={settings.asrApi?.model ?? ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          asrApi: { ...settings.asrApi, model: e.target.value },
+                        })
+                      }
+                      placeholder="FunAudioLLM/SenseVoiceSmall"
+                    />
+                    <div className="rec-controls">
+                      <button
+                        className="ghost"
+                        onClick={async () => {
+                          setTesting(true);
+                          setTestResult(null);
+                          try {
+                            const r = await testConnection({
+                              baseUrl: settings.asrApi.baseUrl,
+                              apiKey: settings.asrApi.apiKey,
+                            });
+                            setTestResult(r);
+                          } catch (e) {
+                            setTestResult({ ok: false, error: e instanceof Error ? e.message : '请求失败' });
+                          }
+                          setTesting(false);
+                        }}
+                        disabled={testing || !settings.asrApi?.baseUrl?.trim()}
+                      >
+                        {testing ? '测试中…' : '测试连接'}
+                      </button>
+                      <button
+                        className="big"
+                        onClick={() => void persist({ ...settings })}
+                        disabled={!settings.asrApi?.baseUrl?.trim() || !settings.asrApi?.model?.trim()}
+                      >
+                        保存
+                      </button>
+                    </div>
+                    <p className="muted">录音/上传会整段发送给该服务转写；请注意所选服务的隐私与计费条款。</p>
+                  </div>
                 )}
               </div>
 

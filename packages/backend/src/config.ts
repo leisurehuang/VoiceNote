@@ -39,7 +39,14 @@ export interface WhisperConfig {
   glossary: string[];
 }
 
-export type TranscriptionEngine = 'whisper' | 'sherpa';
+export type TranscriptionEngine = 'whisper' | 'sherpa' | 'api';
+
+/** 云端 ASR（OpenAI 兼容 /audio/transcriptions 形态，如硅基流动 SenseVoiceSmall）。 */
+export interface AsrApiConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 /** sherpa-onnx 引擎配置(说话人分离 + Paraformer 中文 ASR)。模型默认放 ~/.voice-notes-models/sherpa-onnx/models/。 */
 export interface SherpaConfig {
@@ -84,6 +91,8 @@ export interface AppConfig {
   sherpa: SherpaConfig;
   /** 当前激活的转写引擎(被 settingsStore 运行时覆盖)。 */
   transcription: { engine: TranscriptionEngine };
+  /** 云端转写 API（engine==='api' 时启用），运行时可被 settings 覆盖。 */
+  asrApi: AsrApiConfig;
   llm: LlmConfig;
 }
 
@@ -214,6 +223,11 @@ export const config: AppConfig = {
   transcription: {
     engine: process.env.TRANSCRIPTION_ENGINE === 'sherpa' ? 'sherpa' : 'whisper',
   },
+  asrApi: {
+    baseUrl: process.env.ASR_API_BASE_URL ?? 'https://api.siliconflow.cn/v1',
+    apiKey: process.env.ASR_API_KEY ?? '',
+    model: process.env.ASR_API_MODEL ?? 'FunAudioLLM/SenseVoiceSmall',
+  },
   llm: {
     baseUrl: (process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1').replace(/\/+$/, ''),
     model: process.env.OLLAMA_MODEL ?? 'qwen2.5:7b-instruct',
@@ -251,6 +265,10 @@ export interface HealthStatus {
   ollamaBaseUrl: string;
   /** LLM 端点可达且其模型列表里能看到当前模型（云服务不暴露列表时仅尽力探测）。 */
   llmModelOk: boolean;
+  /** 云端转写 API 三项配置是否齐全。 */
+  asrApiConfigured: boolean;
+  /** 引擎为 api 时对 {baseUrl}/models 的探测结果（其他引擎下恒为 false）。 */
+  asrApiOk: boolean;
   transcriptionEngine: TranscriptionEngine;
   /** sherpa 是可选引擎;sherpa.ok 全 false 不影响顶层 ok。 */
   sherpa: SherpaHealth;
@@ -294,8 +312,33 @@ export async function checkHealth(): Promise<HealthStatus> {
     ollama = false;
   }
 
-  // sherpa 是可选引擎，ok 不依赖它；whisper 仍是基线依赖。
-  const ok = !!(ffmpegPath && whisperCliOk && whisperModelOk && ollama);
+  // 云端转写 API：配置齐全性 + （引擎为 api 时）可达性探测
+  const asrApiConfigured = !!(
+    config.asrApi.baseUrl.trim() &&
+    config.asrApi.model.trim() &&
+    config.asrApi.apiKey.trim()
+  );
+  let asrApiOk = false;
+  if (config.transcription.engine === 'api' && asrApiConfigured) {
+    try {
+      const res = await fetch(`${config.asrApi.baseUrl.replace(/\/+$/, '')}/models`, {
+        signal: AbortSignal.timeout(2500),
+        headers: { Authorization: `Bearer ${config.asrApi.apiKey}` },
+      });
+      asrApiOk = res.ok;
+    } catch {
+      asrApiOk = false;
+    }
+  }
+
+  // 转写就绪按当前引擎判定；LLM 可达 + ffmpeg 是通用基线。
+  const asrOk =
+    config.transcription.engine === 'sherpa'
+      ? sherpaOk
+      : config.transcription.engine === 'api'
+        ? asrApiConfigured && asrApiOk
+        : whisperCliOk && whisperModelOk;
+  const ok = !!(ffmpegPath && asrOk && ollama);
   return {
     ok,
     ffmpeg: !!ffmpegPath,
@@ -307,6 +350,8 @@ export async function checkHealth(): Promise<HealthStatus> {
     ollama,
     ollamaBaseUrl: config.llm.baseUrl,
     llmModelOk,
+    asrApiConfigured,
+    asrApiOk,
     transcriptionEngine: config.transcription.engine,
     sherpa: {
       ok: sherpaOk,

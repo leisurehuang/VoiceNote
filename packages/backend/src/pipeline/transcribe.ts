@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import type { TranscriptSegment } from '../store/sessionStore.js';
 import { transcribe as transcribeWhisper, transcribeWavFile as whisperWavFile } from './whisper.js';
 import { transcribeWithDiarization, transcribeASROnly } from './sherpa.js';
+import { transcribeCloudApi } from './cloudAsr.js';
 
 export interface TranscribeOpts {
   onSegment?: (seg: TranscriptSegment) => void;
@@ -10,21 +11,25 @@ export interface TranscribeOpts {
 }
 
 /**
- * 批处理转写分发：按当前激活引擎选 whisper 或 sherpa。
+ * 批处理转写分发：按当前激活引擎选 whisper / sherpa / 云端 API。
  * - whisper：边跑边经 onSegment 流式推送段（无 speaker）。
  * - sherpa：diarization + 逐段 ASR，跑完批量出带 speaker 段；进度经 onProgress。
+ * - api：整段上传云端，返回单段文本（无时间戳/说话人）。
  */
 export async function transcribeWithEngine(wavPath: string, opts: TranscribeOpts = {}): Promise<TranscriptSegment[]> {
   if (config.transcription.engine === 'sherpa') {
     return transcribeWithDiarization(wavPath, opts);
   }
+  if (config.transcription.engine === 'api') {
+    return transcribeCloudApi(wavPath, opts);
+  }
   return transcribeWhisper(wavPath, opts.onSegment);
 }
 
 /**
- * 实时单句转写分发：两引擎均不出 speaker（sherpa 的 speaker 在 finalize 阶段对完整音频回填）。
+ * 实时单句转写分发（云端引擎为逐句 HTTP 调用，串行队列限流；均不出 speaker）。
  * - whisper：返回句内多段时间戳段。
- * - sherpa：Paraformer 整段返回单句文本，endMs 用 durationMs 补。
+ * - sherpa / api：整段返回单句文本，endMs 用 durationMs 补。
  */
 export async function transcribeUtteranceWithEngine(
   wavPath: string,
@@ -32,6 +37,9 @@ export async function transcribeUtteranceWithEngine(
 ): Promise<TranscriptSegment[]> {
   if (config.transcription.engine === 'sherpa') {
     return transcribeASROnly(wavPath, { durationMs: opts.durationMs });
+  }
+  if (config.transcription.engine === 'api') {
+    return transcribeCloudApi(wavPath);
   }
   return whisperWavFile(wavPath, { language: opts.language });
 }

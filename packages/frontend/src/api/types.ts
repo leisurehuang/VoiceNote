@@ -22,7 +22,11 @@ export interface HealthStatus {
   ollamaBaseUrl: string;
   /** LLM 端点可达且模型列表里能看到当前模型（缺失 → 设置里下载/检查模型名）。 */
   llmModelOk: boolean;
-  transcriptionEngine: 'whisper' | 'sherpa';
+  /** 云端转写 API 三项配置是否齐全。 */
+  asrApiConfigured: boolean;
+  /** 引擎为 api 时对端点的探测结果（其他引擎下恒为 false）。 */
+  asrApiOk: boolean;
+  transcriptionEngine: 'whisper' | 'sherpa' | 'api';
   /** sherpa 是可选引擎；sherpa.ok 为 false 不影响顶层 ok。 */
   sherpa: SherpaHealth;
 }
@@ -79,14 +83,23 @@ export interface SherpaSettings {
   clusterThreshold?: number;
 }
 
+/** 云端转写 API（OpenAI 兼容 /audio/transcriptions 形态，如硅基流动 SenseVoiceSmall）。 */
+export interface AsrApiSettings {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 export interface Settings {
   activePresetId: string | null;
   presets: LlmPreset[];
   glossary?: string[];
-  transcriptionEngine: 'whisper' | 'sherpa';
+  transcriptionEngine: 'whisper' | 'sherpa' | 'api';
   sherpa: SherpaSettings;
   /** 当前激活 whisper 模型文件绝对路径（重启保持）。 */
   whisperModelPath?: string;
+  /** 云端转写 API 配置（engine==='api' 时生效）。 */
+  asrApi: AsrApiSettings;
 }
 
 export interface TodoItem {
