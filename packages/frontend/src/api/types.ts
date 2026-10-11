@@ -20,6 +20,8 @@ export interface HealthStatus {
   whisperModelPath: string;
   ollama: boolean;
   ollamaBaseUrl: string;
+  /** LLM 端点可达且模型列表里能看到当前模型（缺失 → 设置里下载/检查模型名）。 */
+  llmModelOk: boolean;
   transcriptionEngine: 'whisper' | 'sherpa';
   /** sherpa 是可选引擎；sherpa.ok 为 false 不影响顶层 ok。 */
   sherpa: SherpaHealth;
@@ -68,6 +70,8 @@ export interface LlmPreset {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 实时增量摘要模型；留空跟随主模型。 */
+  incrementalModel?: string;
 }
 
 export interface SherpaSettings {
@@ -81,6 +85,8 @@ export interface Settings {
   glossary?: string[];
   transcriptionEngine: 'whisper' | 'sherpa';
   sherpa: SherpaSettings;
+  /** 当前激活 whisper 模型文件绝对路径（重启保持）。 */
+  whisperModelPath?: string;
 }
 
 export interface TodoItem {
@@ -96,10 +102,15 @@ export interface WhisperModelInfo {
   url: string;
   installed: boolean;
   active: boolean;
+  /** 内置只读模型（不可删除）。 */
+  builtin: boolean;
+  /** 在用户可写目录，可删除。 */
+  deletable: boolean;
 }
 export interface WhisperModelsResult {
   dir: string;
-  packaged: boolean;
+  /** 当前激活模型文件绝对路径。 */
+  activePath: string;
   models: WhisperModelInfo[];
 }
 export interface LlmModelInfo {

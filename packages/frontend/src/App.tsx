@@ -57,6 +57,9 @@ export function App() {
   }
 
   const activeId = view.name === 'new' || view.name === 'settings' ? null : view.id;
+  const openSettings = () => {
+    if (!busy) setView({ name: 'settings' });
+  };
   const title =
     view.name === 'new'
       ? tab === 'record'
@@ -84,9 +87,7 @@ export function App() {
         onOpen={(id) => {
           if (!busy) setView({ name: 'detail', id });
         }}
-        onSettings={() => {
-          if (!busy) setView({ name: 'settings' });
-        }}
+        onSettings={openSettings}
         onDelete={onDelete}
       />
 
@@ -135,7 +136,7 @@ export function App() {
                 />
               )}
               {tab === 'upload' && <Uploader onCreated={onCreated} />}
-              {health && !health.ok && <DependencyNote health={health} />}
+              {health && !health.ok && <DependencyNote health={health} onSettings={openSettings} />}
             </div>
           )}
 
@@ -159,15 +160,21 @@ export function App() {
   );
 }
 
-function DependencyNote({ health }: { health: HealthStatus }) {
+function DependencyNote({ health, onSettings }: { health: HealthStatus; onSettings: () => void }) {
   const missing: string[] = [];
   if (!health.ffmpeg) missing.push('ffmpeg');
   if (!health.whisperCli) missing.push('whisper-cli');
-  if (!health.whisperModel) missing.push('whisper 模型');
+  if (!health.whisperModel) missing.push('转写模型（录音转写前需下载）');
   if (!health.ollama) missing.push('Ollama');
+  else if (!health.llmModelOk) missing.push('摘要模型（首次需下载）');
   return (
     <div className="alert warn">
-      缺少依赖：{missing.join('、')}。开发模式请运行 <code>npm run setup</code>；桌面版请确认资源完整。
+      <div>还差这几步就能完整使用：{missing.join('、')}。应用可正常打开，模型在设置页下载后即时生效。</div>
+      <div style={{ marginTop: 8 }}>
+        <button className="big" onClick={onSettings}>
+          前往设置下载/配置模型
+        </button>
+      </div>
     </div>
   );
 }

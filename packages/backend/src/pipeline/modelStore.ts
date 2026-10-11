@@ -1,15 +1,14 @@
 import { EventEmitter } from 'node:events';
 import {
-  accessSync,
-  constants,
   createWriteStream,
   existsSync,
+  mkdirSync,
   readdirSync,
   renameSync,
   rmSync,
   statSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { config } from '../config.js';
 
 /** 模型档位清单（与 scripts/setup.sh 一致；URL 走 hf-mirror，国内更稳）。 */
@@ -24,84 +23,119 @@ const MODEL_URL_BASE =
   process.env.WHISPER_MODEL_URL_BASE ?? 'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main';
 
 export const WHISPER_MODELS: WhisperModelSpec[] = [
-  { name: 'ggml-large-v3-turbo.bin', label: 'turbo', size: '~1.5GB', url: `${MODEL_URL_BASE}/ggml-large-v3-turbo.bin` },
+  { name: 'ggml-large-v3-turbo.bin', label: 'turbo（推荐）', size: '~1.5GB', url: `${MODEL_URL_BASE}/ggml-large-v3-turbo.bin` },
   { name: 'ggml-large-v3.bin', label: 'large-v3', size: '~3.0GB', url: `${MODEL_URL_BASE}/ggml-large-v3.bin` },
-  { name: 'ggml-small.bin', label: 'small', size: '~466MB', url: `${MODEL_URL_BASE}/ggml-small.bin` },
+  { name: 'ggml-small.bin', label: 'small（轻量）', size: '~466MB', url: `${MODEL_URL_BASE}/ggml-small.bin` },
 ];
+
+/** 内置只读模型目录（打包态由 desktop 注入；新包为空，目录可能不存在）。 */
+const BUNDLED_MODELS_DIR = process.env.VOICE_NOTES_BUNDLED_MODELS_DIR ?? '';
+
+/** 用户可写模型目录：打包态 = desktop 注入的 userData 子目录；dev 回落当前模型所在目录（~/.voice-notes-models）。 */
+export function userModelsDir(): string {
+  return process.env.VOICE_NOTES_MODELS_DIR ?? dirname(config.whisper.model);
+}
 
 export interface WhisperModelInfo extends WhisperModelSpec {
   installed: boolean;
   active: boolean;
+  /** 内置只读模型（随 app 分发，不可删除/覆盖）。 */
+  builtin: boolean;
+  /** 文件在用户可写目录，可删除。 */
+  deletable: boolean;
 }
 
 export interface WhisperModelsResult {
   dir: string;
-  packaged: boolean; // 打包态目录只读，不允许下载/删除
+  /** 当前激活模型文件的绝对路径。 */
+  activePath: string;
   models: WhisperModelInfo[];
 }
 
-/** whisper 模型目录 = 当前模型文件所在目录。 */
-export function whisperModelDir(): string {
-  return dirname(config.whisper.model);
-}
-
-function isWritable(dir: string): boolean {
+function listBinFiles(dir: string): string[] {
   try {
-    accessSync(dir, constants.W_OK);
-    return true;
+    return readdirSync(dir)
+      .filter((f) => f.endsWith('.bin'))
+      .map((f) => join(dir, f));
   } catch {
-    return false;
+    return [];
   }
 }
 
-/** 打包态判断：模型目录不在用户可写区（resources/vn/models 只读）。 */
-export function isPackagedModels(): boolean {
-  return !isWritable(whisperModelDir());
+function humanSize(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `~${(bytes / 1024 / 1024 / 1024).toFixed(1)}GB`;
+  return `~${Math.max(1, Math.round(bytes / 1024 / 1024))}MB`;
 }
 
-/** 列出档位 + 已装/当前状态。 */
+/** 列出档位 + 用户目录/内置目录里的全部模型 + 已装/当前状态。 */
 export function listWhisper(): WhisperModelsResult {
-  const dir = whisperModelDir();
-  const packaged = isPackagedModels();
-  const present = new Set<string>();
-  try {
-    for (const f of readdirSync(dir)) {
-      if (f.endsWith('.bin')) present.add(f);
-    }
-  } catch {
-    /* 目录读不到视为空 */
+  const dir = userModelsDir();
+  const activeBase = basename(config.whisper.model);
+  const byName = new Map<string, WhisperModelInfo>();
+  const upsert = (i: WhisperModelInfo) => {
+    const prev = byName.get(i.name);
+    byName.set(i.name, prev ? { ...prev, installed: prev.installed || i.installed, deletable: prev.deletable || i.deletable } : i);
+  };
+  // 1) 固定档位（用户目录或内置目录中任一存在即算已装）
+  for (const m of WHISPER_MODELS) {
+    const inUser = existsSync(join(dir, m.name));
+    const inBundled = BUNDLED_MODELS_DIR ? existsSync(join(BUNDLED_MODELS_DIR, m.name)) : false;
+    upsert({
+      ...m,
+      installed: inUser || inBundled,
+      active: m.name === activeBase,
+      builtin: inBundled && !inUser,
+      deletable: inUser,
+    });
   }
-  const activeName = config.whisper.model.split('/').pop() ?? config.whisper.model;
-  const models = WHISPER_MODELS.map((m) => ({
-    ...m,
-    installed: present.has(m.name),
-    active: m.name === activeName,
-  }));
-  return { dir, packaged, models };
+  // 2) 用户目录中的其他 .bin（自定义 URL 下载 / 手动放入）
+  for (const p of listBinFiles(dir)) {
+    const name = basename(p);
+    if (byName.has(name)) continue;
+    let size = '';
+    try {
+      size = humanSize(statSync(p).size);
+    } catch {
+      /* ignore */
+    }
+    upsert({ name, label: name.replace(/\.bin$/, ''), size, url: '', installed: true, active: name === activeBase, builtin: false, deletable: true });
+  }
+  // 3) 内置目录中的其他 .bin
+  for (const p of BUNDLED_MODELS_DIR ? listBinFiles(BUNDLED_MODELS_DIR) : []) {
+    const name = basename(p);
+    if (byName.has(name)) continue;
+    upsert({ name, label: name.replace(/\.bin$/, ''), size: '', url: '', installed: true, active: name === activeBase, builtin: true, deletable: false });
+  }
+  return { dir, activePath: config.whisper.model, models: [...byName.values()] };
 }
 
 /**
- * 流式下载一个 whisper 模型到模型目录。
+ * 流式下载一个 whisper 模型到用户模型目录。
  * 进度经返回的 EventEmitter 推送：'progress'(pct 0..1) / 'done' / 'error'(msg)。
  * 写到 <name>.part，完成后原子 rename。
  */
-export function downloadWhisper(name: string): EventEmitter {
+export function downloadWhisperSpec(spec: { name: string; url: string }): EventEmitter {
   const em = new EventEmitter();
-  const spec = WHISPER_MODELS.find((m) => m.name === name);
-  if (!spec) {
-    setImmediate(() => em.emit('error', `未知模型：${name}`));
+  // 防路径穿越：只取文件名，清洗非法字符，强制 .bin 后缀
+  const name = basename(spec.name || '').replace(/[^\w.\-\u4e00-\u9fa5]+/g, '_').replace(/^\.+/, '');
+  const finalName = name.endsWith('.bin') ? name : `${name}.bin`;
+  const url = (spec.url || '').trim();
+  if (!finalName || finalName === '.bin') {
+    setImmediate(() => em.emit('error', '模型名称无效'));
     return em;
   }
-  if (isPackagedModels()) {
-    setImmediate(() => em.emit('error', '打包态模型目录只读，不支持下载'));
+  if (!/^https?:\/\//i.test(url)) {
+    setImmediate(() => em.emit('error', 'URL 必须是 http(s) 地址'));
     return em;
   }
 
-  const dest = join(whisperModelDir(), `${name}.part`);
-  const final = join(whisperModelDir(), name);
+  const dir = userModelsDir();
+  mkdirSync(dir, { recursive: true });
+  const dest = join(dir, `${finalName}.part`);
+  const final = join(dir, finalName);
   void (async () => {
     try {
-      const res = await fetch(spec.url, { redirect: 'follow' });
+      const res = await fetch(url, { redirect: 'follow' });
       if (!res.ok || !res.body) {
         throw new Error(`HTTP ${res.status} ${res.statusText}`);
       }
@@ -125,7 +159,7 @@ export function downloadWhisper(name: string): EventEmitter {
       });
       renameSync(dest, final);
       em.emit('progress', 1);
-      em.emit('done', { name });
+      em.emit('done', { name: finalName });
     } catch (e) {
       try {
         if (existsSync(dest)) rmSync(dest, { force: true });
@@ -138,28 +172,51 @@ export function downloadWhisper(name: string): EventEmitter {
   return em;
 }
 
-/** 删除一个 whisper 模型（禁止删当前 / 打包态）。 */
+/** 按档位名下载（路由 /download 用）。 */
+export function downloadWhisper(name: string): EventEmitter {
+  const spec = WHISPER_MODELS.find((m) => m.name === name);
+  if (!spec) {
+    const em = new EventEmitter();
+    setImmediate(() => em.emit('error', `未知模型：${name}`));
+    return em;
+  }
+  return downloadWhisperSpec({ name: spec.name, url: spec.url });
+}
+
+/** 删除一个 whisper 模型（仅限用户目录中的文件；内置/当前激活禁删）。 */
 export function deleteWhisper(name: string): void {
-  if (isPackagedModels()) throw new Error('打包态模型目录只读，不支持删除');
-  if (!WHISPER_MODELS.some((m) => m.name === name)) throw new Error(`未知模型：${name}`);
-  const activeName = config.whisper.model.split('/').pop() ?? config.whisper.model;
-  if (name === activeName) throw new Error('不能删除当前使用的模型，请先切换');
-  const file = join(whisperModelDir(), name);
-  if (!existsSync(file)) throw new Error(`模型未安装：${name}`);
+  const file = join(userModelsDir(), basename(name));
+  if (!existsSync(file)) {
+    if (BUNDLED_MODELS_DIR && existsSync(join(BUNDLED_MODELS_DIR, basename(name)))) {
+      throw new Error('内置模型不可删除');
+    }
+    throw new Error(`模型未安装：${name}`);
+  }
+  const activeBase = basename(config.whisper.model);
+  if (basename(name) === activeBase) throw new Error('不能删除当前使用的模型，请先切换');
   rmSync(file, { force: true });
 }
 
-/** 运行时切换 whisper 模型（仿 settingsStore.applyGlossary），下次转写即时生效。 */
+/** 运行时切换 whisper 模型（按名查找：用户目录优先，其次内置目录），下次转写即时生效。 */
 export function applyWhisperModel(name: string): void {
-  const file = join(whisperModelDir(), name);
-  if (!existsSync(file)) throw new Error(`模型未安装：${name}`);
-  config.whisper.model = file;
+  const base = basename(name);
+  const userFile = join(userModelsDir(), base);
+  const bundledFile = BUNDLED_MODELS_DIR ? join(BUNDLED_MODELS_DIR, base) : '';
+  if (existsSync(userFile)) {
+    config.whisper.model = userFile;
+    return;
+  }
+  if (bundledFile && existsSync(bundledFile)) {
+    config.whisper.model = bundledFile;
+    return;
+  }
+  throw new Error(`模型未安装：${name}`);
 }
 
 /** 仅供 /health 或调试：模型目录占用大小。 */
 export function whisperDirSize(): number {
   try {
-    return statSync(whisperModelDir()).size;
+    return statSync(userModelsDir()).size;
   } catch {
     return 0;
   }

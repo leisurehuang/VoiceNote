@@ -83,7 +83,7 @@ SSE 在 `components/ProgressView.tsx` 消费；实时 WS 在 `hooks/useRealtime.
 
 ## 桌面打包
 
-`packages/desktop/src/main.cjs` 是 Electron 主进程。它 **fork `backend.cjs`**（esbuild 打出的 bundle）到端口 `3100`，并在打包态另起一个自带 `ollama serve` 在 `11435`（避开系统常占的 `11434`）。`isPackaged` 靠检查自带 `vn/bin/ollama` 是否存在来判断——**而非** `app.isPackaged`，因为 app 代码放在 `Resources/app`（非 asar），`app.isPackaged` 不可靠。瘦身版检测到 qwen 缺失时，首启动会 `ollama pull` 并带进度 splash。
+`packages/desktop/src/main.cjs` 是 Electron 主进程。它 **fork `backend.cjs`**（esbuild 打出的 bundle）到端口 `3100`，并在打包态另起一个自带 `ollama serve` 在 `11435`（避开系统常占的 `11434`）。`isPackaged` 靠检查自带 `vn/bin/ollama` 是否存在来判断——**而非** `app.isPackaged`，因为 app 代码放在 `Resources/app`（非 asar），`app.isPackaged` 不可靠。启动不阻塞、不下载任何模型：缺转写/摘要模型时由前端横幅引导到 设置 → 模型 下载（whisper 模型下载到 userData/voice-notes-models，可配自定义 URL；LLM 支持任意 OpenAI 兼容预设，增量摘要模型可按预设独立配置）。
 
 ### 跨平台构建（electron-builder）
 

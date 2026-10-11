@@ -60,8 +60,12 @@ bundle_bin ffprobe    "$(realpath "$(command -v ffprobe)")"
 chmod +x "$RES/bin/whisper-cli" "$RES/bin/ffmpeg" "$RES/bin/ffprobe"
 
 echo "==> [5/7] whisper 模型 turbo (~1.5GB)"
-[[ -f "$WHISPER_MODEL_SRC" ]] || { echo "找不到 whisper 模型：$WHISPER_MODEL_SRC"; exit 1; }
-if [[ -f "$RES/models/ggml-large-v3-turbo.bin" ]]; then echo "    已存在，跳过"; else cp -f "$WHISPER_MODEL_SRC" "$RES/models/ggml-large-v3-turbo.bin"; fi
+if [[ -n "${SKIP_WHISPER_MODEL:-}" ]]; then
+  echo "    SKIP_WHISPER_MODEL=1：跳过（新包不内置模型，用户在 设置 → 模型 里下载）"
+else
+  [[ -f "$WHISPER_MODEL_SRC" ]] || { echo "找不到 whisper 模型：$WHISPER_MODEL_SRC"; exit 1; }
+  if [[ -f "$RES/models/ggml-large-v3-turbo.bin" ]]; then echo "    已存在，跳过"; else cp -f "$WHISPER_MODEL_SRC" "$RES/models/ggml-large-v3-turbo.bin"; fi
+fi
 
 if [[ -n "${SLIM:-}" ]]; then
   echo "==> [6/7] 瘦身模式（SLIM=1）：跳过 qwen 模型，首启动由 app 用 ollama pull 拉取"

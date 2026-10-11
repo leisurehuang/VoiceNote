@@ -101,14 +101,15 @@ export const updateSettings = async (body: Settings): Promise<Settings> =>
 export const testConnection = async (body: {
   baseUrl: string;
   apiKey: string;
-}): Promise<{ ok: boolean; error?: string }> =>
+  model?: string;
+}): Promise<{ ok: boolean; error?: string; warning?: string }> =>
   (await (
     await fetch(`${API}/settings/test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-  ).json()) as { ok: boolean; error?: string };
+  ).json()) as { ok: boolean; error?: string; warning?: string };
 export const exportMarkdownText = (id: string): Promise<string> =>
   fetch(exportMarkdownUrl(id)).then((r) => r.text());
 
@@ -121,6 +122,9 @@ export const listWhisperModels = async (): Promise<WhisperModelsResult> =>
 /** whisper 下载是 SSE 流，返回 URL 供组件 new EventSource。 */
 export const whisperDownloadUrl = (name: string): string =>
   `${API}/models/whisper/download?name=${encodeURIComponent(name)}`;
+/** 从自定义 URL 下载 whisper 模型（SSE 流）。 */
+export const whisperDownloadFromUrl = (name: string, url: string): string =>
+  `${API}/models/whisper/download-url?name=${encodeURIComponent(name)}&url=${encodeURIComponent(url)}`;
 export const setWhisperActive = (name: string): Promise<Response> =>
   fetch(`${API}/models/whisper/active`, {
     method: 'PUT',

@@ -3,13 +3,13 @@ import { getSettings, testConnection, updateSettings } from '../api/client';
 import type { LlmPreset, Settings } from '../api/types';
 import { ModelManager } from './ModelManager';
 
-const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '' };
+const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '', incrementalModel: '' };
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [editing, setEditing] = useState<LlmPreset | null>(null);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; warning?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [glossaryDraft, setGlossaryDraft] = useState('');
   const [tab, setTab] = useState<'models' | 'glossary'>('models');
@@ -26,12 +26,14 @@ export function SettingsView() {
     if (settings) setGlossaryDraft(settings.glossary?.join('\n') ?? '');
   }, [settings]);
 
-  async function persist(next: Settings) {
+  async function persist(next: Settings): Promise<boolean> {
     try {
       setSettings(await updateSettings(next));
       setErr(null);
+      return true;
     } catch (e) {
       setErr(e instanceof Error ? e.message : '保存失败');
+      return false;
     }
   }
 
@@ -84,7 +86,12 @@ export function SettingsView() {
     setTesting(true);
     setTestResult(null);
     try {
-      setTestResult(await testConnection({ baseUrl: editing.baseUrl, apiKey: editing.apiKey }));
+      const r = await testConnection({
+        baseUrl: editing.baseUrl,
+        apiKey: editing.apiKey,
+        model: editing.model,
+      });
+      setTestResult(r);
     } catch (e) {
       setTestResult({ ok: false, error: e instanceof Error ? e.message : '请求失败' });
     }
@@ -225,9 +232,16 @@ export function SettingsView() {
                     onChange={(e) => setEditing({ ...editing, model: e.target.value })}
                     placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
                   />
+                  <label>增量摘要模型（可选，留空跟随主模型）</label>
+                  <input
+                    value={editing.incrementalModel ?? ''}
+                    onChange={(e) => setEditing({ ...editing, incrementalModel: e.target.value })}
+                    placeholder="如 qwen2.5:3b（实时转写时滚动摘要用，小快模型更跟手）"
+                  />
                   {testResult && (
                     <div className={'alert ' + (testResult.ok ? 'ok' : 'err')}>
                       {testResult.ok ? '✓ 连接成功' : '连接失败：' + (testResult.error ?? '未知错误')}
+                      {testResult.warning && <div>{testResult.warning}</div>}
                     </div>
                   )}
                   <div className="rec-controls">
@@ -250,7 +264,11 @@ export function SettingsView() {
                 </div>
               )}
 
-              <ModelManager activePresetId={settings.activePresetId ?? undefined} />
+              <ModelManager
+                activePresetId={settings.activePresetId ?? undefined}
+                settings={settings}
+                persist={persist}
+              />
             </>
           )}
         </div>

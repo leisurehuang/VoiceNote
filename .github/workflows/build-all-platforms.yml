@@ -72,35 +72,13 @@ jobs:
           echo "version=$VER"
           node -e 'const fs=require("fs");for(const p of["package.json","packages/desktop/package.json"]){const j=JSON.parse(fs.readFileSync(p,"utf8"));j.version=process.env.TAG_NAME.replace(/^v/,"");fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")}'
 
-      # ==================== whisper turbo 模型（三平台共用，~1.5GB，缓存）====================
-      - name: Cache whisper model
-        id: wmodel
-        uses: actions/cache@v4
-        with:
-          path: ~/.voice-notes-models
-          key: whisper-turbo-2026-06
-
-      - name: Download whisper model
-        if: steps.wmodel.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.voice-notes-models"
-          F="$HOME/.voice-notes-models/ggml-large-v3-turbo.bin"
-          for U in \
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin" \
-            "https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"; do
-            echo "下载尝试：$U"
-            if curl -fL --retry 8 --retry-delay 5 -C - -o "$F" "$U"; then echo "✓ 下载成功"; break; fi
-            echo "✗ 该源失败，换下一个"
-          done
-          ls -lh "$F" || { echo "所有源均失败"; exit 1; }
-
       # ==================== macOS：brew 二进制 + dylib 收拢 + 官方 ollama ====================
       - name: macOS — assemble resources
         if: matrix.platform == 'macos'
         run: |
           brew install whisper-cpp ffmpeg
-          RES="$PWD/resources" SLIM=1 bash scripts/assemble-resources.sh
+          # SLIM=1 不内置 qwen；SKIP_WHISPER_MODEL=1 不内置 whisper 模型（首启后在设置里下载）
+          RES="$PWD/resources" SLIM=1 SKIP_WHISPER_MODEL=1 bash scripts/assemble-resources.sh
 
       # ==================== Windows：下载 ffmpeg/ollama + 编译 whisper.cpp ====================
       - name: Windows — download ffmpeg & ollama
@@ -204,7 +182,8 @@ jobs:
           ls -lh resources/bin/
 
       # ==================== 组装资源（win/linux；mac 已由脚本完成）====================
-      - name: Assemble resources (backend + frontend + whisper model)
+      # 不内置 whisper 模型（首启后在 设置 → 模型 里下载到用户可写目录）
+      - name: Assemble resources (backend + frontend)
         if: matrix.platform != 'macos'
         shell: bash
         run: |
@@ -213,7 +192,6 @@ jobs:
           rm -rf resources/app/frontend-dist
           mkdir -p resources/app/frontend-dist
           cp -R packages/frontend/dist/. resources/app/frontend-dist/
-          cp "$HOME/.voice-notes-models/ggml-large-v3-turbo.bin" resources/models/
           ls -lh resources/app resources/bin resources/models
 
       # ==================== electron-builder 打包 ====================

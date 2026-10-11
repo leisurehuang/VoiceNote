@@ -1,8 +1,25 @@
 import type { FastifyInstance } from 'fastify';
 import type { ServerResponse } from 'node:http';
 import { config } from '../config.js';
-import { listWhisper, downloadWhisper, deleteWhisper, applyWhisperModel } from '../pipeline/modelStore.js';
+import {
+  listWhisper,
+  downloadWhisper,
+  downloadWhisperSpec,
+  deleteWhisper,
+  applyWhisperModel,
+} from '../pipeline/modelStore.js';
 import { getSettings, saveSettings, applyPreset } from '../store/settingsStore.js';
+
+/** 激活模型后把绝对路径持久化到 settings.whisperModelPath（重启保持用户选择）。 */
+function persistActiveModel(): void {
+  try {
+    const s = getSettings();
+    s.whisperModelPath = config.whisper.model;
+    saveSettings(s);
+  } catch {
+    /* 持久化失败不影响本次切换 */
+  }
+}
 
 /** OpenAI 兼容端点 /v1 → ollama 原生 base（/api/tags、/api/pull 在根，不在 /v1 下）。 */
 function nativeBase(): string {
@@ -62,10 +79,35 @@ export async function registerModelRoutes(app: FastifyInstance): Promise<void> {
     if (!name) return reply.code(400).send({ error: '缺少 name' });
     try {
       applyWhisperModel(name);
+      persistActiveModel();
       return { ok: true, model: config.whisper.model };
     } catch (e) {
       return reply.code(400).send({ error: e instanceof Error ? e.message : String(e) });
     }
+  });
+
+  // 从自定义 URL 下载模型（SSE 进度，协议同 /download）：event: progress/done/error
+  app.get('/api/models/whisper/download-url', async (req, reply) => {
+    const { url, name } = (req.query ?? {}) as { url?: string; name?: string };
+    if (!url) return reply.code(400).send({ error: '缺少 url' });
+    reply.hijack();
+    const raw = reply.raw;
+    const send = startSse(raw);
+    const em = downloadWhisperSpec({ name: name ?? '', url });
+    em.on('progress', (pct: number) => send('progress', { pct }));
+    em.on('done', (d: unknown) => send('done', d));
+    em.on('error', (msg: unknown) => send('error', { error: String(msg) }));
+    const finish = () => {
+      try {
+        raw.end();
+      } catch {
+        /* 连接已关闭 */
+      }
+    };
+    em.on('done', finish);
+    em.on('error', finish);
+    req.raw.on('close', () => em.removeAllListeners());
+    return reply;
   });
 
   app.delete('/api/models/whisper/:name', async (req, reply) => {

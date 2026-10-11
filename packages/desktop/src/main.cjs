@@ -1,6 +1,6 @@
 // Electron 主进程：启动 Ollama sidecar（打包态）+ fork 后端 + 打开原生窗口。
 // dev 模式复用系统 brew 装的 whisper/ffmpeg/ollama；打包态用 app 内自带的 resources。
-// 瘦身版：若自带 qwen 缺失，首次启动用自带 ollama pull 到用户可写目录（带 splash 进度）。
+// 启动不下载任何模型、不阻塞：缺什么由前端横幅引导到 设置 → 模型 里下载。
 const { app, BrowserWindow, shell, Menu, dialog } = require('electron');
 const { fork, spawn } = require('node:child_process');
 const fs = require('node:fs');
@@ -102,63 +102,11 @@ async function startOllama() {
     stdio: 'ignore',
   });
   ollamaProc.on('error', (e) => logf('ollama spawn error: ' + e.message));
-  await waitUrl(`http://127.0.0.1:${OLLAMA_PORT}/api/tags`, 90000);
-}
-
-function createSplash(text) {
-  const w = new BrowserWindow({
-    width: 460, height: 280, frame: false, resizable: false, center: true,
-    backgroundColor: '#0f1115', webPreferences: { contextIsolation: true, sandbox: true },
-  });
-  const body = `<body style="margin:0;background:#0f1115;color:#e6e8ee;font-family:-apple-system,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh"><div style="font-size:44px;margin-bottom:14px">🎙️</div><div style="font-size:14px;color:#9aa3b2">首次使用：正在下载摘要模型（约 4.7GB，仅这一次）</div><div id="p" style="font-size:26px;margin-top:12px">${text}</div></body>`;
-  w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(body));
-  return w;
-}
-
-/** 瘦身版：自带 qwen 缺失时，拉取到用户目录并显示进度。 */
-async function ensureQwenModel() {
-  if (!isPackaged) return; // dev：系统 ollama 自行管理
-  const tags = await (await fetch(`http://127.0.0.1:${OLLAMA_PORT}/api/tags`)).json();
-  const has = (tags.models || []).some((m) => m.name === OLLAMA_MODEL);
-  if (has) {
-    logf('qwen 已就绪，跳过 pull');
-    return;
-  }
-  logf('qwen 缺失，开始 ollama pull ' + OLLAMA_MODEL);
-  const splash = createSplash('准备中…');
-  await new Promise((resolve) => {
-    const p = spawn(resPath('bin', 'ollama' + EXE), ['pull', OLLAMA_MODEL], {
-      env: {
-        ...process.env,
-        OLLAMA_HOST: `127.0.0.1:${OLLAMA_PORT}`,
-        OLLAMA_MODELS: resolveOllamaModelsDir(),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const onData = (d) => {
-      const s = d.toString();
-      const pct = [...s.matchAll(/(\d+)%/g)].pop();
-      if (pct) {
-        try {
-          splash.webContents.executeJavaScript(`document.getElementById('p').textContent='${pct[1]}%'`);
-        } catch {
-          /* 窗口可能已关 */
-        }
-        logf('pull ' + pct[1] + '%'); // 只在有百分比更新时记录，避免刷屏
-      }
-    };
-    p.stdout.on('data', onData);
-    p.stderr.on('data', onData);
-    p.on('error', (e) => logf('pull error: ' + e.message));
-    p.on('close', (code) => {
-      logf('pull done code=' + code);
-      resolve();
-    });
-  });
+  // 不阻塞启动：模型未下载时用户在设置里拉取，health 横幅自会提示
   try {
-    splash.close();
+    await waitUrl(`http://127.0.0.1:${OLLAMA_PORT}/api/tags`, 20000);
   } catch {
-    /* ignore */
+    logf('ollama 启动探测超时（不阻塞主流程，稍后 health 会提示）');
   }
 }
 
@@ -176,6 +124,10 @@ async function startBackend() {
     env.WHISPER_MODEL = resPath('models', 'ggml-large-v3-turbo.bin');
     env.FFMPEG = resPath('bin', 'ffmpeg' + EXE);
     env.FFPROBE = resPath('bin', 'ffprobe' + EXE);
+    // whisper 模型下载/缓存目录（用户可写）；新包不内置模型，首次在设置里下载
+    env.VOICE_NOTES_MODELS_DIR = path.join(app.getPath('userData'), 'voice-notes-models');
+    // 随包分发的只读模型目录（新包为空/不存在，仅作展示与回退）
+    env.VOICE_NOTES_BUNDLED_MODELS_DIR = resPath('models');
     env.OLLAMA_BASE_URL = `http://127.0.0.1:${OLLAMA_PORT}/v1`;
     env.OLLAMA_MODEL = OLLAMA_MODEL;
   } else {
@@ -376,8 +328,9 @@ if (!gotLock) {
     buildMenu();
     logf('app ready v' + VER + ' isPackaged=' + isPackaged);
     try {
+      // 模型下载不再阻塞启动：ollama 后台起，主窗口立即可用；
+      // 缺模型时由页面顶部横幅引导到 设置 → 模型 下载
       await startOllama();
-      await ensureQwenModel(); // 瘦身版首拉 qwen（带 splash）
       await startBackend();
       createWindow();
       logf('window opened');

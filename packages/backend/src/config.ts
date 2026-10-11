@@ -249,6 +249,8 @@ export interface HealthStatus {
   whisperModelPath: string;
   ollama: boolean;
   ollamaBaseUrl: string;
+  /** LLM 端点可达且其模型列表里能看到当前模型（云服务不暴露列表时仅尽力探测）。 */
+  llmModelOk: boolean;
   transcriptionEngine: TranscriptionEngine;
   /** sherpa 是可选引擎;sherpa.ok 全 false 不影响顶层 ok。 */
   sherpa: SherpaHealth;
@@ -270,12 +272,24 @@ export async function checkHealth(): Promise<HealthStatus> {
     sherpaDiarOk && sherpaAsrCliOk && sherpaSegOk && sherpaEmbOk && sherpaAsrModelOk && sherpaAsrTokensOk;
 
   let ollama = false;
+  let llmModelOk = false;
   try {
     const res = await fetch(`${config.llm.baseUrl}/models`, {
       signal: AbortSignal.timeout(2500),
       headers: { Authorization: `Bearer ${config.llm.apiKey}` },
     });
     ollama = res.ok;
+    if (res.ok) {
+      // 端点可达时顺带看当前模型是否在列表里（模型缺失 → 引导去设置下载/检查模型名）
+      try {
+        const j = (await res.json()) as { data?: { id?: string }[] };
+        const ids = (j.data ?? []).map((m) => m.id ?? '');
+        const want = config.llm.model;
+        llmModelOk = ids.includes(want) || ids.some((id) => id.split(':')[0] === want.split(':')[0]);
+      } catch {
+        llmModelOk = false; // 列表不可解析（部分云服务），仅提示不阻塞
+      }
+    }
   } catch {
     ollama = false;
   }
@@ -292,6 +306,7 @@ export async function checkHealth(): Promise<HealthStatus> {
     whisperModelPath: config.whisper.model,
     ollama,
     ollamaBaseUrl: config.llm.baseUrl,
+    llmModelOk,
     transcriptionEngine: config.transcription.engine,
     sherpa: {
       ok: sherpaOk,

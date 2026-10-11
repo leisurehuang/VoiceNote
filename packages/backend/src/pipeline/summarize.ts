@@ -60,9 +60,11 @@ async function postChat(
     });
   } catch (e) {
     const cause = e instanceof Error ? e.message : String(e);
-    throw new Error(
-      `无法连接摘要 LLM（${url}）。请确认已运行 \`ollama serve\` 且模型 ${opts.model} 已 pull。原因：${cause}`,
-    );
+    const isLocal = /localhost|127\.0\.0\.1/.test(config.llm.baseUrl);
+    const hint = isLocal
+      ? `请确认已运行 \`ollama serve\`，且模型 ${opts.model} 已下载（打开 设置 → 模型 可下载/检查），或在设置中改用自定义 OpenAI 兼容服务。`
+      : `请检查网络与 API 配置（设置 → 整理模型预设）。`;
+    throw new Error(`无法连接摘要 LLM（${url}）。${hint}原因：${cause}`);
   }
 
   if (!res.ok) {

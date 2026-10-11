@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { config, type TranscriptionEngine } from '../config.js';
 import { newId } from '../util/id.js';
 
@@ -9,6 +9,8 @@ export interface LlmPreset {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 实时增量摘要模型；留空跟随主模型（选小快模型可降低首字延迟）。 */
+  incrementalModel?: string;
 }
 
 /** sherpa 引擎的高级参数（运行时同步到 config.sherpa）。 */
@@ -28,6 +30,8 @@ export interface Settings {
   transcriptionEngine: TranscriptionEngine;
   /** sherpa 引擎高级参数（仅 engine==='sherpa' 时生效）。 */
   sherpa: SherpaSettings;
+  /** 当前激活 whisper 模型文件的绝对路径（用户切换/自定义后持久化，重启保持）。 */
+  whisperModelPath?: string;
 }
 
 const settingsPath = join(config.dataDir, 'settings.json');
@@ -57,6 +61,8 @@ export function getSettings(): Settings {
       presets: Array.isArray(parsed.presets) ? (parsed.presets as LlmPreset[]) : [],
       glossary: Array.isArray(parsed.glossary) ? (parsed.glossary as string[]) : [],
       transcriptionEngine: parsed.transcriptionEngine === 'sherpa' ? 'sherpa' : 'whisper',
+      whisperModelPath:
+        typeof parsed.whisperModelPath === 'string' ? parsed.whisperModelPath : undefined,
       sherpa: {
         numSpeakers:
           typeof parsed.sherpa?.numSpeakers === 'number' && (parsed.sherpa.numSpeakers as number) > 0
@@ -69,7 +75,14 @@ export function getSettings(): Settings {
       },
     };
   } catch {
-    return { activePresetId: null, presets: [], glossary: [], transcriptionEngine: 'whisper', sherpa: {} };
+    return {
+      activePresetId: null,
+      presets: [],
+      glossary: [],
+      transcriptionEngine: 'whisper',
+      sherpa: {},
+      whisperModelPath: undefined,
+    };
   }
 }
 
@@ -95,6 +108,7 @@ export function saveSettings(s: Settings): Settings {
       baseUrl: p.baseUrl.trim(),
       apiKey: (p.apiKey ?? '').trim(),
       model: p.model.trim(),
+      incrementalModel: p.incrementalModel?.trim() || undefined,
     });
   }
   const glossary = Array.isArray(s.glossary)
@@ -105,6 +119,7 @@ export function saveSettings(s: Settings): Settings {
     presets,
     glossary,
     transcriptionEngine: s.transcriptionEngine === 'sherpa' ? 'sherpa' : 'whisper',
+    whisperModelPath: typeof s.whisperModelPath === 'string' ? s.whisperModelPath.trim() : undefined,
     sherpa: {
       numSpeakers:
         typeof s.sherpa?.numSpeakers === 'number' && (s.sherpa.numSpeakers as number) > 0
@@ -124,12 +139,12 @@ export function saveSettings(s: Settings): Settings {
 }
 
 /** 把预设应用到运行时 config.llm（所有摘要调用动态读取，即时生效）。
- *  增量摘要模型跟随主模型，确保切换 provider 后实时增量摘要也走对端点。 */
+ *  增量摘要模型若预设里单独配置则用之，否则跟随主模型。 */
 export function applyPreset(p: LlmPreset): void {
   config.llm.baseUrl = p.baseUrl.replace(/\/+$/, '');
   config.llm.apiKey = p.apiKey;
   config.llm.model = p.model;
-  config.llm.incrementalModel = p.model;
+  config.llm.incrementalModel = p.incrementalModel?.trim() || p.model;
 }
 
 /** 把术语表同步到运行时 config.whisper.glossary（whisper/摘要 prompt 注入用）。 */
@@ -149,7 +164,17 @@ export function applySherpaSettings(s: SherpaSettings): void {
   if (typeof s.clusterThreshold === 'number') config.sherpa.clusterThreshold = s.clusterThreshold;
 }
 
-/** 启动时调用：读 settings，应用激活预设到 config.llm。 */
+/** 把自定义 whisper 模型文件路径同步到运行时 config.whisper.model（文件存在才生效）。 */
+export function applyWhisperModelPath(p?: string | null): boolean {
+  const t = (p ?? '').trim();
+  if (!t) return false;
+  const abs = resolve(t);
+  if (!existsSync(abs)) return false;
+  config.whisper.model = abs;
+  return true;
+}
+
+/** 启动时调用：读 settings，应用激活预设到 config.llm、恢复激活的 whisper 模型路径。 */
 export function init(): void {
   const s = getSettings();
   const active = s.presets.find((p) => p.id === s.activePresetId);
@@ -157,4 +182,5 @@ export function init(): void {
   applyGlossary(s.glossary);
   applyTranscriptionEngine(s.transcriptionEngine);
   applySherpaSettings(s.sherpa);
+  applyWhisperModelPath(s.whisperModelPath);
 }
