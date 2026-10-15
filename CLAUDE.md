@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Voice Notes 是一个**本地优先**的语音转笔记应用。浏览器录音或上传音频 → 转写（`whisper.cpp` / `sherpa-onnx` 带说话人分离 / 云端 OpenAI 兼容 /audio/transcriptions API，如硅基流动 SenseVoiceSmall）→ OpenAI 兼容 LLM（默认 Ollama `qwen2.5:7b-instruct`）生成结构化中文摘要 → 查看逐字稿与摘要、导出 Markdown。UI、代码注释、LLM system prompt 均为中文——改动面向用户的文案时请保持中文。
+Voice Notes 是一个**本地优先**的语音转笔记应用。浏览器录音或上传音频 → 转写（`whisper.cpp` / `sherpa-onnx` 带说话人分离 / 云端 OpenAI 兼容 /audio/transcriptions API，如硅基流动 SenseVoiceSmall）→ OpenAI 兼容 LLM（默认 Ollama `qwen2.5:7b-instruct`）生成结构化中文摘要 → 查看逐字稿与摘要、导出 Markdown。桌面端另有**全局语音听写**：任意应用里按全局快捷键说话 → 转写 + AI 润色 → 自动粘贴到光标处（详见「语音听写」一节）。UI、代码注释、LLM system prompt 均为中文——改动面向用户的文案时请保持中文。
 
 ## 常用命令
 
@@ -22,6 +22,8 @@ npm run desktop:dev      # Electron 开发窗口，用系统 brew 装的 whisper
 node scripts/smoke-m2.mjs            # 上传/转码/删除
 node scripts/smoke-m3.mjs <音频>      # SSE 转写 + 摘要全链路
 node scripts/verify-prod.mjs         # 生产模式自检
+node scripts/smoke-dictation.mjs     # 听写接口（PCM 上传/静音门限/历史；BASE=... 可换端口）
+npx tsx scripts/test-dictation-logic.ts   # 纯逻辑单测：翻译口令检测/术语纠错/语言判定
 ```
 
 可选：sherpa-onnx 说话人分离（设置页可切换引擎；仅中文、不支持术语偏置）：
@@ -39,7 +41,7 @@ bash scripts/fetch-sherpa.sh   # 下 universal2 二进制 + 3 个 ONNX 模型到
 npm workspaces，三个包：
 - `packages/backend` — Fastify + TypeScript（核心；`dist/` 由 `tsc` 产出）
 - `packages/frontend` — Vite + React 18 + TypeScript
-- `packages/desktop` — Electron 外壳；`src/main.cjs` fork 后端并打开原生窗口
+- `packages/desktop` — Electron 外壳；`src/main.cjs` fork 后端并打开原生窗口；`src/dictation/` 为全局听写模块
 
 ## 后端架构（需要读多个文件才能理解的部分）
 
@@ -110,6 +112,25 @@ npm run dist:mac            # macOS
 - 支持"跳过版本"
 
 更新源通过 `packages/desktop/electron-builder.yml` 的 `publish` 配置或环境变量 `VOICE_NOTES_UPDATE_URL` 指定。
+
+## 语音听写（全局快捷键 → 润色 → 粘贴到光标）
+
+跨三平台的全局听写链路（灵感来自 typefree，逻辑为重新实现而非移植）：
+
+**后端**（`packages/backend`，Web 部署同样可调 API）：
+- `routes/dictation.ts` — `POST /api/dictation` 收 16kHz 单声道 PCM16 原始字节（`application/octet-stream`，需 `addContentTypeParser`）；写临时 wav → `transcribeUtteranceWithEngine`（复用三引擎分发）→ 翻译口令检测 → `polishDictation` 润色（失败回退原文，`polishError` 回传）→ 术语纠错 → 写历史。**静音门限（峰值<300）直接返回 `silent`，防误触也防 whisper 对静音的幻觉文本**。历史存 `data/dictation/history.jsonl`（超限裁最旧）。
+- `pipeline/dictation.ts` — 听写润色 prompt（中文/英文双份，中英混说时切英文保语言版）+ `applyTermCorrections`（长变体优先、单遍不重叠、拉丁整词边界）。
+- `pipeline/outputLanguage.ts` — 翻译口令纯规则检测（句首/句尾、否定词保护、剥语气词与连接标点、拉丁口令句尾须标点分隔）。改规则先跑 `scripts/test-dictation-logic.ts`。
+- 配置都在 `settings.json` 的 `dictation` 节（`settingsStore.ts::parseDictation`，老文件缺字段 fail-open 全默认）。
+
+**桌面**（`packages/desktop/src/dictation/`）：
+- `manager.cjs` — 状态机 `idle→recording→processing`。Electron `globalShortcut` **只有按下没有松开事件**，故用切换式（按一下开始、再按结束）；录音中临时注册 `cancelShortcut`（默认 Esc）作取消键，结束即注销。结束时要等录音页 `recorder-stopped` 回执再上传（余量音频先到齐），1.5s 兜底超时。
+- `recorder.html`（隐藏窗口）— getUserMedia + AudioWorklet 降采样 16k Int16（与前端 `useRealtime` 同款），**AudioWorklet 加载失败自动退回 ScriptProcessor**（file:// 环境兜底）；200ms 批量 IPC 降频。
+- `overlay.html` — 底部胶囊浮窗（frameless/transparent/`focusable:false`/`showInactive`，不抢目标输入框焦点），显示音量/状态/取消按钮。
+- `paster.cjs` — `clipboard.writeText` + 平台内置工具模拟粘贴（mac `osascript` keystroke / Win PowerShell SendKeys / Linux `xdotool`），粘贴 250ms 后还原原文本剪贴板；失败降级为「已复制」提示（mac 缺辅助功能时浮窗给一键跳系统设置）。
+- 托盘常驻：主窗口 close 被拦截为 hide（`isQuitting` 标记区分真退出）；快捷键配置从后端 `GET /api/settings` 拉取，前端保存后经 preload IPC `dictation-settings-changed` 通知热重载。
+
+**权限要点**：mac 需麦克风（`extendInfo.NSMicrophoneUsageDescription` 已配）+ 辅助功能（模拟 ⌘V）；Win 管理员窗口拒收 SendKeys（UIPI）→ 降级复制；Linux Wayland 无 xdotool → 降级复制，全局快捷键在部分 DE 也可能注册失败（托盘菜单可手动触发听写）。
 
 ## 端口速查
 - `3000` — 后端（开发 + 生产 web）

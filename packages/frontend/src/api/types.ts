@@ -90,6 +90,27 @@ export interface AsrApiSettings {
   model: string;
 }
 
+/** 术语纠错条目：误写命中 → 替换为正写（听写输出前生效）。 */
+export interface TermCorrection {
+  target: string;
+  variants: string[];
+}
+
+/** 语音听写配置（桌面端生效；Web 端仅展示/编辑）。 */
+export interface DictationSettings {
+  enabled: boolean;
+  /** Electron accelerator，如 'Ctrl+Alt+D'。 */
+  shortcut: string;
+  /** 录音期间的取消键。 */
+  cancelShortcut: string;
+  polish: boolean;
+  translationCommands: boolean;
+  /** 固定输出语言代码；不固定为空。 */
+  fixedOutputLanguage?: string;
+  termCorrections: TermCorrection[];
+  historyLimit: number;
+}
+
 export interface Settings {
   activePresetId: string | null;
   presets: LlmPreset[];
@@ -100,6 +121,18 @@ export interface Settings {
   whisperModelPath?: string;
   /** 云端转写 API 配置（engine==='api' 时生效）。 */
   asrApi: AsrApiSettings;
+  /** 语音听写配置。 */
+  dictation?: DictationSettings;
+}
+
+/** 听写历史条目。 */
+export interface DictationHistoryEntry {
+  id: string;
+  time: string;
+  transcript: string;
+  text: string;
+  durationMs: number;
+  targetLanguage?: string;
 }
 
 export interface TodoItem {

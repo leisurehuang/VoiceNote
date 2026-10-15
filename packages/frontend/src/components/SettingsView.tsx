@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSettings, testConnection, updateSettings } from '../api/client';
 import type { LlmPreset, Settings } from '../api/types';
 import { ModelManager } from './ModelManager';
+import { DictationSettingsView } from './DictationSettingsView';
 
 const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '', incrementalModel: '' };
 
@@ -12,7 +13,7 @@ export function SettingsView() {
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; warning?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [glossaryDraft, setGlossaryDraft] = useState('');
-  const [tab, setTab] = useState<'models' | 'glossary'>('models');
+  const [tab, setTab] = useState<'models' | 'glossary' | 'dictation'>('models');
   const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
@@ -113,6 +114,12 @@ export function SettingsView() {
             onClick={() => setTab('glossary')}
           >
             术语表
+          </button>
+          <button
+            className={tab === 'dictation' ? 'seg active' : 'seg'}
+            onClick={() => setTab('dictation')}
+          >
+            语音输入
           </button>
         </div>
         {err && <div className="alert err">{err}</div>}
@@ -372,6 +379,15 @@ export function SettingsView() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* 语音输入（全局听写） */}
+        <div className={tab === 'dictation' ? '' : 'hidden'}>
+          {!settings ? (
+            <p className="muted">加载中…</p>
+          ) : (
+            <DictationSettingsView settings={settings} persist={persist} />
           )}
         </div>
 

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Voice Notes 听写录音</title>
+</head>
+<body>
+<script>
+/**
+ * 隐藏录音页：getUserMedia → 降采样 16kHz Int16 → 批量 IPC 回主进程。
+ * 降采样/分块逻辑与前端实时转写（useRealtime）一致：AudioWorklet 优先，
+ * 加载失败时退回 ScriptProcessor（file:// 环境兜底）。
+ */
+(function () {
+  var BATCH_CHUNKS = 10; // 10 × 20ms = 200ms 一批，降低 IPC 频率
+  var BATCH_SAMPLES = 320 * BATCH_CHUNKS;
+
+  var WORKLET_SRC =
+    "class P extends AudioWorkletProcessor{constructor(){super();this.r=sampleRate/16000;this.p=0;this.o=[]}" +
+    "process(i){const d=i[0]&&i[0][0];if(!d)return true;const n=d.length;" +
+    "while(this.p<n-1){const k=Math.floor(this.p),f=this.p-k,s=d[k]+(d[k+1]-d[k])*f;" +
+    "this.o.push(s<-1?-1:s>1?1:s);this.p+=this.r}" +
+    "this.p-=n;if(this.p<0)this.p=0;" +
+    "while(this.o.length>=320){const c=this.o.splice(0,320),a=new Int16Array(320);" +
+    "for(let j=0;j<320;j++)a[j]=Math.round(c[j]*32767);this.port.postMessage(a,[a.buffer])}" +
+    "return true}}registerProcessor('pcm-capture',P);";
+  var WORKLET_URL = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }));
+
+  var ac = null;
+  var stream = null;
+  var workletNode = null;
+  var spNode = null;
+  var batch = new Int16Array(BATCH_SAMPLES);
+  var batchLen = 0;
+  var levelTick = 0;
+  var running = false;
+
+  function flush() {
+    if (batchLen === 0) return;
+    var out = batch.subarray(0, batchLen);
+    window.recorder.sendChunk(out);
+    batch = new Int16Array(BATCH_SAMPLES);
+    batchLen = 0;
+  }
+
+  function handleChunk(arr) {
+    // 音量电平：RMS（每 3 块上报一次，约 60ms）
+    if (++levelTick % 3 === 0) {
+      var sum = 0;
+      for (var i = 0; i < arr.length; i++) sum += arr[i] * arr[i];
+      var rms = Math.sqrt(sum / arr.length) / 32768;
+      window.recorder.sendLevel(Math.min(1, rms * 4)); // 放大便于可视化
+    }
+    if (batchLen + arr.length > BATCH_SAMPLES) flush();
+    batch.set(arr, batchLen);
+    batchLen += arr.length;
+    if (batchLen >= BATCH_SAMPLES) flush();
+  }
+
+  async function start() {
+    if (running) return;
+    running = true;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+      });
+    } catch (e) {
+      running = false;
+      var msg = e && e.name === 'NotAllowedError'
+        ? '麦克风权限被拒绝：请在系统设置中允许 Voice Notes 使用麦克风'
+        : '无法打开麦克风：' + (e && e.message ? e.message : e);
+      window.recorder.micError(msg);
+      return;
+    }
+    try {
+      ac = new AudioContext();
+      await ac.resume();
+      var src = ac.createMediaStreamSource(stream);
+      var downsample = function (input) {
+        // ScriptProcessor 兜底：与 worklet 相同的线性降采样
+        var ratio = ac.sampleRate / 16000;
+        var out = [];
+        var p = 0;
+        var n = input.length;
+        while (p < n - 1) {
+          var k = Math.floor(p);
+          var f = p - k;
+          var s = input[k] + (input[k + 1] - input[k]) * f;
+          out.push(s < -1 ? -1 : s > 1 ? 1 : s);
+          p += ratio;
+        }
+        for (var i = 0; i + 320 <= out.length; i += 320) {
+          var a = new Int16Array(320);
+          for (var j = 0; j < 320; j++) a[j] = Math.round(out[i + j] * 32767);
+          handleChunk(a);
+        }
+      };
+      try {
+        await ac.audioWorklet.addModule(WORKLET_URL);
+        workletNode = new AudioWorkletNode(ac, 'pcm-capture');
+        workletNode.port.onmessage = function (e) {
+          handleChunk(e.data);
+        };
+        src.connect(workletNode);
+      } catch (workletErr) {
+        // AudioWorklet 不可用（部分 file:// 环境）：ScriptProcessor 兜底
+        spNode = ac.createScriptProcessor(2048, 1, 1);
+        spNode.onaudioprocess = function (e) {
+          downsample(e.inputBuffer.getChannelData(0));
+        };
+        var mute = ac.createGain();
+        mute.gain.value = 0;
+        src.connect(spNode);
+        spNode.connect(mute);
+        mute.connect(ac.destination);
+      }
+    } catch (e) {
+      stopTracks();
+      running = false;
+      window.recorder.micError('录音初始化失败：' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function stopTracks() {
+    try { if (workletNode) workletNode.disconnect(); } catch (e) {}
+    try { if (spNode) spNode.disconnect(); } catch (e) {}
+    try { if (ac) ac.close(); } catch (e) {}
+    try { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    workletNode = null;
+    spNode = null;
+    ac = null;
+    stream = null;
+  }
+
+  function stop() {
+    if (!running) {
+      window.recorder.stopped();
+      return;
+    }
+    flush();
+    stopTracks();
+    running = false;
+    window.recorder.stopped();
+  }
+
+  window.recorder.onStart(function () { start(); });
+  window.recorder.onStop(stop);
+  // 会话中断兜底：页面卸载时静默
+  window.addEventListener('beforeunload', stopTracks);
+})();
+</script>
+</body>
+</html>

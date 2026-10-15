@@ -24,6 +24,9 @@ mac:
   identity: null
   hardenedRuntime: false
   gatekeeperAssess: false
+  # 全局听写需要麦克风（TCC 授权提示文案）
+  extendInfo:
+    NSMicrophoneUsageDescription: 录音用于语音听写与转写；本地处理，音频不上传（除非你配置了云端引擎）。
   target:
     - target: dmg
       arch: arm64

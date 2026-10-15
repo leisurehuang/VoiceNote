@@ -7,6 +7,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // 暴露安全的 API 到渲染进程
 contextBridge.exposeInMainWorld('electron', {
+  // ========== 桌面端标识 ==========
+  // 恒为 true（Web 部署下 window.electron 为 undefined）
+  isDesktop: true,
+  platform: process.platform,
+
+  // ========== 语音听写 ==========
+  // 听写设置保存后通知主进程热重载全局快捷键
+  dictationSettingsChanged: () => ipcRenderer.send('dictation-settings-changed'),
+
   // ========== 自动更新 API ==========
   // 检查更新
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

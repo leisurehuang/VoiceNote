@@ -20,6 +20,14 @@ export interface UpdateError {
 }
 
 export interface ElectronAPI {
+  // 桌面端标识（preload 恒定注入；Web 部署下 undefined）
+  readonly isDesktop: true;
+  /** 运行平台：darwin / win32 / linux。 */
+  readonly platform: string;
+
+  /** 听写设置已保存 → 通知主进程热重载全局快捷键。 */
+  dictationSettingsChanged(): void;
+
   // 检查更新
   checkForUpdates(): Promise<{ success: boolean; error?: string }>;
 

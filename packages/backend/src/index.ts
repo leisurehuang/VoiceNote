@@ -10,6 +10,7 @@ import { registerSessionRoutes } from './routes/sessions.js';
 import { registerRealtimeRoute } from './routes/realtime.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerModelRoutes } from './routes/models.js';
+import { registerDictationRoutes } from './routes/dictation.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -32,6 +33,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await registerSettingsRoutes(app);
   // 模型管理（whisper / ollama 下载/切换/删除）
   await registerModelRoutes(app);
+  // 语音听写（桌面端全局快捷键 → PCM 上传 → 转写/润色/纠错 + 历史）
+  await registerDictationRoutes(app);
 
   // 生产模式：托管前端构建产物（packages/frontend/dist），单进程单端口
   if (existsSync(config.frontendDist)) {

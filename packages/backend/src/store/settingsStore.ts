@@ -24,6 +24,35 @@ export interface SherpaSettings {
 /** 云端转写 API（engine==='api' 时启用；OpenAI 兼容 /audio/transcriptions 形态）。 */
 export type AsrApiSettings = AsrApiConfig;
 
+/** 术语纠错条目：误写命中 → 替换为正写（听写输出前生效）。 */
+export interface TermCorrection {
+  target: string;
+  variants: string[];
+}
+
+/** 语音听写（桌面端全局快捷键 → 录音 → 润色 → 粘贴）配置。 */
+export interface DictationSettings {
+  /** 总开关：false 时桌面端不注册全局快捷键。 */
+  enabled: boolean;
+  /** Electron accelerator，如 'Ctrl+Alt+D'；切换式（按一下开始，再按结束）。 */
+  shortcut: string;
+  /** 录音期间的取消键（仅录音中临时注册）。 */
+  cancelShortcut: string;
+  /** 是否用激活的 LLM 预设润色；false 直接输出识别原文。 */
+  polish: boolean;
+  /** 是否启用句首/句尾翻译口令（「用英文」等）。 */
+  translationCommands: boolean;
+  /** 固定输出语言代码（outputLanguage.ts 的 code）；不固定留空。 */
+  fixedOutputLanguage?: string;
+  /** 术语纠错表。 */
+  termCorrections: TermCorrection[];
+  /** 历史保留条数。 */
+  historyLimit: number;
+}
+
+export const DEFAULT_DICTATION_SHORTCUT = 'Ctrl+Alt+D';
+export const DEFAULT_DICTATION_CANCEL_SHORTCUT = 'Escape';
+
 const ENGINE_VALUES: readonly TranscriptionEngine[] = ['whisper', 'sherpa', 'api'];
 
 function parseEngine(v: unknown): TranscriptionEngine {
@@ -36,6 +65,37 @@ function parseAsrApi(v: unknown): AsrApiSettings {
     baseUrl: typeof x.baseUrl === 'string' ? x.baseUrl : config.asrApi.baseUrl,
     apiKey: typeof x.apiKey === 'string' ? x.apiKey : config.asrApi.apiKey,
     model: typeof x.model === 'string' ? x.model : config.asrApi.model,
+  };
+}
+
+/** 听写配置解析：老 settings.json 无 dictation 字段 → 全默认（fail-open）。 */
+function parseDictation(v: unknown): DictationSettings {
+  const x = (v ?? {}) as Partial<DictationSettings>;
+  const corrections: TermCorrection[] = Array.isArray(x.termCorrections)
+    ? x.termCorrections
+        .map((c) => c as Partial<TermCorrection>)
+        .filter((c) => typeof c.target === 'string' && c.target.trim())
+        .map((c) => ({
+          target: String(c.target).trim(),
+          variants: Array.isArray(c.variants)
+            ? c.variants.map((s) => String(s).trim()).filter(Boolean)
+            : [],
+        }))
+        .filter((c) => c.target)
+    : [];
+  const limit = typeof x.historyLimit === 'number' && x.historyLimit > 0 ? Math.floor(x.historyLimit) : 500;
+  return {
+    enabled: x.enabled !== false,
+    shortcut: typeof x.shortcut === 'string' && x.shortcut.trim() ? x.shortcut.trim() : DEFAULT_DICTATION_SHORTCUT,
+    cancelShortcut:
+      typeof x.cancelShortcut === 'string' && x.cancelShortcut.trim()
+        ? x.cancelShortcut.trim()
+        : DEFAULT_DICTATION_CANCEL_SHORTCUT,
+    polish: x.polish !== false,
+    translationCommands: x.translationCommands !== false,
+    fixedOutputLanguage: typeof x.fixedOutputLanguage === 'string' && x.fixedOutputLanguage ? x.fixedOutputLanguage : undefined,
+    termCorrections: corrections,
+    historyLimit: Math.min(Math.max(limit, 50), 5000),
   };
 }
 
@@ -52,6 +112,8 @@ export interface Settings {
   whisperModelPath?: string;
   /** 云端转写 API 配置（engine==='api' 时生效）。 */
   asrApi: AsrApiSettings;
+  /** 语音听写配置（桌面端读；Web 端仅展示/编辑）。 */
+  dictation: DictationSettings;
 }
 
 const settingsPath = join(config.dataDir, 'settings.json');
@@ -72,6 +134,7 @@ function defaultSettings(): Settings {
     transcriptionEngine: 'whisper',
     sherpa: {},
     asrApi: parseAsrApi(undefined),
+    dictation: parseDictation(undefined),
   };
 }
 
@@ -91,6 +154,7 @@ export function getSettings(): Settings {
       whisperModelPath:
         typeof parsed.whisperModelPath === 'string' ? parsed.whisperModelPath : undefined,
       asrApi: parseAsrApi(parsed.asrApi),
+      dictation: parseDictation(parsed.dictation),
       sherpa: {
         numSpeakers:
           typeof parsed.sherpa?.numSpeakers === 'number' && (parsed.sherpa.numSpeakers as number) > 0
@@ -111,6 +175,7 @@ export function getSettings(): Settings {
       sherpa: {},
       whisperModelPath: undefined,
       asrApi: parseAsrApi(undefined),
+      dictation: parseDictation(undefined),
     };
   }
 }
@@ -150,6 +215,7 @@ export function saveSettings(s: Settings): Settings {
     transcriptionEngine: parseEngine(s.transcriptionEngine),
     whisperModelPath: typeof s.whisperModelPath === 'string' ? s.whisperModelPath.trim() : undefined,
     asrApi: parseAsrApi(s.asrApi),
+    dictation: parseDictation(s.dictation),
     sherpa: {
       numSpeakers:
         typeof s.sherpa?.numSpeakers === 'number' && (s.sherpa.numSpeakers as number) > 0

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Voice Notes 听写</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: transparent;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .pill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    background: rgba(29, 29, 32, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 22px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+    color: #f0f0f2;
+    font-size: 13px;
+    cursor: default;
+  }
+  .bars { display: flex; align-items: center; gap: 2.5px; height: 20px; flex-shrink: 0; }
+  .bar {
+    width: 3px;
+    border-radius: 2px;
+    background: #ff453a;
+    height: 20%;
+    transition: height 90ms ease-out;
+  }
+  .icon { font-size: 15px; flex-shrink: 0; }
+  .msg { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg small { display: block; color: rgba(240, 240, 242, 0.55); font-size: 11px; margin-top: 1px; }
+  .cancel-btn, .ax-btn {
+    border: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: #f0f0f2;
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cancel-btn:hover, .ax-btn:hover { background: rgba(255, 255, 255, 0.22); }
+  .ax-btn { background: #0a84ff; }
+  .ax-btn:hover { background: #3a9bff; }
+  .spin {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #0a84ff;
+    border-radius: 50%;
+    animation: rot 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .ok { color: #30d158; }
+  .err { color: #ff453a; }
+</style>
+</head>
+<body>
+  <div class="pill" id="pill">
+    <div class="bars" id="bars">
+      <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    </div>
+    <div class="icon" id="icon"></div>
+    <div class="spin" id="spin" style="display:none"></div>
+    <div class="msg" id="msg"></div>
+    <button class="cancel-btn" id="cancel">✕ 取消</button>
+    <button class="ax-btn" id="ax" style="display:none">打开辅助功能设置</button>
+  </div>
+<script>
+(function () {
+    var bars = document.querySelectorAll('.bar');
+    var icon = document.getElementById('icon');
+    var msg = document.getElementById('msg');
+    var cancelBtn = document.getElementById('cancel');
+    var axBtn = document.getElementById('ax');
+    var spin = document.getElementById('spin');
+    var barsBox = document.getElementById('bars');
+    var smooth = 0;
+
+    function setBars(level, active) {
+      if (!active) { barsBox.style.display = 'none'; return; }
+      barsBox.style.display = 'flex';
+      smooth = smooth * 0.55 + level * 0.45;
+      for (var i = 0; i < bars.length; i++) {
+        // 中间高两边低的波形，随 level 起伏
+        var w = 1 - Math.abs(i - (bars.length - 1) / 2) / bars.length;
+        bars[i].style.height = Math.max(12, Math.min(100, (smooth * 1.6 + 0.08) * w * 100)) + '%';
+      }
+    }
+
+    function render(s) {
+      cancelBtn.style.display = s.phase === 'recording' ? '' : 'none';
+      axBtn.style.display = s.needAx ? '' : 'none';
+      spin.style.display = s.phase === 'processing' ? '' : 'none';
+      icon.className = 'icon';
+      icon.style.display = s.phase === 'recording' || s.phase === 'processing' ? 'none' : '';
+      msg.className = 'msg';
+      switch (s.phase) {
+        case 'recording':
+          icon.textContent = ''; icon.style.display = 'none';
+          setBars(s.level || 0, true);
+          msg.innerHTML = '录音中<small>再按一次快捷键结束 · Esc 取消</small>';
+          break;
+        case 'processing':
+          setBars(0, false);
+          msg.innerHTML = '识别整理中<small>转写 + AI 润色</small>';
+          break;
+        case 'done':
+          setBars(0, false);
+          icon.textContent = '✓'; icon.className = 'icon ok';
+          msg.textContent = s.message || '已输入';
+          break;
+        case 'copied':
+          setBars(0, false);
+          icon.textContent = '📋';
+          msg.textContent = s.message || '已复制，请按 Ctrl+V / ⌘V 粘贴';
+          break;
+        case 'cancel':
+          setBars(0, false);
+          icon.textContent = '✕'; icon.className = 'icon';
+          msg.textContent = '已取消';
+          break;
+        case 'error':
+          setBars(0, false);
+          icon.textContent = '⚠'; icon.className = 'icon err';
+          msg.textContent = s.message || '出错了';
+          break;
+      }
+    }
+
+    window.overlay.onState(render);
+    cancelBtn.addEventListener('click', function () { window.overlay.requestCancel(); });
+    axBtn.addEventListener('click', function () { window.overlay.openAxSettings(); });
+})();
+</script>
+</body>
+</html>

@@ -1,12 +1,17 @@
 // Electron 主进程：启动 Ollama sidecar（打包态）+ fork 后端 + 打开原生窗口。
 // dev 模式复用系统 brew 装的 whisper/ffmpeg/ollama；打包态用 app 内自带的 resources。
 // 启动不下载任何模型、不阻塞：缺什么由前端横幅引导到 设置 → 模型 里下载。
-const { app, BrowserWindow, shell, Menu, dialog } = require('electron');
+// 另含：全局听写（dictation/manager.cjs）、系统托盘常驻（关窗不退出）。
+const { app, BrowserWindow, shell, Menu, dialog, Tray, nativeImage, ipcMain, session } = require('electron');
 const { fork, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { initAutoUpdater, checkForUpdates: checkAutoUpdates } = require('./autoUpdater.cjs');
+const dictation = require('./dictation/manager.cjs');
+
+// 隐藏录音窗口无用户手势也要能跑 AudioContext（听写录音依赖）
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 const BACKEND_PORT = 3100;
 const OLLAMA_PORT = 11435; // 避开系统常占的 11434
@@ -30,6 +35,8 @@ let ollamaProc = null;
 let backendProc = null;
 let win = null;
 let ollamaModelsDir = null;
+let tray = null;
+let isQuitting = false; // 真 quit（托盘退出/菜单退出）时才允许窗口 close 销毁
 
 // 调试日志：写到 userData/main.log（open 启动时看不到 stdout）
 let LOG_PATH = null;
@@ -194,12 +201,57 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+  // 托盘常驻：关闭主窗口 = 隐藏（听写快捷键继续可用），托盘菜单/退出才真正关闭
+  win.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      win.hide();
+    }
+  });
   win.on('closed', () => {
     win = null;
   });
 
   // 初始化自动更新（使用 electron-updater）
   initAutoUpdater(win);
+}
+
+/** 系统托盘：显示主窗口 / 开始听写 / 退出。 */
+function createTray() {
+  const iconFile = process.platform === 'darwin' ? 'tray-16.png' : 'tray-32.png';
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'dictation', 'assets', iconFile));
+  tray = new Tray(icon); // 文件缺失时为空图标，托盘仍可用（菜单驱动）
+  tray.setToolTip('Voice Notes · 语音笔记与全局听写');
+  const menu = Menu.buildFromTemplate([
+    { label: '显示主窗口', click: () => showMainWindow() },
+    { label: '开始 / 停止听写', click: () => dictation.toggle() },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(menu);
+  // macOS：点托盘图标切换主窗口显隐（右键弹菜单）
+  if (process.platform === 'darwin') {
+    tray.on('click', () => {
+      if (win && win.isVisible()) win.hide();
+      else showMainWindow();
+    });
+  }
+}
+
+function showMainWindow() {
+  if (!win) {
+    createWindow();
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
 }
 
 function cmpVer(a, b) {
@@ -318,14 +370,24 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-    }
+    showMainWindow();
   });
+
+  /** 麦克风权限：只放行自家 file:// 页面（听写隐藏录音窗/浮窗）。 */
+  function setupPermissions() {
+    const isOwnFilePage = (url) => typeof url === 'string' && url.startsWith('file://');
+    session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+      if (permission === 'media' && isOwnFilePage(wc.getURL())) return cb(true);
+      cb(false);
+    });
+    session.defaultSession.setPermissionCheckHandler((wc, permission, requestingUrl) => {
+      return permission === 'media' && isOwnFilePage(requestingUrl || (wc && wc.getURL()));
+    });
+  }
 
   app.whenReady().then(async () => {
     buildMenu();
+    setupPermissions();
     logf('app ready v' + VER + ' isPackaged=' + isPackaged);
     try {
       // 模型下载不再阻塞启动：ollama 后台起，主窗口立即可用；
@@ -333,6 +395,10 @@ if (!gotLock) {
       await startOllama();
       await startBackend();
       createWindow();
+      createTray();
+      // 全局听写：注册快捷键 + 预热录音窗口（backend 就绪后）
+      dictation.init({ backendUrl: BACKEND_URL, log: logf });
+      ipcMain.on('dictation-settings-changed', () => void dictation.reloadShortcuts());
       logf('window opened');
       void checkForUpdate(); // 非阻塞
     } catch (e) {
@@ -343,12 +409,17 @@ if (!gotLock) {
   });
 
   app.on('window-all-closed', () => {
+    // 主窗口 close 被拦截为 hide，正常不会走到这里；仅异常兜底
     if (process.platform !== 'darwin') app.quit();
   });
   app.on('activate', () => {
+    // macOS Dock 点击：窗口被隐藏时重新显示
     if (!win) createWindow();
+    else showMainWindow();
   });
   app.on('before-quit', () => {
+    isQuitting = true;
+    dictation.destroy();
     killChild(backendProc);
     killChild(ollamaProc);
   });

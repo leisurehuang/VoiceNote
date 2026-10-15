@@ -1,0 +1,6 @@
+name: dictation-integration
+title: Global Voice Dictation (typefree capabilities, cross-platform)
+status: implemented
+created: 2026-10-15
+schema: spec-driven
+description: 集成 typefree 的核心听写能力（全局快捷键→ASR→AI 润色→粘贴到光标、翻译口令、术语纠错、听写历史、托盘常驻），覆盖 Windows/Linux/macOS

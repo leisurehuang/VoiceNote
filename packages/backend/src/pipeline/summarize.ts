@@ -37,8 +37,8 @@ export interface SummarizeResult {
   model: string;
 }
 
-/** OpenAI 兼容 /chat/completions 的核心调用，可流式可非流式。 */
-async function postChat(
+/** OpenAI 兼容 /chat/completions 的核心调用，可流式可非流式（听写润色等共用）。 */
+export async function postChat(
   messages: ChatMessage[],
   opts: { model: string; stream: boolean; onToken?: (delta: string) => void },
 ): Promise<string> {

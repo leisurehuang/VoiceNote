@@ -1,4 +1,4 @@
-import type { HealthStatus, SessionDetail, SessionMeta, Settings, TranscriptSegment, TodoItem, WhisperModelsResult, LlmModelsResult } from './types';
+import type { DictationHistoryEntry, HealthStatus, SessionDetail, SessionMeta, Settings, TranscriptSegment, TodoItem, WhisperModelsResult, LlmModelsResult } from './types';
 
 const API = '/api';
 
@@ -147,3 +147,18 @@ export const setLlmActive = (name: string): Promise<Response> =>
   });
 export const deleteLlmModel = (name: string): Promise<Response> =>
   fetch(`${API}/models/llm/${encodeURIComponent(name)}`, { method: 'DELETE' });
+
+// ---------- 语音听写 ----------
+export const getDictationHistory = async (limit = 100): Promise<DictationHistoryEntry[]> => {
+  const r = await fetch(`${API}/dictation/history?limit=${limit}`);
+  const j = (await r.json()) as { entries?: DictationHistoryEntry[] };
+  return j.entries ?? [];
+};
+
+export const deleteDictationHistory = async (id: string): Promise<void> => {
+  await fetch(`${API}/dictation/history/${encodeURIComponent(id)}`, { method: 'DELETE' });
+};
+
+export const clearDictationHistory = async (): Promise<void> => {
+  await fetch(`${API}/dictation/history`, { method: 'DELETE' });
+};
