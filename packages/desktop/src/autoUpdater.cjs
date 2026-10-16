@@ -73,9 +73,26 @@ function clearSkippedVersions() {
 
 /**
  * 初始化自动更新
+ * 幂等：窗口销毁后重建（Dock activate 等）会再次进入，重复注册 IPC handler 会抛
+ * "Attempted to register a second handler"，且事件监听器翻倍会双弹窗——故只初始化一次。
  * @param {BrowserWindow} mainWindow - 主窗口
  */
+let inited = false;
+let updateWin = null; // 事件推送目标窗口：每次进入都更新引用，避免向已销毁窗口 send
+
+function sendToWindow(channel, payload) {
+  try {
+    if (updateWin && !updateWin.isDestroyed()) updateWin.webContents.send(channel, payload);
+  } catch {
+    /* 窗口已销毁等，忽略 */
+  }
+}
+
 function initAutoUpdater(mainWindow) {
+  updateWin = mainWindow;
+  if (inited) return;
+  inited = true;
+
   // 配置更新服务器
   autoUpdater.setFeedURL({
     provider: 'github',
@@ -101,66 +118,57 @@ function initAutoUpdater(mainWindow) {
 
     log.info('发现新版本:', version);
     // 通知用户有更新可用
-    if (mainWindow) {
-      mainWindow.webContents.send('update-available', {
-        version: version,
-        releaseDate: info.releaseDate,
-        releaseNotes: info.releaseNotes,
-      });
-    }
+    sendToWindow('update-available', {
+      version: version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes,
+    });
   });
 
   autoUpdater.on('update-not-available', (info) => {
     log.info('当前已是最新版本:', info.version);
-    if (mainWindow) {
-      mainWindow.webContents.send('update-not-available', {
-        version: info.version,
-      });
-    }
+    sendToWindow('update-not-available', {
+      version: info.version,
+    });
   });
 
   autoUpdater.on('download-progress', (progress) => {
     log.info('下载进度:', progress.percent + '%');
-    if (mainWindow) {
-      mainWindow.webContents.send('update-download-progress', {
-        percent: Math.floor(progress.percent),
-        transferred: Math.floor(progress.transferred),
-        total: Math.floor(progress.total),
-        bytesPerSecond: Math.floor(progress.bytesPerSecond),
-      });
-    }
+    sendToWindow('update-download-progress', {
+      percent: Math.floor(progress.percent),
+      transferred: Math.floor(progress.transferred),
+      total: Math.floor(progress.total),
+      bytesPerSecond: Math.floor(progress.bytesPerSecond),
+    });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('更新下载完成:', info.version);
-    // 通知用户安装更新
-    if (mainWindow) {
-      dialog
-        .showMessageBox(mainWindow, {
-          type: 'info',
-          buttons: ['立即安装', '稍后'],
-          defaultId: 0,
-          title: '更新已准备就绪',
-          message: `版本 ${info.version} 下载完成`,
-          detail: '是否立即安装并重启应用？',
-        })
-        .then((result) => {
-          if (result.response === 0) {
-            setImmediate(() => {
-              autoUpdater.quitAndInstall();
-            });
-          }
+    // 通知用户安装更新（主窗口可能已销毁/重建，取当前引用；无窗口则弹无父窗口对话框）
+    const target = updateWin && !updateWin.isDestroyed() ? updateWin : null;
+    const opts = {
+      type: 'info',
+      buttons: ['立即安装', '稍后'],
+      defaultId: 0,
+      title: '更新已准备就绪',
+      message: `版本 ${info.version} 下载完成`,
+      detail: '是否立即安装并重启应用？',
+    };
+    const done = target ? dialog.showMessageBox(target, opts) : dialog.showMessageBox(opts);
+    void done.then((result) => {
+      if (result.response === 0) {
+        setImmediate(() => {
+          autoUpdater.quitAndInstall();
         });
-    }
+      }
+    });
   });
 
   autoUpdater.on('error', (err) => {
     log.error('更新错误:', err);
-    if (mainWindow) {
-      mainWindow.webContents.send('update-error', {
-        message: err.message,
-      });
-    }
+    sendToWindow('update-error', {
+      message: err.message,
+    });
   });
 
   // 处理来自渲染进程的消息

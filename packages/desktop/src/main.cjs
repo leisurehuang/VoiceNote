@@ -266,7 +266,8 @@ function cmpVer(a, b) {
   return 0;
 }
 
-/** 启动后非阻塞检查更新。默认查 GitHub releases/latest；有新版弹窗带「前往下载」。 */
+/** 检查更新（默认查 GitHub releases/latest）；有新版弹窗带「前往下载」。
+ * 返回 {found, version?, error?} 供设置页「检查更新」按钮回显（菜单/启动调用忽略返回值）。 */
 async function checkForUpdate() {
   try {
     const r = await fetch(UPDATE_URL, {
@@ -275,11 +276,11 @@ async function checkForUpdate() {
     });
     if (r.status === 404) {
       logf('更新检查：远端暂无 release（' + UPDATE_URL + '）');
-      return;
+      return { found: false };
     }
     if (!r.ok) {
       logf('更新检查：源返回 ' + r.status);
-      return;
+      return { found: false, error: '更新源返回 ' + r.status };
     }
     const j = await r.json();
     // 兼容两种：GitHub release（tag_name + assets）或自定义 {version, url, note}
@@ -290,15 +291,27 @@ async function checkForUpdate() {
         : '';
     if (!remoteVer) {
       logf('更新检查：无版本信息');
-      return;
+      return { found: false, error: '更新源无版本信息' };
     }
     if (cmpVer(remoteVer, VER) > 0) {
-      // 选下载地址：优先「完整版 dmg」资源，否则任意 dmg，再否则 release 页
+      // 选下载地址：按当前平台挑对应安装包（mac→dmg / win→NSIS exe 非 portable / linux→AppImage），否则 release 页
       let url = j.url;
       if (!url && Array.isArray(j.assets)) {
-        const dmgs = j.assets.filter((a) => /\.dmg$/i.test(a.name));
-        const pick = dmgs.find((a) => !/slim/i.test(a.name)) || dmgs[0];
-        url = pick && pick.browser_download_url;
+        const names = j.assets.map((a) => a.name || '');
+        const pickName = () => {
+          if (process.platform === 'darwin') {
+            const dmgs = names.filter((n) => /\.dmg$/i.test(n));
+            return dmgs.find((n) => !/slim/i.test(n)) || dmgs[0];
+          }
+          if (process.platform === 'win32') {
+            const exes = names.filter((n) => /\.exe$/i.test(n) && !/portable/i.test(n));
+            return exes[0] || names.find((n) => /\.exe$/i.test(n));
+          }
+          return names.find((n) => /\.AppImage$/i.test(n));
+        };
+        const name = pickName();
+        const asset = name && j.assets.find((a) => a.name === name);
+        url = asset && asset.browser_download_url;
       }
       url = url || j.html_url;
       const detail = (j.body || j.note || '点击「前往下载」打开下载页。').toString().slice(0, 400);
@@ -313,20 +326,32 @@ async function checkForUpdate() {
       });
       if (res.response === 0 && url) shell.openExternal(url);
       logf('更新检查：发现新版 ' + remoteVer + ' → ' + url);
+      return { found: true, version: remoteVer };
     } else {
       logf('更新检查：已是最新 ' + VER + '（远端 ' + remoteVer + '）');
+      return { found: false };
     }
   } catch (e) {
     logf('更新检查失败：' + (e && e.message ? e.message : e));
+    return { found: false, error: (e && e.message ? e.message : String(e)) };
   }
 }
+
+// 设置页「检查更新」入口：mac 走这条原生弹窗路径（未签名装不了应用内更新，见 buildMenu 注释）；
+// win/linux 设置页走 electron-updater（'check-for-updates'，结果经事件推给 UpdateBanner）。
+ipcMain.handle('check-for-update-dialog', () => checkForUpdate());
 
 function buildMenu() {
   const tpl = [
     {
       label: 'Voice Notes',
       submenu: [
-        { label: '检查更新…', click: () => void checkAutoUpdates() },
+        // mac 应用未签名（electron-builder identity: null）：Squirrel.Mac 拒装未签名更新，
+        // electron-updater 的下载后安装走不通 → mac 走「弹窗 + 前往下载」；win/linux 走应用内更新
+        {
+          label: '检查更新…',
+          click: () => void (process.platform === 'darwin' ? checkForUpdate() : checkAutoUpdates()),
+        },
         { type: 'separator' },
         { role: 'quit' },
       ],
