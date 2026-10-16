@@ -1,25 +1,23 @@
-import { useState } from 'react';
 import { exportMarkdownText, exportMarkdownUrl } from '../api/client';
+import { Button } from './ui/Button';
+import { toast, toastError } from './ui/Toast';
 
 export function ExportBar({ id }: { id: string }) {
-  const [copied, setCopied] = useState(false);
-
   async function copy() {
     try {
       const md = await exportMarkdownText(id);
       await navigator.clipboard.writeText(md);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      toast('已复制到剪贴板');
     } catch {
-      /* 剪贴板被拒绝时忽略 */
+      toastError('复制失败，请检查剪贴板权限');
     }
   }
 
   return (
     <div className="export-bar">
-      <button className="ghost" onClick={copy}>
-        {copied ? '已复制 ✓' : '复制 Markdown'}
-      </button>
+      <Button variant="ghost" onClick={copy}>
+        复制 Markdown
+      </Button>
       <a className="ghost" href={exportMarkdownUrl(id)} download>
         下载 .md
       </a>

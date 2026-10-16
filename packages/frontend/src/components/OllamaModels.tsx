@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Package } from 'lucide-react';
 import { listLlmModels, llmPullUrl, setLlmActive, deleteLlmModel } from '../api/client';
 import type { LlmModelsResult } from '../api/types';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { ProgressBar } from './ui/ProgressBar';
+import { toast, toastError } from './ui/Toast';
 
 const DEFAULT_LLM_MODEL = 'qwen2.5:7b-instruct';
 
@@ -65,6 +70,7 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
     try {
       await setLlmActive(name);
       await refresh();
+      toast(`已切换到 ${name}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '切换失败');
     }
@@ -75,6 +81,7 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
     try {
       await deleteLlmModel(name);
       await refresh();
+      toast(`已删除 ${name}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '删除失败');
     }
@@ -84,7 +91,10 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
 
   return (
     <div className="model-section">
-      <h4 className="block-h">📦 LLM 模型（Ollama）</h4>
+      <h4 className="block-h">
+        <Package size={13} aria-hidden />
+        LLM 模型（Ollama）
+      </h4>
       <p className="muted">激活预设使用本地 Ollama 时在此管理：下载/切换模型，对激活预设即时生效。</p>
       {err && <div className="alert err">{err}</div>}
       {llm.error && <p className="muted">{llm.error}</p>}
@@ -101,11 +111,11 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
           </label>
           <div className="model-ops">
             {m.active ? (
-              <span className="preset-badge">● 使用中</span>
+              <Badge tone="accent">使用中</Badge>
             ) : (
-              <button className="ghost" onClick={() => removeLlm(m.name)}>
+              <Button variant="ghost" size="sm" onClick={() => removeLlm(m.name)}>
                 删除
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -121,15 +131,11 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
           placeholder={DEFAULT_LLM_MODEL}
           disabled={pulling}
         />
-        <button className="big" onClick={pull} disabled={pulling || !pullName.trim()}>
-          {pulling ? '拉取中…' : '拉取'}
-        </button>
+        <Button variant="primary" loading={pulling} onClick={pull} disabled={pulling || !pullName.trim()}>
+          拉取
+        </Button>
       </div>
-      {pullPct != null && (
-        <div className="model-bar">
-          <span style={{ width: `${Math.round(pullPct * 100)}%` }} />
-        </div>
-      )}
+      {pullPct != null && <ProgressBar value={pullPct} />}
     </div>
   );
 }

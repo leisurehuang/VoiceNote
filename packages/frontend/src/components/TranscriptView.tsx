@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { AudioLines } from 'lucide-react';
 import type { TranscriptSegment } from '../api/types';
 import { fmtMs } from '../format';
 import { speakerColor, speakerLabel } from '../speakers';
+import { Button } from './ui/Button';
+import { EmptyState } from './ui/EmptyState';
 
 interface Props {
   segments: TranscriptSegment[];
@@ -64,7 +67,8 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
     setDraft((cur) => cur.map((seg, j) => (j === i ? { ...seg, text } : seg)));
   }
 
-  if (!segments.length && !editing) return <p className="muted">（无逐字稿）</p>;
+  if (!segments.length && !editing)
+    return <EmptyState icon={AudioLines} title="（无逐字稿）" hint="该会话没有可展示的转写文本" />;
 
   const paras = groupParagraphs(segments);
 
@@ -124,23 +128,23 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
         <div className="transcript-actions">
           {editing ? (
             <>
-              <button className="big" onClick={save} disabled={saving}>
-                {saving ? '保存中…' : '保存'}
-              </button>
-              <button className="ghost" onClick={() => setEditing(false)} disabled={saving}>
+              <Button variant="primary" onClick={save} loading={saving}>
+                保存
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
                 取消
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              className="ghost"
+            <Button
+              variant="ghost"
               onClick={() => {
                 setDraft(segments.map((s) => ({ ...s })));
                 setEditing(true);
               }}
             >
               编辑逐字稿
-            </button>
+            </Button>
           )}
         </div>
       )}

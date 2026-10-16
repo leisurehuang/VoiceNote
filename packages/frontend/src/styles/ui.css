@@ -169,3 +169,473 @@ button:disabled {
   gap: 8px;
 }
 
+
+/* ==================== ui/ 组件层 ==================== */
+
+/* ---------- Button ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius-s);
+  padding: 7px 16px;
+  font: inherit;
+  font-size: var(--fs-1);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.btn-sm {
+  padding: 4px 10px;
+  font-size: var(--fs-0);
+  border-radius: 5px;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-secondary {
+  background: var(--fill);
+  color: var(--text);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--fill-2);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--fill);
+  color: var(--text);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 82%, #fff);
+}
+.btn-spin {
+  animation: spin-rot 0.9s linear infinite;
+}
+@keyframes spin-rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- IconButton ---------- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--fill);
+  color: var(--text);
+}
+.icon-btn-sm {
+  width: 22px;
+  height: 22px;
+}
+.icon-btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ---------- Field / Input ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+.field-label {
+  font-size: var(--fs-0);
+  font-weight: 600;
+  color: var(--text-2);
+}
+.field-msg {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.field-msg-err {
+  color: var(--danger-ink);
+}
+.input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-s);
+  background: var(--fill-3);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-1);
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--card);
+}
+.input::placeholder {
+  color: var(--text-3);
+}
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.6;
+}
+
+/* ---------- Switch ---------- */
+.switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--fill-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--dur-1) var(--ease);
+}
+.switch-on {
+  background: var(--accent);
+}
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform var(--dur-1) var(--ease);
+}
+.switch-on .switch-knob {
+  transform: translateX(14px);
+}
+
+/* ---------- Spinner ---------- */
+.spinner {
+  display: inline-block;
+  border: 2px solid var(--fill-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin-rot 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ---------- Skeleton ---------- */
+.skeleton {
+  display: inline-block;
+  background: var(--fill);
+  animation: skeleton-breathe 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.skeleton-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}
+.skeleton-paras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-m);
+}
+
+/* ---------- EmptyState ---------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-3);
+}
+.empty-icon {
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.empty-title {
+  font-size: var(--fs-1);
+  color: var(--text-2);
+  font-weight: 500;
+}
+.empty-hint {
+  font-size: var(--fs-0);
+  line-height: 1.5;
+  max-width: 300px;
+}
+.empty-action {
+  margin-top: 8px;
+}
+
+/* ---------- Badge ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.badge-neutral {
+  background: var(--fill);
+  color: var(--text-2);
+}
+.badge-ok {
+  background: var(--ok-soft);
+  color: var(--ok-ink);
+}
+.badge-warn {
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+.badge-danger {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+.badge-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- StatusDot ---------- */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex-shrink: 0;
+}
+.st-done {
+  background: var(--ok);
+}
+.st-error {
+  background: var(--danger);
+}
+.st-uploaded {
+  background: transparent;
+  border: 1.5px solid var(--text-3);
+  width: 7px;
+  height: 7px;
+}
+.st-converting,
+.st-transcribing,
+.st-summarizing {
+  background: var(--voice);
+  animation: dot-breathe 1.2s ease-in-out infinite;
+}
+@keyframes dot-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ---------- ProgressBar ---------- */
+.progressbar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill);
+  overflow: hidden;
+}
+.progressbar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.25s var(--ease);
+}
+.progressbar-voice .progressbar-fill {
+  background: var(--voice);
+}
+.progressbar-danger .progressbar-fill {
+  background: var(--danger);
+}
+.progressbar-ok .progressbar-fill {
+  background: var(--ok);
+}
+
+/* ---------- Toast ---------- */
+.toast-host {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 2000;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font-size: var(--fs-1);
+  animation: toast-in var(--dur-2) var(--ease);
+}
+.toast svg {
+  color: var(--ok);
+  flex-shrink: 0;
+}
+.toast-err svg {
+  color: var(--danger);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Modal 扩展(头部 + 关闭钮) ---------- */
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.modal-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.modal-msg {
+  margin: 0 0 16px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.modal-msg b {
+  color: var(--text);
+}
+
+/* ---------- Segmented 图标布局补充 ---------- */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ---------- 动效降级 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .status-dot,
+  .spinner,
+  .btn-spin,
+  .toast {
+    animation: none;
+  }
+}
+
+/* ---------- 图标与小件 ---------- */
+.card h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card h3 svg {
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+.block-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.block-h svg {
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+/* 实心圆点内的图标:琥珀底配深色、蓝底配白色 */
+.mic-dot svg {
+  color: #1a1a1e;
+}
+.finalizing-dot svg {
+  color: #fff;
+}
+/* 直播点:REC 计时 / 实时转写中 / 摘要流式(继承文字色) */
+.dot-live {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 4px;
+  vertical-align: 1px;
+  animation: dot-breathe 1.2s ease-in-out infinite;
+}
+.dropzone-icon {
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.todos-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.model-progressbar {
+  margin-top: 8px;
+}

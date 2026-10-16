@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AudioLines, CircleCheck, Mic, Moon, Plus, Search, Settings, Sun, SunMoon, TriangleAlert } from 'lucide-react';
 import type { HealthStatus, SessionMeta } from '../api/types';
 import { SessionList } from './SessionList';
 import { searchSessions } from '../api/client';
@@ -14,6 +15,12 @@ interface Props {
   onDictation: () => void;
   onDelete: (id: string) => void;
 }
+
+const THEME_META = {
+  auto: { Icon: SunMoon, label: '自动（跟随系统），点击切浅色' },
+  light: { Icon: Sun, label: '浅色，点击切深色' },
+  dark: { Icon: Moon, label: '深色，点击切自动' },
+} as const;
 
 export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDictation, onDelete }: Props) {
   const [query, setQuery] = useState('');
@@ -65,12 +72,16 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
   }, [query]);
 
   const shown = results ?? sessions;
+  const ThemeIcon = THEME_META[theme].Icon;
 
   return (
     <aside className="sidebar">
       {/* 顶部拖拽区（让出交通灯位置） + 应用名 */}
       <div className="sidebar-grip">
-        <span className="grip-title">Voice Notes</span>
+        <span className="grip-title">
+          <AudioLines size={14} aria-hidden />
+          Voice Notes
+        </span>
       </div>
 
       <div className="sidebar-body">
@@ -81,11 +92,12 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
             disabled={disabled}
             title="新建会话"
           >
-            <span className="new-btn-plus">＋</span>
+            <Plus size={14} aria-hidden />
             <span>新建</span>
           </button>
 
           <div className="search-box">
+            <Search size={13} aria-hidden />
             <input
               type="search"
               placeholder="搜索标题 / 摘要 / 逐字稿…"
@@ -98,14 +110,22 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
 
         <div className="sidebar-list">
           <div className="nav-label">历史</div>
-          <SessionList sessions={shown} activeId={activeId} onOpen={onOpen} onDelete={onDelete} />
+          <SessionList
+            sessions={shown}
+            activeId={activeId}
+            searching={results !== null}
+            onOpen={onOpen}
+            onDelete={onDelete}
+          />
         </div>
         <div className="sidebar-nav">
           <button className="settings-btn" onClick={onDictation} disabled={disabled} title="全局语音听写">
-            🎤 语音输入
+            <Mic size={14} aria-hidden />
+            <span>语音输入</span>
           </button>
           <button className="settings-btn" onClick={onSettings} disabled={disabled} title="模型配置">
-            ⚙ 设置
+            <Settings size={14} aria-hidden />
+            <span>设置</span>
           </button>
         </div>
       </div>
@@ -113,25 +133,22 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
       <div className="sidebar-foot">
         {health && !health.ok ? (
           <span className="foot-warn" title="部分依赖未就绪">
-            ⚠ 依赖未就绪
+            <TriangleAlert size={13} aria-hidden />
+            依赖未就绪
           </span>
         ) : (
           <span className="foot-ok" title="所有依赖就绪">
-            ● 就绪
+            <CircleCheck size={13} aria-hidden />
+            就绪
           </span>
         )}
         <button
           className="theme-toggle"
           onClick={() => setTheme((t) => (t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto'))}
-          title={
-            theme === 'auto'
-              ? '自动（跟随系统），点击切浅色'
-              : theme === 'light'
-                ? '浅色，点击切深色'
-                : '深色，点击切自动'
-          }
+          title={THEME_META[theme].label}
+          aria-label="切换主题"
         >
-          {theme === 'auto' ? '🌗' : theme === 'light' ? '☀️' : '🌙'}
+          <ThemeIcon size={14} aria-hidden />
         </button>
       </div>
     </aside>

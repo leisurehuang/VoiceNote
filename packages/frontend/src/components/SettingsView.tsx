@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react';
+import { BookText, Mic, Sparkles } from 'lucide-react';
 import { getSettings, updateSettings } from '../api/client';
 import type { Settings } from '../api/types';
 import { TranscriptionSettings } from './TranscriptionSettings';
 import { LlmSettings } from './LlmSettings';
+import { Segmented, type SegmentedOption } from './ui/Segmented';
+import { Button } from './ui/Button';
+import { SettingsSkeleton } from './ui/Skeleton';
+import { toast, toastError } from './ui/Toast';
 
 type Tab = 'transcribe' | 'llm' | 'glossary';
+
+const TABS: SegmentedOption<Tab>[] = [
+  { value: 'transcribe', label: '语音转文字', icon: Mic },
+  { value: 'llm', label: 'AI 整理', icon: Sparkles },
+  { value: 'glossary', label: '术语表', icon: BookText },
+];
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [glossaryDraft, setGlossaryDraft] = useState('');
-  const [glossarySaved, setGlossarySaved] = useState(false);
+  const [glossarySaving, setGlossarySaving] = useState(false);
   const [tab, setTab] = useState<Tab>('transcribe');
 
   useEffect(() => {
@@ -35,56 +46,43 @@ export function SettingsView() {
     }
   }
 
-  function saveGlossary() {
-    if (!settings) return;
+  async function saveGlossary() {
+    if (!settings || glossarySaving) return;
+    setGlossarySaving(true);
     const glossary = glossaryDraft
       .split('\n')
       .map((t) => t.trim())
       .filter(Boolean);
-    void persist({ ...settings, glossary }).then((ok) => {
-      if (ok) {
-        setGlossarySaved(true);
-        setTimeout(() => setGlossarySaved(false), 2000);
-      }
-    });
+    const ok = await persist({ ...settings, glossary });
+    setGlossarySaving(false);
+    if (ok) toast('术语表已保存');
+    else toastError('术语表保存失败');
   }
-
-  const TABS: Array<{ id: Tab; label: string }> = [
-    { id: 'transcribe', label: '语音转文字' },
-    { id: 'llm', label: 'AI 整理' },
-    { id: 'glossary', label: '术语表' },
-  ];
 
   return (
     <div className="content settings">
       <section className="block">
-        <div className="segmented settings-tabs">
-          {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'seg active' : 'seg'} onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Segmented options={TABS} value={tab} onChange={setTab} className="settings-tabs" />
         <p className="muted settings-legend">点选类操作（切引擎、设为激活、切模型）即时生效；表单类配置需点「保存」。</p>
         {err && <div className="alert err">{err}</div>}
 
         {/* 语音转文字：引擎卡片 + 各引擎配置/模型管理 */}
         <div className={tab === 'transcribe' ? '' : 'hidden'}>
-          {!settings ? <p className="muted">加载中…</p> : <TranscriptionSettings settings={settings} persist={persist} />}
+          {!settings ? <SettingsSkeleton /> : <TranscriptionSettings settings={settings} persist={persist} />}
         </div>
 
         {/* AI 整理：LLM 预设 + 本地 Ollama 模型管理 */}
         <div className={tab === 'llm' ? '' : 'hidden'}>
-          {!settings ? <p className="muted">加载中…</p> : <LlmSettings settings={settings} persist={persist} />}
+          {!settings ? <SettingsSkeleton /> : <LlmSettings settings={settings} persist={persist} />}
         </div>
 
         {/* 术语表 */}
         <div className={tab === 'glossary' ? '' : 'hidden'}>
           {!settings ? (
-            <p className="muted">加载中…</p>
+            <SettingsSkeleton />
           ) : (
             <div className="glossary-box">
-              <h4 className="block-h">📖 术语表</h4>
+              <h4 className="block-h">术语表</h4>
               <p className="muted">
                 专有名词 / 人名 / 公司名，每行一个。转写与整理时自动偏置，提升识别准确率
                 （sherpa 引擎不支持偏置）。
@@ -97,10 +95,9 @@ export function SettingsView() {
                 placeholder={'例如：\n鸿蒙\n信创\nPaaS'}
               />
               <div className="rec-controls">
-                <button className="ghost" onClick={saveGlossary}>
+                <Button variant="ghost" loading={glossarySaving} onClick={saveGlossary}>
                   保存术语表
-                </button>
-                {glossarySaved && <span className="muted">✓ 已保存</span>}
+                </Button>
               </div>
             </div>
           )}

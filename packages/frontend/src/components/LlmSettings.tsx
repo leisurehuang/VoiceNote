@@ -5,9 +5,14 @@
  */
 
 import { useRef, useState } from 'react';
+import { Bot, Eye, EyeOff, Plus } from 'lucide-react';
 import { testConnection } from '../api/client';
 import type { LlmPreset, Settings } from '../api/types';
 import { OllamaModels } from './OllamaModels';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { IconButton } from './ui/IconButton';
+import { toast, toastError } from './ui/Toast';
 
 const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '', incrementalModel: '' };
 
@@ -26,7 +31,10 @@ export function LlmSettings({
 
   function activate(id: string) {
     if (settings.activePresetId === id) return;
-    void persist({ ...settings, activePresetId: id });
+    void persist({ ...settings, activePresetId: id }).then((ok) => {
+      if (ok) toast('已切换激活预设');
+      else toastError('切换失败，请检查后端连接');
+    });
   }
 
   function remove(id: string) {
@@ -34,6 +42,9 @@ export function LlmSettings({
       ...settings,
       activePresetId: settings.activePresetId === id ? null : settings.activePresetId,
       presets: settings.presets.filter((p) => p.id !== id),
+    }).then((ok) => {
+      if (ok) toast('预设已删除');
+      else toastError('删除失败，请检查后端连接');
     });
   }
 
@@ -63,7 +74,10 @@ export function LlmSettings({
     if (!next.activePresetId && presets.length === 1) next.activePresetId = id; // 首个预设自动激活
     setEditing(null);
     setTestResult(null);
-    void persist(next);
+    void persist(next).then((ok) => {
+      if (ok) toast('预设已保存');
+      else toastError('保存失败，请检查后端连接');
+    });
   }
 
   async function doTest() {
@@ -82,14 +96,17 @@ export function LlmSettings({
 
   return (
     <div className="llm-settings">
-      <h4 className="block-h">🤖 文字 → 摘要（AI 整理模型）</h4>
+      <h4 className="block-h">
+        <Bot size={13} aria-hidden />
+        文字 → 摘要（AI 整理模型）
+      </h4>
       <p className="muted">
         支持本地 Ollama 或任意 OpenAI Chat 兼容 API。<b>激活的预设</b>对会议摘要、实时增量摘要、
         语音听写润色全部生效。点「设为激活」即时切换。
       </p>
 
       <div className="preset-list">
-        {settings.presets.length === 0 && <p className="muted">尚无预设，点下方「＋ 新增预设」添加。</p>}
+        {settings.presets.length === 0 && <p className="muted">尚无预设，点下方「新增预设」添加。</p>}
         {settings.presets.map((p) => (
           <div key={p.id} className={'preset-item' + (p.id === settings.activePresetId ? ' preset-active' : '')}>
             <div className="preset-info">
@@ -97,20 +114,20 @@ export function LlmSettings({
               <span className="muted">
                 {p.model} · {p.baseUrl}
               </span>
-              {p.id === settings.activePresetId && <span className="preset-badge">● 使用中</span>}
+              {p.id === settings.activePresetId && <Badge tone="accent">使用中</Badge>}
             </div>
             <div className="preset-actions">
               {p.id !== settings.activePresetId && (
-                <button className="ghost" onClick={() => activate(p.id)}>
+                <Button variant="ghost" size="sm" onClick={() => activate(p.id)}>
                   设为激活
-                </button>
+                </Button>
               )}
-              <button className="ghost" onClick={() => openForm(p)}>
+              <Button variant="ghost" size="sm" onClick={() => openForm(p)}>
                 编辑
-              </button>
-              <button className="ghost" onClick={() => remove(p.id)}>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => remove(p.id)}>
                 删除
-              </button>
+              </Button>
             </div>
           </div>
         ))}
@@ -141,14 +158,14 @@ export function LlmSettings({
                 onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
                 placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
               />
-              <button
-                type="button"
-                className="ghost key-toggle"
+              <IconButton
+                size="sm"
+                className="key-toggle"
+                label={showKey ? '隐藏 API Key' : '显示 API Key'}
                 onClick={() => setShowKey((v) => !v)}
-                title={showKey ? '隐藏' : '显示'}
               >
-                {showKey ? '🙈' : '👁'}
-              </button>
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </IconButton>
             </div>
             <label>模型</label>
             <input
@@ -169,27 +186,28 @@ export function LlmSettings({
               </div>
             )}
             <div className="rec-controls">
-              <button className="ghost" onClick={() => void doTest()} disabled={testing || !editing.baseUrl.trim()}>
+              <Button variant="ghost" onClick={() => void doTest()} disabled={testing || !editing.baseUrl.trim()}>
                 {testing ? '测试中…' : '测试连接'}
-              </button>
-              <button className="big" onClick={saveEdit}>
+              </Button>
+              <Button variant="primary" onClick={saveEdit}>
                 保存
-              </button>
-              <button
-                className="ghost"
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setEditing(null);
                   setTestResult(null);
                 }}
               >
                 取消
-              </button>
+              </Button>
             </div>
           </>
         ) : (
-          <button className="big" onClick={() => openForm({ ...EMPTY })}>
-            ＋ 新增预设
-          </button>
+          <Button variant="primary" onClick={() => openForm({ ...EMPTY })}>
+            <Plus size={14} aria-hidden />
+            新增预设
+          </Button>
         )}
       </div>
 

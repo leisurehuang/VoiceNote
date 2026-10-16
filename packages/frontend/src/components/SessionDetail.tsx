@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
+import { AudioLines, FileText, SquareCheckBig } from 'lucide-react';
 import { getSession, resummarize, updateSummary, updateTranscript, extractTodos, getTodos, audioUrl, sourceUrl } from '../api/client';
 import type { SessionDetail as Detail, TranscriptSegment, TodoItem } from '../api/types';
 import { TranscriptView } from './TranscriptView';
 import { SummaryView } from './SummaryView';
 import { ExportBar } from './ExportBar';
 import { PlayerBar } from './PlayerBar';
+import { Segmented } from './ui/Segmented';
+import { Button } from './ui/Button';
+import { DetailSkeleton } from './ui/Skeleton';
 import { fmtDate, fmtMs } from '../format';
 
 export function SessionDetail({ id }: { id: string }) {
@@ -111,7 +115,7 @@ export function SessionDetail({ id }: { id: string }) {
   if (!detail) {
     return (
       <div className="content">
-        <p className="muted">加载中…</p>
+        <DetailSkeleton />
       </div>
     );
   }
@@ -130,20 +134,15 @@ export function SessionDetail({ id }: { id: string }) {
         </div>
       </header>
 
-      <div className="segmented detail-tabs">
-        <button
-          className={tab === 'summary' ? 'seg active' : 'seg'}
-          onClick={() => setTab('summary')}
-        >
-          摘要
-        </button>
-        <button
-          className={tab === 'transcript' ? 'seg active' : 'seg'}
-          onClick={() => setTab('transcript')}
-        >
-          逐字稿
-        </button>
-      </div>
+      <Segmented
+        className="detail-tabs"
+        options={[
+          { value: 'summary', label: '摘要', icon: FileText },
+          { value: 'transcript', label: '逐字稿', icon: AudioLines },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
       {/* 中间内容区独立滚动；顶部 tab 与底部导出栏固定 */}
       <div className="detail-body">
@@ -152,10 +151,13 @@ export function SessionDetail({ id }: { id: string }) {
         {detail.transcript.length > 0 && (
           <div className="todos-box">
             <div className="todos-head">
-              <h3 className="block-h">✅ 待办事项</h3>
-              <button className="ghost" onClick={handleExtractTodos} disabled={extracting}>
-                {extracting ? '提取中…' : todos.length ? '重新提取' : '提取待办'}
-              </button>
+              <h3 className="block-h todos-title">
+                <SquareCheckBig size={13} aria-hidden />
+                待办事项
+              </h3>
+              <Button variant="ghost" size="sm" loading={extracting} onClick={handleExtractTodos}>
+                {todos.length ? '重新提取' : '提取待办'}
+              </Button>
             </div>
             {todos.length > 0 ? (
               <ul className="todos-list">

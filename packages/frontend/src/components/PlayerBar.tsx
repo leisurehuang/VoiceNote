@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { Download, Pause, Play } from 'lucide-react';
 import { fmtMs } from '../format';
 
 /** 播放倍速档位（点击循环切换）。 */
@@ -72,7 +73,7 @@ export function PlayerBar({
         onDurationChange={(e) => setDur(e.currentTarget.duration || 0)}
       />
       <button className="player-toggle" onClick={toggle} aria-label={playing ? '暂停' : '播放'}>
-        {playing ? '❚❚' : '▶'}
+        {playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
       </button>
       <input
         className="player-track"
@@ -92,7 +93,7 @@ export function PlayerBar({
         {rate}×
       </button>
       <a className="player-dl" href={downloadUrl} download title="下载音频">
-        ↓
+        <Download size={15} aria-hidden />
       </a>
     </div>
   );

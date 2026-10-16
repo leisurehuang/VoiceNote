@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Package } from 'lucide-react';
 import {
   listWhisperModels,
   whisperDownloadUrl,
@@ -7,6 +8,9 @@ import {
   deleteWhisperModel,
 } from '../api/client';
 import type { Settings, WhisperModelsResult } from '../api/types';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { ProgressBar } from './ui/ProgressBar';
 
 /** 进度跟踪 + EventSource 生命周期（目录下载与 URL 下载共用）。 */
 function useSseDownload() {
@@ -152,7 +156,10 @@ export function WhisperModels({
 
   return (
     <div className="model-section">
-      <h4 className="block-h">📦 whisper 转写模型</h4>
+      <h4 className="block-h">
+        <Package size={13} aria-hidden />
+        whisper 转写模型
+      </h4>
       <p className="muted">下载/切换本地 whisper.cpp 模型，切换后新录音即时生效。</p>
       {err && <div className="alert err">{err}</div>}
       {!anyWhisperInstalled && (
@@ -172,30 +179,26 @@ export function WhisperModels({
             />
             <span className="model-name">{m.label}</span>
             <span className="muted model-size">{m.size}</span>
-            {m.builtin && <span className="preset-badge">内置</span>}
+            {m.builtin && <Badge>内置</Badge>}
           </label>
           <div className="model-ops">
             {dlPct[m.name] != null ? (
               <span className="model-prog">{Math.round((dlPct[m.name] ?? 0) * 100)}%</span>
             ) : m.installed ? (
               m.active ? (
-                <span className="preset-badge">● 使用中</span>
+                <Badge tone="accent">使用中</Badge>
               ) : (
-                <button className="ghost" onClick={() => removeWhisper(m.name)} disabled={!m.deletable}>
+                <Button variant="ghost" size="sm" onClick={() => removeWhisper(m.name)} disabled={!m.deletable}>
                   删除
-                </button>
+                </Button>
               )
             ) : (
-              <button className="ghost" onClick={() => downloadCatalog(m.name)}>
+              <Button variant="ghost" size="sm" onClick={() => downloadCatalog(m.name)}>
                 下载
-              </button>
+              </Button>
             )}
           </div>
-          {dlPct[m.name] != null && (
-            <div className="model-bar">
-              <span style={{ width: `${Math.round((dlPct[m.name] ?? 0) * 100)}%` }} />
-            </div>
-          )}
+          {dlPct[m.name] != null && <ProgressBar value={dlPct[m.name] ?? 0} className="model-progressbar" />}
         </div>
       ))}
 
@@ -211,15 +214,11 @@ export function WhisperModels({
           onChange={(e) => setDlName(e.target.value)}
           placeholder="名称（可选）"
         />
-        <button className="big" onClick={downloadCustom} disabled={!dlUrl.trim()}>
+        <Button variant="primary" onClick={downloadCustom} disabled={!dlUrl.trim()}>
           下载
-        </button>
+        </Button>
       </div>
-      {customPct != null && (
-        <div className="model-bar">
-          <span style={{ width: `${Math.round(customPct * 100)}%` }} />
-        </div>
-      )}
+      {customPct != null && <ProgressBar value={customPct} />}
       {customPct != null && <span className="model-prog">{Math.round(customPct * 100)}%</span>}
 
       <div className="rec-controls model-pull">
@@ -228,9 +227,9 @@ export function WhisperModels({
           onChange={(e) => setPathDraft(e.target.value)}
           placeholder="或使用本地模型文件路径（…/ggml-xxx.bin）"
         />
-        <button className="big" onClick={() => void saveModelPath()}>
+        <Button variant="primary" onClick={() => void saveModelPath()}>
           使用该路径
-        </button>
+        </Button>
       </div>
       {pathMsg && <p className="muted">{pathMsg}</p>}
       <p className="muted">缓存目录：{whisper?.dir ?? '…'}</p>

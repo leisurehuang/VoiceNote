@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
+import { FolderUp } from 'lucide-react';
 import { uploadAudio } from '../api/client';
+import { ProgressBar } from './ui/ProgressBar';
 
 export function Uploader({ onCreated }: { onCreated: (id: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +40,10 @@ export function Uploader({ onCreated }: { onCreated: (id: string) => void }) {
 
   return (
     <div className="card">
-      <h3>📁 上传音视频文件</h3>
+      <h3>
+        <FolderUp size={15} aria-hidden />
+        上传音视频文件
+      </h3>
       {error && <div className="alert err">{error}</div>}
       <div
         className={`dropzone${dragging ? ' drag' : ''}`}
@@ -52,13 +57,14 @@ export function Uploader({ onCreated }: { onCreated: (id: string) => void }) {
       >
         {progress !== null ? (
           <div className="prog">
-            <div className="bar">
-              <span style={{ width: `${Math.round(progress * 100)}%` }} />
-            </div>
+            <ProgressBar value={progress} />
             <span className="muted">上传中 {Math.round(progress * 100)}%</span>
           </div>
         ) : (
-          <p>点击选择，或拖入音频 / 视频文件（mp3 / m4a / wav / webm / mp4 / mov …，视频自动抽取音轨）</p>
+          <>
+            <FolderUp size={26} strokeWidth={1.75} className="dropzone-icon" aria-hidden />
+            <p>点击选择，或拖入音频 / 视频文件（mp3 / m4a / wav / webm / mp4 / mov …，视频自动抽取音轨）</p>
+          </>
         )}
         <input ref={inputRef} type="file" accept="audio/*,video/*" onChange={onPick} hidden />
       </div>

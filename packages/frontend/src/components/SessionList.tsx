@@ -1,5 +1,10 @@
 import { useState } from 'react';
+import { AudioLines, SearchX, Trash2 } from 'lucide-react';
 import type { SessionMeta } from '../api/types';
+import { StatusDot } from './ui/StatusDot';
+import { IconButton } from './ui/IconButton';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { EmptyState } from './ui/EmptyState';
 
 const STATUS_LABEL: Record<string, string> = {
   uploaded: '已上传',
@@ -8,14 +13,6 @@ const STATUS_LABEL: Record<string, string> = {
   summarizing: '摘要中',
   done: '完成',
   error: '出错',
-};
-const DOT: Record<string, string> = {
-  uploaded: '○',
-  converting: '◐',
-  transcribing: '◐',
-  summarizing: '◐',
-  done: '●',
-  error: '!',
 };
 
 /** 侧栏行第二行 meta：短日期 + 时长（进行中的会话显示状态）。 */
@@ -32,16 +29,25 @@ export function SessionList({
   activeId,
   onOpen,
   onDelete,
+  searching = false,
 }: {
   sessions: SessionMeta[];
   activeId: string | null;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void | Promise<void>;
+  /** 搜索无结果与「还没有会话」是两种空态 */
+  searching?: boolean;
 }) {
   const [pending, setPending] = useState<SessionMeta | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  if (!sessions.length) return <div className="nav-empty">还没有会话</div>;
+  if (!sessions.length) {
+    return searching ? (
+      <EmptyState icon={SearchX} title="没有匹配的会话" hint="换个关键词试试" />
+    ) : (
+      <EmptyState icon={AudioLines} title="还没有会话" hint="录一段、上传音频，或开实时转写" />
+    );
+  }
 
   async function confirmDelete() {
     if (!pending) return;
@@ -61,48 +67,56 @@ export function SessionList({
           <li
             key={s.id}
             className={'row' + (activeId === s.id ? ' selected' : '')}
+            role="button"
+            tabIndex={0}
+            aria-label={`${s.title || '未命名'}（${STATUS_LABEL[s.status] ?? s.status}）`}
             onClick={() => onOpen(s.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpen(s.id);
+              }
+            }}
           >
-            <span className={'dot ' + s.status} title={STATUS_LABEL[s.status] ?? s.status}>
-              {DOT[s.status] ?? '○'}
-            </span>
+            <StatusDot status={s.status} />
             <span className="row-main">
               <span className="row-title">{s.title || '未命名'}</span>
               <span className="row-meta">{rowMeta(s)}</span>
             </span>
-            <button
+            <IconButton
+              label="删除"
+              size="sm"
+              tone="danger"
               className="row-del"
-              title="删除"
               disabled={deleting}
               onClick={(e) => {
                 e.stopPropagation();
                 setPending(s);
               }}
             >
-              ✕
-            </button>
+              <Trash2 size={13} />
+            </IconButton>
           </li>
         ))}
       </ul>
 
-      {pending && (
-        <div className="modal-backdrop" onClick={() => !deleting && setPending(null)} role="presentation">
-          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h3>删除会话？</h3>
-            <p>
+      <ConfirmDialog
+        open={pending !== null}
+        title="删除会话？"
+        message={
+          pending && (
+            <>
               确认删除「<b>{pending.title || '未命名'}</b>」？其录音、逐字稿和摘要将被永久删除，无法恢复。
-            </p>
-            <div className="modal-actions">
-              <button className="ghost" onClick={() => setPending(null)} disabled={deleting}>
-                取消
-              </button>
-              <button className="big danger" onClick={confirmDelete} disabled={deleting}>
-                {deleting ? '删除中…' : '确认删除'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          )
+        }
+        confirmText="确认删除"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onClose={() => {
+          if (!deleting) setPending(null);
+        }}
+      />
     </>
   );
 }

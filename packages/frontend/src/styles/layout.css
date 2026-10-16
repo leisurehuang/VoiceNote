@@ -24,10 +24,16 @@
   flex-shrink: 0;
 }
 .grip-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-2);
   letter-spacing: -0.01em;
+}
+.grip-title svg {
+  color: var(--accent);
 }
 .sidebar-body {
   flex: 1;
@@ -84,9 +90,15 @@
   font-size: 14px;
 }
 .foot-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--ok);
 }
 .foot-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--warn);
 }
 
@@ -112,10 +124,6 @@
 .new-btn.is-active {
   box-shadow: inset 0 0 0 1.5px var(--hi-edge);
 }
-.new-btn-plus {
-  font-size: 15px;
-  line-height: 1;
-}
 
 .nav-label {
   font-size: 11px;
@@ -125,12 +133,6 @@
   letter-spacing: 0.06em;
   padding: 0 8px;
   margin: 8px 0 5px;
-}
-.nav-empty {
-  color: var(--text-3);
-  font-size: 12px;
-  padding: 14px 8px;
-  text-align: center;
 }
 
 .session-list {
@@ -159,26 +161,6 @@
 .row.selected .row-title {
   color: var(--text);
 }
-.dot {
-  font-size: 11px;
-  width: 12px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.dot.done {
-  color: var(--ok);
-}
-.dot.error {
-  color: var(--danger);
-}
-.dot.converting,
-.dot.transcribing,
-.dot.summarizing {
-  color: var(--warn);
-}
-.dot.uploaded {
-  color: var(--text-3);
-}
 .row-main {
   flex: 1;
   min-width: 0;
@@ -202,22 +184,13 @@
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
 }
+/* 删除按钮:悬停/键盘聚焦行时显现(本体样式见 .icon-btn) */
 .row-del {
   opacity: 0;
-  background: transparent;
-  border: none;
-  color: var(--text-3);
-  padding: 1px 5px;
-  border-radius: 6px;
-  font-size: 11px;
-  cursor: pointer;
 }
-.row:hover .row-del {
+.row:hover .row-del,
+.row:focus-within .row-del {
   opacity: 1;
-}
-.row-del:hover {
-  background: var(--fill-2);
-  color: var(--text);
 }
 
 /* ---------- 主区 ---------- */
@@ -274,12 +247,21 @@
 
 /* 侧栏搜索框 */
 .search-box {
+  position: relative;
   margin-bottom: 10px;
+}
+.search-box > svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
 }
 .search-box input {
   width: 100%;
   box-sizing: border-box;
-  padding: 7px 10px;
+  padding: 7px 10px 7px 29px;
   background: var(--fill);
   border: 1px solid var(--separator);
   border-radius: 8px;
@@ -355,6 +337,9 @@
 }
 .settings-btn {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: var(--fill);
   color: var(--text);
   border: none;
@@ -364,6 +349,9 @@
   font-size: 13px;
   text-align: left;
   cursor: pointer;
+}
+.settings-btn svg {
+  color: var(--text-2);
 }
 .settings-btn:hover:not(:disabled) {
   background: var(--fill-2);

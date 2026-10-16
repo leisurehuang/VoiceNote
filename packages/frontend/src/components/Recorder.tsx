@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Mic } from 'lucide-react';
 import { uploadAudio } from '../api/client';
 import { useRecorder } from '../hooks/useRecorder';
 import { Waveform } from './Waveform';
+import { Button } from './ui/Button';
 
 function fmt(s: number): string {
   const m = String(Math.floor(s / 60)).padStart(2, '0');
@@ -43,7 +45,10 @@ export function Recorder({
 
   return (
     <div className="card record-card">
-      <h3>🎙 浏览器录音</h3>
+      <h3>
+        <Mic size={15} aria-hidden />
+        浏览器录音
+      </h3>
       {(error || uploadErr) && <div className="alert err">{error ?? uploadErr}</div>}
 
       {!recording ? (
@@ -51,18 +56,21 @@ export function Recorder({
           <div className="mic-pulse" aria-hidden="true">
             <span className="mic-dot" />
           </div>
-          <button className="big" onClick={start} disabled={busy}>
+          <Button variant="primary" onClick={start} disabled={busy}>
             开始录音
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="recording-ui">
           <Waveform analyserRef={analyserRef} />
           <div className="rec-controls">
-            <span className="timer rec">● REC {fmt(seconds)}</span>
-            <button className="big danger" onClick={handleStop} disabled={busy}>
+            <span className="timer rec">
+              <span className="dot-live" aria-hidden />
+              REC {fmt(seconds)}
+            </span>
+            <Button variant="danger" onClick={handleStop} disabled={busy}>
               停止并转写
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
+import { AudioLines, Settings } from 'lucide-react';
 import { useRealtime } from '../hooks/useRealtime';
 import { Waveform } from './Waveform';
 import { renderMarkdown } from '../api/markdown';
 import { fmtMs } from '../format';
 import { speakerColor, speakerLabel } from '../speakers';
+import { Button } from './ui/Button';
 
 export function RealtimeView({
   onDone,
@@ -33,24 +35,31 @@ export function RealtimeView({
 
   return (
     <div className="card record-card">
-      <h3>⚡ 实时转写</h3>
+      <h3>
+        <AudioLines size={15} aria-hidden />
+        实时转写
+      </h3>
       {error && <div className="alert err">{error}</div>}
 
       {!recording ? (
         <div className="record-idle">
           <div className="mic-pulse">
-            <span className="mic-dot">⚡</span>
+            <span className="mic-dot">
+              <AudioLines size={16} aria-hidden />
+            </span>
           </div>
-          <button className="big" onClick={start}>
+          <Button variant="primary" onClick={start}>
             开始实时转写
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="recording-ui">
           {finalizing ? (
             <div className="finalizing">
               <div className="finalizing-pulse">
-                <span className="finalizing-dot">⚙️</span>
+                <span className="finalizing-dot">
+                  <Settings size={16} aria-hidden />
+                </span>
               </div>
               <div className="finalizing-text">
                 <span className="finalizing-title">正在整理…</span>
@@ -61,16 +70,25 @@ export function RealtimeView({
             <Waveform analyserRef={analyserRef} />
           )}
           <div className="rec-controls">
-            <span className="timer rec">{finalizing ? '整理中…' : '● 实时转写中'}</span>
-            <button className="big danger" onClick={stop} disabled={finalizing}>
+            <span className="timer rec">
+              {finalizing ? (
+                '整理中…'
+              ) : (
+                <>
+                  <span className="dot-live" aria-hidden />
+                  实时转写中
+                </>
+              )}
+            </span>
+            <Button variant="danger" onClick={stop} disabled={finalizing} loading={finalizing}>
               {finalizing ? '整理中…' : '结束并整理'}
-            </button>
+            </Button>
           </div>
           {(liveSummary || summaryStreaming) && (
             <div className="live-summary">
               <h4>
                 实时摘要
-                {summaryStreaming && <span className="live-dot">●</span>}
+                {summaryStreaming && <span className="live-dot dot-live" aria-hidden />}
               </h4>
               {liveSummary ? (
                 <div

@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { History, Mic, Plus, Replace } from 'lucide-react';
 import {
   clearDictationHistory,
   deleteDictationHistory,
@@ -14,6 +15,10 @@ import {
 } from '../api/client';
 import type { DictationHistoryEntry, DictationSettings, Settings, TermCorrection } from '../api/types';
 import { fmtDate } from '../format';
+import { Button } from './ui/Button';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { SettingsSkeleton } from './ui/Skeleton';
+import { toast, toastError } from './ui/Toast';
 
 /** 输出语言选项（与后端 outputLanguage.ts 的 BUILTIN_LANGUAGES 对应）。 */
 const LANGUAGES: Array<{ code: string; label: string }> = [
@@ -55,7 +60,9 @@ export function DictationView() {
   const [draft, setDraft] = useState<DictationSettings>(DEFAULT_DICTATION);
   const [history, setHistory] = useState<DictationHistoryEntry[] | null>(null);
   const [histErr, setHistErr] = useState<string | null>(null);
-  const [savedTip, setSavedTip] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     getSettings()
@@ -102,7 +109,8 @@ export function DictationView() {
   }
 
   async function save() {
-    if (!settings) return;
+    if (!settings || saving) return;
+    setSaving(true);
     const cleaned: DictationSettings = {
       ...draft,
       shortcut: draft.shortcut.trim() || DEFAULT_DICTATION.shortcut,
@@ -114,20 +122,23 @@ export function DictationView() {
         .filter((c) => c.target),
     };
     const ok = await persist({ ...settings, dictation: cleaned });
+    setSaving(false);
     if (ok) {
       // 通知桌面端热重载全局快捷键
       window.electron?.dictationSettingsChanged?.();
       setDraft(cleaned);
-      setSavedTip(true);
-      setTimeout(() => setSavedTip(false), 2000);
+      toast('已保存并刷新快捷键');
+    } else {
+      toastError('保存失败，请检查后端连接');
     }
   }
 
   async function copyText(text: string) {
     try {
       await navigator.clipboard.writeText(text);
+      toast('已复制到剪贴板');
     } catch {
-      /* ignore */
+      toastError('复制失败，请检查剪贴板权限');
     }
   }
 
@@ -141,12 +152,16 @@ export function DictationView() {
   }
 
   async function clearAll() {
-    if (!confirm('确定清空全部听写历史？')) return;
+    setClearing(true);
     try {
       await clearDictationHistory();
       setHistory([]);
+      setConfirmClear(false);
+      toast('听写历史已清空');
     } catch (e) {
       setHistErr(e instanceof Error ? e.message : '清空失败');
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -154,14 +169,17 @@ export function DictationView() {
   if (!settings) {
     return (
       <div className="content">
-        <p className="muted">加载中…</p>
+        <SettingsSkeleton />
       </div>
     );
   }
 
   return (
     <div className="dictation-settings">
-      <h4 className="block-h">🎤 语音输入</h4>
+      <h4 className="block-h">
+        <Mic size={13} aria-hidden />
+        语音输入
+      </h4>
       <p className="muted">
         在任意应用里按全局快捷键说话：再按一下结束，识别并用 AI 整理后自动粘贴到当前光标处；
         录音中按 Esc 取消。识别用「设置 → 语音转文字」选定的引擎，整理用「设置 → AI 整理」激活的预设。
@@ -223,14 +241,16 @@ export function DictationView() {
       </div>
 
       <div className="rec-controls">
-        <button className="big" onClick={() => void save()} disabled={shortcutInvalid}>
+        <Button variant="primary" loading={saving} onClick={() => void save()} disabled={shortcutInvalid}>
           保存设置
-        </button>
-        {savedTip && <span className="muted">✓ 已保存并刷新快捷键</span>}
+        </Button>
       </div>
 
       <div className="dict-corrections">
-        <h4 className="block-h">🔤 术语纠错</h4>
+        <h4 className="block-h">
+          <Replace size={13} aria-hidden />
+          术语纠错
+        </h4>
         <p className="muted">
           识别常错的名字/词：填「正写」与一个或多个「误写」（英文误写整词匹配）。听写输出前自动替换。
         </p>
@@ -251,31 +271,37 @@ export function DictationView() {
               }
               placeholder="误写（、分隔），如 同义千问、通译千问"
             />
-            <button
-              className="ghost"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => patch({ termCorrections: draft.termCorrections.filter((_, j) => j !== i) })}
             >
               删除
-            </button>
+            </Button>
           </div>
         ))}
         <div className="rec-controls">
-          <button
-            className="ghost"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => patch({ termCorrections: [...draft.termCorrections, { target: '', variants: [] }] })}
           >
-            ＋ 添加纠错
-          </button>
+            <Plus size={13} aria-hidden />
+            添加纠错
+          </Button>
           {draft.termCorrections.length > 0 && (
-            <button className="big" onClick={() => void save()}>
+            <Button variant="primary" loading={saving} onClick={() => void save()}>
               保存纠错表
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       <div className="dict-history">
-        <h4 className="block-h">🕘 听写历史（本机保存）</h4>
+        <h4 className="block-h">
+          <History size={13} aria-hidden />
+          听写历史（本机保存）
+        </h4>
         {histErr && <div className="alert err">{histErr}</div>}
         {history === null ? (
           <p className="muted">加载中…</p>
@@ -298,23 +324,23 @@ export function DictationView() {
                     </div>
                   </div>
                   <div className="preset-actions">
-                    <button className="ghost" onClick={() => void copyText(e.text)}>
+                    <Button variant="ghost" size="sm" onClick={() => void copyText(e.text)}>
                       复制
-                    </button>
-                    <button className="ghost" onClick={() => void removeEntry(e.id)}>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => void removeEntry(e.id)}>
                       删除
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
             <div className="rec-controls">
-              <button className="ghost" onClick={() => void refreshHistory()}>
+              <Button variant="ghost" size="sm" onClick={() => void refreshHistory()}>
                 刷新
-              </button>
-              <button className="ghost" onClick={() => void clearAll()}>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmClear(true)}>
                 清空全部
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -324,6 +350,18 @@ export function DictationView() {
         平台提示：macOS 首次使用需授予麦克风与辅助功能（模拟 ⌘V）权限；Linux 建议安装 xdotool（Wayland
         下自动降级为复制到剪贴板）；Windows 少数管理员窗口会拒绝自动粘贴，此时内容已在剪贴板。
       </p>
+
+      <ConfirmDialog
+        open={confirmClear}
+        title="清空听写历史？"
+        message="全部听写记录将被永久删除，无法恢复。"
+        confirmText="清空"
+        loading={clearing}
+        onConfirm={() => void clearAll()}
+        onClose={() => {
+          if (!clearing) setConfirmClear(false);
+        }}
+      />
     </div>
   );
 }
