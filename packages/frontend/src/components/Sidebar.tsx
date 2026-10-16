@@ -11,10 +11,11 @@ interface Props {
   onNew: () => void;
   onOpen: (id: string) => void;
   onSettings: () => void;
+  onDictation: () => void;
   onDelete: (id: string) => void;
 }
 
-export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDelete }: Props) {
+export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDictation, onDelete }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SessionMeta[] | null>(null);
   const [theme, setTheme] = useState<'auto' | 'light' | 'dark'>(() => {
@@ -99,9 +100,14 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
           <div className="nav-label">历史</div>
           <SessionList sessions={shown} activeId={activeId} onOpen={onOpen} onDelete={onDelete} />
         </div>
-        <button className="settings-btn" onClick={onSettings} disabled={disabled} title="模型配置">
-          ⚙ 设置
-        </button>
+        <div className="sidebar-nav">
+          <button className="settings-btn" onClick={onDictation} disabled={disabled} title="全局语音听写">
+            🎤 语音输入
+          </button>
+          <button className="settings-btn" onClick={onSettings} disabled={disabled} title="模型配置">
+            ⚙ 设置
+          </button>
+        </div>
       </div>
 
       <div className="sidebar-foot">

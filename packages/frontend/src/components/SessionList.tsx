@@ -18,6 +18,15 @@ const DOT: Record<string, string> = {
   error: '!',
 };
 
+/** 侧栏行第二行 meta：短日期 + 时长（进行中的会话显示状态）。 */
+function rowMeta(s: SessionMeta): string {
+  const d = new Date(s.createdAt);
+  const md = `${d.getMonth() + 1}月${d.getDate()}日`;
+  if (s.status !== 'done' && s.status !== 'error') return `${md} · ${STATUS_LABEL[s.status] ?? s.status}`;
+  const dur = s.durationMs ? ` · ${Math.max(1, Math.round(s.durationMs / 60000))} 分钟` : '';
+  return md + dur;
+}
+
 export function SessionList({
   sessions,
   activeId,
@@ -57,7 +66,10 @@ export function SessionList({
             <span className={'dot ' + s.status} title={STATUS_LABEL[s.status] ?? s.status}>
               {DOT[s.status] ?? '○'}
             </span>
-            <span className="row-title">{s.title || '未命名'}</span>
+            <span className="row-main">
+              <span className="row-title">{s.title || '未命名'}</span>
+              <span className="row-meta">{rowMeta(s)}</span>
+            </span>
             <button
               className="row-del"
               title="删除"

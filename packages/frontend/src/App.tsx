@@ -8,13 +8,15 @@ import { RealtimeView } from './components/RealtimeView';
 import { ProgressView } from './components/ProgressView';
 import { SessionDetail } from './components/SessionDetail';
 import { SettingsView } from './components/SettingsView';
+import { DictationView } from './components/DictationView';
 import { UpdateBanner } from './components/UpdateBanner';
 
 type View =
   | { name: 'new' }
   | { name: 'processing'; id: string }
   | { name: 'detail'; id: string }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'dictation' };
 
 export function App() {
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -52,13 +54,17 @@ export function App() {
 
   async function onDelete(id: string) {
     await deleteSession(id);
-    setView((v) => (v.name !== 'new' && v.name !== 'settings' && v.id === id ? { name: 'new' } : v));
+    setView((v) => (v.name !== 'new' && v.name !== 'settings' && v.name !== 'dictation' && v.id === id ? { name: 'new' } : v));
     refresh();
   }
 
-  const activeId = view.name === 'new' || view.name === 'settings' ? null : view.id;
+  const activeId =
+    view.name === 'new' || view.name === 'settings' || view.name === 'dictation' ? null : view.id;
   const openSettings = () => {
     if (!busy) setView({ name: 'settings' });
+  };
+  const openDictation = () => {
+    if (!busy) setView({ name: 'dictation' });
   };
   const title =
     view.name === 'new'
@@ -71,7 +77,9 @@ export function App() {
         ? '处理中'
         : view.name === 'settings'
           ? '设置'
-          : sessions.find((s) => s.id === view.id)?.title || '会话';
+          : view.name === 'dictation'
+            ? '语音输入'
+            : sessions.find((s) => s.id === view.id)?.title || '会话';
 
   return (
     <div className="shell">
@@ -88,6 +96,7 @@ export function App() {
           if (!busy) setView({ name: 'detail', id });
         }}
         onSettings={openSettings}
+        onDictation={openDictation}
         onDelete={onDelete}
       />
 
@@ -154,6 +163,12 @@ export function App() {
           {view.name === 'detail' && <SessionDetail id={view.id} />}
 
           {view.name === 'settings' && <SettingsView />}
+
+          {view.name === 'dictation' && (
+            <div className="content">
+              <DictationView />
+            </div>
+          )}
         </div>
       </main>
     </div>

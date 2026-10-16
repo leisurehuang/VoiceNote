@@ -81,6 +81,8 @@ Vite + React，**无路由库、无状态管理库**。`App.tsx` 持有一个 `V
 
 SSE 在 `components/ProgressView.tsx` 消费；实时 WS 在 `hooks/useRealtime.ts` + `components/RealtimeView.tsx`；`SessionDetail` 驱动音频播放，逐字稿高亮跟随播放进度。API 调用集中在 `api/client.ts`；类型与后端的 `SessionMeta`/`HealthStatus` 对齐。
 
+设置页（`components/SettingsView.tsx`）按流水线分三个 tab：「语音转文字」（`TranscriptionSettings`：引擎卡片 + 就绪徽章，whisper 模型管理/云端 API 表单就近展示）、「AI 整理」（`LlmSettings`：LLM 预设 + 固定在列表下方的编辑表单 + `OllamaModels` 仅本地预设时显示）、「术语表」。**语音输入是独立功能页**（`DictationView.tsx`，侧栏底部一级入口，与「设置」平级），不隶属设置页。**保存语义约定**：点选类操作（切引擎、设为激活、切模型）点选即生效并标「● 使用中」；表单类配置（云端 API、预设编辑、术语表、听写设置）显式点「保存」并给「✓ 已保存」反馈——新增设置项时遵循此约定。
+
 开发：vite 跑在 `:5173`，把 `/api`（含 WebSocket 升级）代理到 `localhost:3000`。
 
 ## 桌面打包

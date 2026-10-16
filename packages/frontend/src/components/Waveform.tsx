@@ -40,6 +40,10 @@ export function Waveform({ analyserRef }: { analyserRef: RefObject<AnalyserNode 
       ctx!.clearRect(0, 0, w, h);
       if (!analyser) return;
 
+      // 语音琥珀色从 CSS 变量读取（跟随明暗主题）
+      const css = getComputedStyle(canvas!);
+      const voice = css.getPropertyValue('--voice').trim() || '#ffb224';
+
       if (!bins || bins.length !== analyser.frequencyBinCount) {
         bins = new Uint8Array(analyser.frequencyBinCount);
       }
@@ -63,10 +67,12 @@ export function Waveform({ analyserRef }: { analyserRef: RefObject<AnalyserNode 
         const barH = amp * (h * 0.46);
         const x = i * barW + gap / 2;
         const bw = barW - gap;
-        ctx!.fillStyle = v > 0.6 ? '#4da3ff' : 'rgba(10,132,255,0.6)';
+        ctx!.globalAlpha = v > 0.6 ? 1 : 0.6;
+        ctx!.fillStyle = voice;
         roundRect(x, mid - barH, bw, barH * 2, bw / 2);
         ctx!.fill();
       }
+      ctx!.globalAlpha = 1;
     };
     draw();
 

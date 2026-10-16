@@ -13,6 +13,30 @@ interface Props {
   onSaveTranscript?: (segments: TranscriptSegment[]) => Promise<void>;
 }
 
+/** 相邻句停顿超过该值视为话题分段（毫秒）。 */
+const PARAGRAPH_GAP_MS = 2000;
+/** 单段最多句子数：长独白也定期断段，保证阅读节奏。 */
+const PARAGRAPH_MAX_LINES = 8;
+
+/** 把平铺的逐字稿按「停顿 >2s / 换说话人 / 超 8 句」聚成段落（阅读分组，只影响展示）。 */
+export function groupParagraphs(segments: TranscriptSegment[]): number[][] {
+  const paras: number[][] = [];
+  segments.forEach((s, i) => {
+    const prev = segments[i - 1];
+    const cur = paras[paras.length - 1];
+    const brk =
+      i === 0 ||
+      !prev ||
+      !cur ||
+      s.startMs - prev.endMs > PARAGRAPH_GAP_MS ||
+      s.speaker !== prev.speaker ||
+      cur.length >= PARAGRAPH_MAX_LINES;
+    if (brk) paras.push([i]);
+    else cur.push(i);
+  });
+  return paras;
+}
+
 export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTranscript }: Props) {
   const refs = useRef<(HTMLParagraphElement | null)[]>([]);
   const [editing, setEditing] = useState(false);
@@ -42,8 +66,10 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
 
   if (!segments.length && !editing) return <p className="muted">（无逐字稿）</p>;
 
+  const paras = groupParagraphs(segments);
+
   return (
-    <div className="transcript">
+    <div className="transcript reader">
       {editing
         ? draft.map((s, i) => (
             <p key={i} className="tedit">
@@ -59,26 +85,39 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
               <textarea value={s.text} onChange={(e) => editAt(i, e.target.value)} rows={2} />
             </p>
           ))
-        : segments.map((s, i) => (
-            <p
-              key={i}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              className={i === activeIndex ? 'active' : undefined}
-              onClick={onSeek ? () => onSeek(s.startMs) : undefined}
-              style={onSeek ? { cursor: 'pointer' } : undefined}
+        : paras.map((idxs, pi) => (
+            <div
+              key={pi}
+              className={'t-para' + (activeIndex >= 0 && idxs.includes(activeIndex) ? ' playing' : '')}
             >
-              {s.speaker != null && (
-                <span
-                  className="spk"
-                  style={{ color: speakerColor(s.speaker), borderColor: speakerColor(s.speaker) }}
-                >
-                  说话人 {speakerLabel(s.speaker)}
-                </span>
-              )}
-              <b className="ts">[{fmtMs(s.startMs)}]</b> {s.text}
-            </p>
+              {idxs.map((i) => {
+                const s = segments[i];
+                if (!s) return null;
+                const first = idxs[0] === i;
+                return (
+                  <p
+                    key={i}
+                    ref={(el) => {
+                      refs.current[i] = el;
+                    }}
+                    className={i === activeIndex ? 'active' : undefined}
+                    onClick={onSeek ? () => onSeek(s.startMs) : undefined}
+                    style={onSeek ? { cursor: 'pointer' } : undefined}
+                  >
+                    {first && s.speaker != null && (
+                      <span
+                        className="spk"
+                        style={{ color: speakerColor(s.speaker), '--dot': speakerColor(s.speaker) } as React.CSSProperties}
+                      >
+                        说话人 {speakerLabel(s.speaker)}
+                      </span>
+                    )}
+                    <time className="ts">{fmtMs(s.startMs)}</time>
+                    {s.text}
+                  </p>
+                );
+              })}
+            </div>
           ))}
 
       {onSaveTranscript && (

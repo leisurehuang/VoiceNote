@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react';
-import { getSettings, testConnection, updateSettings } from '../api/client';
-import type { LlmPreset, Settings } from '../api/types';
-import { ModelManager } from './ModelManager';
-import { DictationSettingsView } from './DictationSettingsView';
+import { getSettings, updateSettings } from '../api/client';
+import type { Settings } from '../api/types';
+import { TranscriptionSettings } from './TranscriptionSettings';
+import { LlmSettings } from './LlmSettings';
 
-const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '', incrementalModel: '' };
+type Tab = 'transcribe' | 'llm' | 'glossary';
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [editing, setEditing] = useState<LlmPreset | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; warning?: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [glossaryDraft, setGlossaryDraft] = useState('');
-  const [tab, setTab] = useState<'models' | 'glossary' | 'dictation'>('models');
-  const [showKey, setShowKey] = useState(false);
+  const [glossarySaved, setGlossarySaved] = useState(false);
+  const [tab, setTab] = useState<Tab>('transcribe');
 
   useEffect(() => {
     getSettings()
@@ -44,316 +41,41 @@ export function SettingsView() {
       .split('\n')
       .map((t) => t.trim())
       .filter(Boolean);
-    void persist({ ...settings, glossary });
-  }
-
-  function activate(id: string) {
-    if (settings) persist({ ...settings, activePresetId: id });
-  }
-
-  function remove(id: string) {
-    if (!settings) return;
-    persist({
-      ...settings,
-      activePresetId: settings.activePresetId === id ? null : settings.activePresetId,
-      presets: settings.presets.filter((p) => p.id !== id),
+    void persist({ ...settings, glossary }).then((ok) => {
+      if (ok) {
+        setGlossarySaved(true);
+        setTimeout(() => setGlossarySaved(false), 2000);
+      }
     });
   }
 
-  function saveEdit() {
-    if (!settings || !editing) return;
-    if (!editing.name.trim() || !editing.baseUrl.trim() || !editing.model.trim()) {
-      setErr('名称、Base URL、模型不能为空');
-      return;
-    }
-    const id =
-      editing.id ||
-      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2) + Date.now().toString(36));
-    const exists = settings.presets.some((p) => p.id === editing.id);
-    const presets = exists
-      ? settings.presets.map((p) => (p.id === editing.id ? { ...editing, id } : p))
-      : [...settings.presets, { ...editing, id }];
-    const next: Settings = { ...settings, presets };
-    if (!next.activePresetId && presets.length === 1) next.activePresetId = id; // 首个预设自动激活
-    setEditing(null);
-    setTestResult(null);
-    void persist(next);
-  }
-
-  async function doTest() {
-    if (!editing) return;
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const r = await testConnection({
-        baseUrl: editing.baseUrl,
-        apiKey: editing.apiKey,
-        model: editing.model,
-      });
-      setTestResult(r);
-    } catch (e) {
-      setTestResult({ ok: false, error: e instanceof Error ? e.message : '请求失败' });
-    }
-    setTesting(false);
-  }
+  const TABS: Array<{ id: Tab; label: string }> = [
+    { id: 'transcribe', label: '语音转文字' },
+    { id: 'llm', label: 'AI 整理' },
+    { id: 'glossary', label: '术语表' },
+  ];
 
   return (
     <div className="content settings">
       <section className="block">
         <div className="segmented settings-tabs">
-          <button
-            className={tab === 'models' ? 'seg active' : 'seg'}
-            onClick={() => setTab('models')}
-          >
-            模型配置
-          </button>
-          <button
-            className={tab === 'glossary' ? 'seg active' : 'seg'}
-            onClick={() => setTab('glossary')}
-          >
-            术语表
-          </button>
-          <button
-            className={tab === 'dictation' ? 'seg active' : 'seg'}
-            onClick={() => setTab('dictation')}
-          >
-            语音输入
-          </button>
+          {TABS.map((t) => (
+            <button key={t.id} className={tab === t.id ? 'seg active' : 'seg'} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
         </div>
+        <p className="muted settings-legend">点选类操作（切引擎、设为激活、切模型）即时生效；表单类配置需点「保存」。</p>
         {err && <div className="alert err">{err}</div>}
 
-        {/* 模型配置：预设管理 + whisper/ollama 模型管理。两 pane 常驻 DOM（display 切换）保留下载进度 */}
-        <div className={tab === 'models' ? '' : 'hidden'}>
-          {!settings ? (
-            <p className="muted">加载中…</p>
-          ) : (
-            <>
-              <div className="engine-select">
-                <h4 className="block-h">🎙️ 转写引擎</h4>
-                <p className="muted">
-                  语音转文字引擎：whisper.cpp 为本地原引擎；sherpa-onnx 本地可区分说话人（逐字稿带彩色标签）；
-                  云端 API 走 OpenAI 兼容 /audio/transcriptions 接口（如硅基流动），无需本地模型。
-                </p>
-                <div className="segmented">
-                  <button
-                    className={settings.transcriptionEngine === 'sherpa' ? 'seg active' : 'seg'}
-                    onClick={() => persist({ ...settings, transcriptionEngine: 'sherpa' })}
-                  >
-                    sherpa-onnx（说话人分离）
-                  </button>
-                  <button
-                    className={settings.transcriptionEngine === 'whisper' ? 'seg active' : 'seg'}
-                    onClick={() => persist({ ...settings, transcriptionEngine: 'whisper' })}
-                  >
-                    whisper.cpp
-                  </button>
-                  <button
-                    className={settings.transcriptionEngine === 'api' ? 'seg active' : 'seg'}
-                    onClick={() => persist({ ...settings, transcriptionEngine: 'api' })}
-                  >
-                    ☁ 云端 API
-                  </button>
-                </div>
-                {settings.transcriptionEngine === 'sherpa' && (
-                  <p className="muted">
-                    ⚠️ sherpa 仅支持中文识别，且不支持术语表偏置；需先运行{' '}
-                    <code>bash scripts/fetch-sherpa.sh</code> 安装二进制与模型。
-                  </p>
-                )}
-                {settings.transcriptionEngine === 'api' && (
-                  <div className="settings-form">
-                    <h4>云端转写 API（OpenAI 兼容）</h4>
-                    <label>Base URL</label>
-                    <input
-                      value={settings.asrApi?.baseUrl ?? ''}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          asrApi: { ...settings.asrApi, baseUrl: e.target.value },
-                        })
-                      }
-                      placeholder="https://api.siliconflow.cn/v1"
-                    />
-                    <label>API Key</label>
-                    <input
-                      type={showKey ? 'text' : 'password'}
-                      value={settings.asrApi?.apiKey ?? ''}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          asrApi: { ...settings.asrApi, apiKey: e.target.value },
-                        })
-                      }
-                      placeholder="sk-..."
-                    />
-                    <label>模型</label>
-                    <input
-                      value={settings.asrApi?.model ?? ''}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          asrApi: { ...settings.asrApi, model: e.target.value },
-                        })
-                      }
-                      placeholder="FunAudioLLM/SenseVoiceSmall"
-                    />
-                    <div className="rec-controls">
-                      <button
-                        className="ghost"
-                        onClick={async () => {
-                          setTesting(true);
-                          setTestResult(null);
-                          try {
-                            const r = await testConnection({
-                              baseUrl: settings.asrApi.baseUrl,
-                              apiKey: settings.asrApi.apiKey,
-                            });
-                            setTestResult(r);
-                          } catch (e) {
-                            setTestResult({ ok: false, error: e instanceof Error ? e.message : '请求失败' });
-                          }
-                          setTesting(false);
-                        }}
-                        disabled={testing || !settings.asrApi?.baseUrl?.trim()}
-                      >
-                        {testing ? '测试中…' : '测试连接'}
-                      </button>
-                      <button
-                        className="big"
-                        onClick={() => void persist({ ...settings })}
-                        disabled={!settings.asrApi?.baseUrl?.trim() || !settings.asrApi?.model?.trim()}
-                      >
-                        保存
-                      </button>
-                    </div>
-                    <p className="muted">录音/上传会整段发送给该服务转写；请注意所选服务的隐私与计费条款。</p>
-                  </div>
-                )}
-              </div>
+        {/* 语音转文字：引擎卡片 + 各引擎配置/模型管理 */}
+        <div className={tab === 'transcribe' ? '' : 'hidden'}>
+          {!settings ? <p className="muted">加载中…</p> : <TranscriptionSettings settings={settings} persist={persist} />}
+        </div>
 
-              <p className="muted">
-                配置整理总结用的模型，支持本地 Ollama 或任意 OpenAI Chat 兼容 API。<b>激活的预设</b>对所有整理总结生效。
-              </p>
-              <div className="preset-list">
-                {settings.presets.length === 0 && <p className="muted">尚无预设，点下方「新增」添加。</p>}
-                {settings.presets.map((p) => (
-                  <div
-                    key={p.id}
-                    className={'preset-item' + (p.id === settings.activePresetId ? ' preset-active' : '')}
-                  >
-                    <div className="preset-info">
-                      <b>{p.name || '未命名'}</b>
-                      <span className="muted">
-                        {p.model} · {p.baseUrl}
-                      </span>
-                      {p.id === settings.activePresetId && <span className="preset-badge">● 使用中</span>}
-                    </div>
-                    <div className="preset-actions">
-                      {p.id !== settings.activePresetId && (
-                        <button className="ghost" onClick={() => activate(p.id)}>
-                          设为激活
-                        </button>
-                      )}
-                      <button
-                        className="ghost"
-                        onClick={() => {
-                          setEditing({ ...p });
-                          setTestResult(null);
-                        }}
-                      >
-                        编辑
-                      </button>
-                      <button className="ghost" onClick={() => remove(p.id)}>
-                        删除
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button className="big" onClick={() => { setEditing({ ...EMPTY }); setTestResult(null); }}>
-                ＋ 新增预设
-              </button>
-
-              {editing && (
-                <div className="settings-form">
-                  <h4>{settings.presets.some((p) => p.id === editing.id) ? '编辑预设' : '新增预设'}</h4>
-                  <label>名称</label>
-                  <input
-                    value={editing.name}
-                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                    placeholder="如：本地 Ollama / OpenAI"
-                  />
-                  <label>Base URL</label>
-                  <input
-                    value={editing.baseUrl}
-                    onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })}
-                    placeholder="http://localhost:11434/v1 或 https://api.openai.com/v1"
-                  />
-                  <label>API Key</label>
-                  <div className="key-row">
-                    <input
-                      type={showKey ? 'text' : 'password'}
-                      value={editing.apiKey}
-                      onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
-                      placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
-                    />
-                    <button
-                      type="button"
-                      className="ghost key-toggle"
-                      onClick={() => setShowKey((v) => !v)}
-                      title={showKey ? '隐藏' : '显示'}
-                    >
-                      {showKey ? '🙈' : '👁'}
-                    </button>
-                  </div>
-                  <label>模型</label>
-                  <input
-                    value={editing.model}
-                    onChange={(e) => setEditing({ ...editing, model: e.target.value })}
-                    placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
-                  />
-                  <label>增量摘要模型（可选，留空跟随主模型）</label>
-                  <input
-                    value={editing.incrementalModel ?? ''}
-                    onChange={(e) => setEditing({ ...editing, incrementalModel: e.target.value })}
-                    placeholder="如 qwen2.5:3b（实时转写时滚动摘要用，小快模型更跟手）"
-                  />
-                  {testResult && (
-                    <div className={'alert ' + (testResult.ok ? 'ok' : 'err')}>
-                      {testResult.ok ? '✓ 连接成功' : '连接失败：' + (testResult.error ?? '未知错误')}
-                      {testResult.warning && <div>{testResult.warning}</div>}
-                    </div>
-                  )}
-                  <div className="rec-controls">
-                    <button className="ghost" onClick={doTest} disabled={testing || !editing.baseUrl.trim()}>
-                      {testing ? '测试中…' : '测试连接'}
-                    </button>
-                    <button className="big" onClick={saveEdit}>
-                      保存
-                    </button>
-                    <button
-                      className="ghost"
-                      onClick={() => {
-                        setEditing(null);
-                        setTestResult(null);
-                      }}
-                    >
-                      取消
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <ModelManager
-                activePresetId={settings.activePresetId ?? undefined}
-                settings={settings}
-                persist={persist}
-              />
-            </>
-          )}
+        {/* AI 整理：LLM 预设 + 本地 Ollama 模型管理 */}
+        <div className={tab === 'llm' ? '' : 'hidden'}>
+          {!settings ? <p className="muted">加载中…</p> : <LlmSettings settings={settings} persist={persist} />}
         </div>
 
         {/* 术语表 */}
@@ -364,7 +86,8 @@ export function SettingsView() {
             <div className="glossary-box">
               <h4 className="block-h">📖 术语表</h4>
               <p className="muted">
-                专有名词 / 人名 / 公司名，每行一个。转写与整理时自动偏置，提升识别准确率。
+                专有名词 / 人名 / 公司名，每行一个。转写与整理时自动偏置，提升识别准确率
+                （sherpa 引擎不支持偏置）。
               </p>
               <textarea
                 className="glossary-edit"
@@ -377,17 +100,9 @@ export function SettingsView() {
                 <button className="ghost" onClick={saveGlossary}>
                   保存术语表
                 </button>
+                {glossarySaved && <span className="muted">✓ 已保存</span>}
               </div>
             </div>
-          )}
-        </div>
-
-        {/* 语音输入（全局听写） */}
-        <div className={tab === 'dictation' ? '' : 'hidden'}>
-          {!settings ? (
-            <p className="muted">加载中…</p>
-          ) : (
-            <DictationSettingsView settings={settings} persist={persist} />
           )}
         </div>
 

@@ -4,6 +4,8 @@ import type { SessionDetail as Detail, TranscriptSegment, TodoItem } from '../ap
 import { TranscriptView } from './TranscriptView';
 import { SummaryView } from './SummaryView';
 import { ExportBar } from './ExportBar';
+import { PlayerBar } from './PlayerBar';
+import { fmtDate, fmtMs } from '../format';
 
 export function SessionDetail({ id }: { id: string }) {
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -116,18 +118,30 @@ export function SessionDetail({ id }: { id: string }) {
 
   return (
     <div className="content detail">
+      {/* 标题区：大标题 + 一行 meta（时间 · 时长 · 摘要模型） */}
+      <header className="detail-head">
+        <div className="detail-head-info">
+          <h1 className="detail-title">{detail.title || '未命名'}</h1>
+          <p className="detail-meta">
+            {fmtDate(detail.createdAt)}
+            {detail.durationMs ? ` · ${fmtMs(detail.durationMs)}` : ''}
+            {detail.summaryModel ? ` · ${detail.summaryModel}` : ''}
+          </p>
+        </div>
+      </header>
+
       <div className="segmented detail-tabs">
         <button
           className={tab === 'summary' ? 'seg active' : 'seg'}
           onClick={() => setTab('summary')}
         >
-          📝 摘要
+          摘要
         </button>
         <button
           className={tab === 'transcript' ? 'seg active' : 'seg'}
           onClick={() => setTab('transcript')}
         >
-          💬 逐字稿
+          逐字稿
         </button>
       </div>
 
@@ -158,30 +172,18 @@ export function SessionDetail({ id }: { id: string }) {
             )}
           </div>
         )}
-        <SummaryView
-          summary={detail.summary}
-          summarizing={summarizing}
-          onResummarize={handleResummarize}
-          onSaveSummary={handleSaveSummary}
-        />
+        <div className="reader-col">
+          <SummaryView
+            summary={detail.summary}
+            summarizing={summarizing}
+            onResummarize={handleResummarize}
+            onSaveSummary={handleSaveSummary}
+          />
+        </div>
         {err && <div className="alert err">{err}</div>}
       </section>
 
       <section className={tab === 'transcript' ? 'block' : 'block hidden'}>
-        {detail.hasAudio && (
-          <div className="audio-sticky">
-            <audio
-              ref={audioRef}
-              src={audioUrl(id)}
-              controls
-              preload="metadata"
-              onTimeUpdate={handleTimeUpdate}
-            />
-            <a className="ghost" href={sourceUrl(id)} download>
-              下载音频
-            </a>
-          </div>
-        )}
         <TranscriptView
           segments={detail.transcript}
           activeIndex={activeIndex}
@@ -191,6 +193,17 @@ export function SessionDetail({ id }: { id: string }) {
       </section>
       </div>
 
+      {/* 底部：音频播放条（有音频时） + 导出操作 */}
+      {detail.hasAudio ? (
+        <PlayerBar
+          audioRef={audioRef}
+          src={audioUrl(id)}
+          downloadUrl={sourceUrl(id)}
+          onTimeUpdate={handleTimeUpdate}
+        />
+      ) : (
+        <div className="player-spacer" />
+      )}
       <ExportBar id={id} />
     </div>
   );
