@@ -56,20 +56,6 @@
 .model-pull input {
   flex: 1;
 }
-.model-bar {
-  width: 100%;
-  height: 4px;
-  background: var(--fill-3);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-top: 4px;
-}
-.model-bar span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.2s ease;
-}
 
 
 /* 设置页：转写引擎选择卡片 */
@@ -100,16 +86,15 @@
   border-color: var(--accent);
   background: var(--selected);
 }
+.engine-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
 .engine-title {
   font-size: 13.5px;
   font-weight: 600;
-}
-.engine-card.active .engine-title::after {
-  content: '●';
-  color: var(--accent);
-  font-size: 10px;
-  margin-left: 6px;
-  vertical-align: 2px;
 }
 .engine-desc {
   font-size: 11.5px;

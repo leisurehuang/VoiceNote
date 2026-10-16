@@ -1,44 +1,9 @@
-/* 语音输入(全局听写)设置页。 */
-/* ==================== 语音输入（全局听写）设置 ==================== */
+/* 语音输入(全局听写)设置页:三卡结构(基本设置/术语纠错/听写历史)。 */
 .dictation-settings {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px !important;
-  color: var(--text) !important;
-  margin-top: 8px;
-  cursor: pointer;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.check-row input[type='checkbox'] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
-.dictation-settings select {
-  width: 220px;
-  padding: 6px 8px;
-  border-radius: 7px;
-  border: 1px solid var(--separator);
-  background: var(--fill-2);
-  color: var(--text);
-  font-size: 13px;
-}
-.dict-corrections,
-.dict-history {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--separator);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 14px;
+  max-width: 720px;
 }
 .dict-correction-row {
   display: flex;
@@ -94,4 +59,3 @@
 .dict-hist-meta {
   font-size: 11px;
 }
-

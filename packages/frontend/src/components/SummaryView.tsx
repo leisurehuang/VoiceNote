@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { renderMarkdown } from '../api/markdown';
+import { Button } from './ui/Button';
 
 interface Props {
   summary: string | null;
@@ -48,18 +49,18 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
       <div className="summary-actions">
         {editingBody ? (
           <>
-            <button className="big" onClick={saveBody} disabled={saving}>
-              {saving ? '保存中…' : '保存'}
-            </button>
-            <button className="ghost" onClick={() => setEditingBody(false)} disabled={saving}>
+            <Button variant="primary" onClick={saveBody} loading={saving}>
+              保存
+            </Button>
+            <Button variant="ghost" onClick={() => setEditingBody(false)} disabled={saving}>
               取消
-            </button>
+            </Button>
           </>
         ) : (
           <>
             {onSaveSummary && (
-              <button
-                className="ghost"
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setDraft(summary ?? '');
                   setEditingBody(true);
@@ -67,11 +68,11 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
                 disabled={summarizing}
               >
                 编辑正文
-              </button>
+              </Button>
             )}
-            <button className="ghost" onClick={() => setEditing((v) => !v)} disabled={summarizing}>
+            <Button variant="ghost" onClick={() => setEditing((v) => !v)} disabled={summarizing}>
               {editing ? '收起' : '重新生成 / 自定义'}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -84,9 +85,9 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
           />
-          <button className="big" onClick={() => onResummarize(prompt.trim() || undefined)} disabled={summarizing}>
+          <Button variant="primary" onClick={() => onResummarize(prompt.trim() || undefined)} disabled={summarizing}>
             生成
-          </button>
+          </Button>
         </div>
       )}
     </div>

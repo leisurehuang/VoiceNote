@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { CircleCheck, Download, Package, Search, TriangleAlert } from 'lucide-react';
+import { Button } from './ui/Button';
+import { ProgressBar } from './ui/ProgressBar';
 
 interface UpdateInfo {
   version: string;
@@ -132,7 +135,7 @@ export function UpdateBanner() {
     <div className={`alert update-banner ${status}`}>
       {status === 'checking' && (
         <div className="update-checking">
-          <span className="update-icon">🔍</span>
+          <Search size={16} aria-hidden />
           <span>正在检查更新...</span>
         </div>
       )}
@@ -140,19 +143,19 @@ export function UpdateBanner() {
       {status === 'available' && updateInfo && (
         <div className="update-available">
           <div className="update-header">
-            <span className="update-icon">📦</span>
+            <Package size={18} aria-hidden />
             <span className="update-title">发现新版本 {updateInfo.version}</span>
           </div>
           {updateInfo.releaseNotes && (
             <div className="update-notes">{updateInfo.releaseNotes}</div>
           )}
           <div className="update-actions">
-            <button className="btn primary" onClick={downloadUpdate}>
+            <Button variant="primary" onClick={downloadUpdate}>
               立即更新
-            </button>
-            <button className="btn secondary" onClick={skipVersion}>
+            </Button>
+            <Button variant="ghost" onClick={skipVersion}>
               跳过此版本
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -160,13 +163,11 @@ export function UpdateBanner() {
       {status === 'downloading' && progress && (
         <div className="update-downloading">
           <div className="update-header">
-            <span className="update-icon">⬇️</span>
+            <Download size={18} aria-hidden />
             <span className="update-title">正在下载更新...</span>
           </div>
           <div className="update-progress">
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progress.percent}%` }} />
-            </div>
+            <ProgressBar value={progress.percent / 100} tone="warn" />
             <div className="progress-text">
               {progress.percent}% ({(progress.transferred / 1024 / 1024).toFixed(1)} MB / {(progress.total / 1024 / 1024).toFixed(1)} MB)
             </div>
@@ -177,16 +178,16 @@ export function UpdateBanner() {
       {status === 'downloaded' && (
         <div className="update-downloaded">
           <div className="update-header">
-            <span className="update-icon">✅</span>
+            <CircleCheck size={18} aria-hidden />
             <span className="update-title">更新已准备就绪</span>
           </div>
           <div className="update-actions">
-            <button className="btn primary" onClick={installUpdate}>
+            <Button variant="primary" onClick={installUpdate}>
               重启并安装
-            </button>
-            <button className="btn secondary" onClick={skipVersion}>
+            </Button>
+            <Button variant="ghost" onClick={skipVersion}>
               稍后提醒
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -194,17 +195,17 @@ export function UpdateBanner() {
       {status === 'error' && (
         <div className="update-error">
           <div className="update-header">
-            <span className="update-icon">⚠️</span>
+            <TriangleAlert size={18} aria-hidden />
             <span className="update-title">更新失败</span>
           </div>
           {errorMessage && <div className="error-message">{errorMessage}</div>}
           <div className="update-actions">
-            <button className="btn secondary" onClick={checkForUpdates}>
+            <Button variant="ghost" onClick={checkForUpdates}>
               重新检查
-            </button>
-            <button className="btn text" onClick={skipVersion}>
+            </Button>
+            <Button variant="ghost" onClick={skipVersion}>
               关闭
-            </button>
+            </Button>
           </div>
         </div>
       )}

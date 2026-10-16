@@ -400,10 +400,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.preset-badge {
-  color: var(--accent);
-  font-size: 11px;
-}
 .preset-actions {
   display: flex;
   gap: 6px;
@@ -419,15 +415,6 @@
 }
 .settings-form h4 {
   margin: 0 0 6px;
-}
-.settings-form label {
-  font-size: 11.5px;
-  color: var(--text-3);
-  margin-top: 4px;
-}
-.settings-form input {
-  width: 100%;
-  box-sizing: border-box;
 }
 .settings-version {
   margin-top: 18px;

@@ -3,7 +3,7 @@ import { cn } from '../../cn';
 interface Props {
   /** 0–1 */
   value: number;
-  tone?: 'accent' | 'voice' | 'danger' | 'ok';
+  tone?: 'accent' | 'voice' | 'danger' | 'ok' | 'warn';
   className?: string;
 }
 

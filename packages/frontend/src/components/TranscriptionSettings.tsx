@@ -9,7 +9,9 @@ import { Eye, EyeOff, Mic, Package } from 'lucide-react';
 import { getHealth, testConnection } from '../api/client';
 import type { HealthStatus, Settings } from '../api/types';
 import { WhisperModels } from './WhisperModels';
+import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import { Field, Input } from './ui/Field';
 import { IconButton } from './ui/IconButton';
 import { toast, toastError } from './ui/Toast';
 
@@ -77,35 +79,38 @@ function AsrApiForm({
   return (
     <div className="settings-form">
       <h4>云端转写 API（OpenAI 兼容）</h4>
-      <label>Base URL</label>
-      <input
-        value={draft.baseUrl}
-        onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
-        placeholder="https://api.siliconflow.cn/v1"
-      />
-      <label>API Key</label>
-      <div className="key-row">
-        <input
-          type={showKey ? 'text' : 'password'}
-          value={draft.apiKey}
-          onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
-          placeholder="sk-..."
+      <Field label="Base URL">
+        <Input
+          value={draft.baseUrl}
+          onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
+          placeholder="https://api.siliconflow.cn/v1"
         />
-        <IconButton
-          size="sm"
-          className="key-toggle"
-          label={showKey ? '隐藏 API Key' : '显示 API Key'}
-          onClick={() => setShowKey((v) => !v)}
-        >
-          {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-        </IconButton>
-      </div>
-      <label>模型</label>
-      <input
-        value={draft.model}
-        onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-        placeholder="FunAudioLLM/SenseVoiceSmall"
-      />
+      </Field>
+      <Field label="API Key">
+        <div className="key-row">
+          <Input
+            type={showKey ? 'text' : 'password'}
+            value={draft.apiKey}
+            onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
+            placeholder="sk-..."
+          />
+          <IconButton
+            size="sm"
+            className="key-toggle"
+            label={showKey ? '隐藏 API Key' : '显示 API Key'}
+            onClick={() => setShowKey((v) => !v)}
+          >
+            {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+          </IconButton>
+        </div>
+      </Field>
+      <Field label="模型">
+        <Input
+          value={draft.model}
+          onChange={(e) => setDraft({ ...draft, model: e.target.value })}
+          placeholder="FunAudioLLM/SenseVoiceSmall"
+        />
+      </Field>
       {testResult && (
         <div className={'alert ' + (testResult.ok ? 'ok' : 'err')}>
           {testResult.ok ? '✓ 连接成功' : '连接失败：' + (testResult.error ?? '未知错误')}
@@ -172,9 +177,13 @@ export function TranscriptionSettings({
             <button
               key={e.id}
               className={'engine-card' + (active ? ' active' : '')}
+              aria-pressed={active}
               onClick={() => !active && persist({ ...settings, transcriptionEngine: e.id })}
             >
-              <span className="engine-title">{e.title}</span>
+              <span className="engine-title-row">
+                <span className="engine-title">{e.title}</span>
+                {active && <Badge tone="accent">使用中</Badge>}
+              </span>
               <span className="engine-desc">{e.desc}</span>
               <span className={'engine-badge ' + (badge.ok ? 'ok' : 'warn')}>{badge.label}</span>
             </button>

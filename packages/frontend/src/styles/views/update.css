@@ -1,6 +1,5 @@
-/* 自动更新悬浮横幅。 */
-/* ---------- 自动更新横幅（悬浮于窗口顶部，不占文档流。
-   .shell 是横向 flex，此前的流内布局会在横幅出现时被挤成侧栏左侧窄列） ---------- */
+/* 自动更新悬浮横幅:悬浮于窗口顶部,不占文档流。
+   (.shell 是横向 flex,流内布局会在横幅出现时被挤成侧栏左侧窄列) */
 .update-banner {
   position: fixed;
   top: 60px;
@@ -9,10 +8,10 @@
   width: min(520px, calc(100vw - 48px));
   margin: 0;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-m);
   overflow: hidden;
   background: var(--surface);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-2);
   z-index: 1000;
   -webkit-app-region: no-drag;
 }
@@ -40,8 +39,9 @@
   margin-bottom: 10px;
 }
 
-.update-icon {
-  font-size: 20px;
+.update-header svg {
+  color: var(--text-2);
+  flex-shrink: 0;
 }
 
 .update-title {
@@ -64,64 +64,17 @@
   margin: 12px 0;
 }
 
-.progress-bar {
-  height: 6px;
-  background: var(--fill);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s ease;
-}
-
-.update-banner.downloading .progress-fill {
-  background: var(--warn);
-}
-
 .progress-text {
   font-size: 12px;
   color: var(--text-3);
   text-align: center;
+  margin-top: 6px;
 }
 
 .update-actions {
   display: flex;
   gap: 10px;
   margin-top: 12px;
-}
-
-.update-actions .btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.update-actions .btn:hover {
-  opacity: 0.9;
-}
-
-.update-actions .btn.primary {
-  background: var(--accent);
-  color: white;
-  border: none;
-}
-
-.update-actions .btn.secondary {
-  background: var(--fill);
-  color: var(--text);
-  border: 1px solid var(--dashed);
-}
-
-.update-actions .btn.text {
-  background: transparent;
-  color: var(--text-2);
-  border: none;
 }
 
 .error-message {
@@ -137,6 +90,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 4px 2px;
+  color: var(--text-2);
 }
-

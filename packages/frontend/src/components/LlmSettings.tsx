@@ -11,6 +11,7 @@ import type { LlmPreset, Settings } from '../api/types';
 import { OllamaModels } from './OllamaModels';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import { Field, Input } from './ui/Field';
 import { IconButton } from './ui/IconButton';
 import { toast, toastError } from './ui/Toast';
 
@@ -138,47 +139,52 @@ export function LlmSettings({
         {editing ? (
           <>
             <h4>{settings.presets.some((p) => p.id === editing.id) ? '编辑预设' : '新增预设'}</h4>
-            <label>名称</label>
-            <input
-              value={editing.name}
-              onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-              placeholder="如：本地 Ollama / OpenAI"
-            />
-            <label>Base URL</label>
-            <input
-              value={editing.baseUrl}
-              onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })}
-              placeholder="http://localhost:11434/v1 或 https://api.openai.com/v1"
-            />
-            <label>API Key</label>
-            <div className="key-row">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={editing.apiKey}
-                onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
-                placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
+            <Field label="名称">
+              <Input
+                value={editing.name}
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                placeholder="如：本地 Ollama / OpenAI"
               />
-              <IconButton
-                size="sm"
-                className="key-toggle"
-                label={showKey ? '隐藏 API Key' : '显示 API Key'}
-                onClick={() => setShowKey((v) => !v)}
-              >
-                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-              </IconButton>
-            </div>
-            <label>模型</label>
-            <input
-              value={editing.model}
-              onChange={(e) => setEditing({ ...editing, model: e.target.value })}
-              placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
-            />
-            <label>增量摘要模型（可选，留空跟随主模型）</label>
-            <input
-              value={editing.incrementalModel ?? ''}
-              onChange={(e) => setEditing({ ...editing, incrementalModel: e.target.value })}
-              placeholder="如 qwen2.5:3b（实时转写时滚动摘要用，小快模型更跟手）"
-            />
+            </Field>
+            <Field label="Base URL">
+              <Input
+                value={editing.baseUrl}
+                onChange={(e) => setEditing({ ...editing, baseUrl: e.target.value })}
+                placeholder="http://localhost:11434/v1 或 https://api.openai.com/v1"
+              />
+            </Field>
+            <Field label="API Key">
+              <div className="key-row">
+                <Input
+                  type={showKey ? 'text' : 'password'}
+                  value={editing.apiKey}
+                  onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
+                  placeholder="Ollama 填 ollama；OpenAI 填 sk-..."
+                />
+                <IconButton
+                  size="sm"
+                  className="key-toggle"
+                  label={showKey ? '隐藏 API Key' : '显示 API Key'}
+                  onClick={() => setShowKey((v) => !v)}
+                >
+                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </IconButton>
+              </div>
+            </Field>
+            <Field label="模型">
+              <Input
+                value={editing.model}
+                onChange={(e) => setEditing({ ...editing, model: e.target.value })}
+                placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
+              />
+            </Field>
+            <Field label="增量摘要模型（可选，留空跟随主模型）" help="实时转写时滚动摘要用，小快模型更跟手">
+              <Input
+                value={editing.incrementalModel ?? ''}
+                onChange={(e) => setEditing({ ...editing, incrementalModel: e.target.value })}
+                placeholder="如 qwen2.5:3b"
+              />
+            </Field>
             {testResult && (
               <div className={'alert ' + (testResult.ok ? 'ok' : 'err')}>
                 {testResult.ok ? '✓ 连接成功' : '连接失败：' + (testResult.error ?? '未知错误')}

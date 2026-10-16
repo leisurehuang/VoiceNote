@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { History, Mic, Plus, Replace } from 'lucide-react';
+import { History, Mic, Plus } from 'lucide-react';
 import {
   clearDictationHistory,
   deleteDictationHistory,
@@ -17,7 +17,10 @@ import type { DictationHistoryEntry, DictationSettings, Settings, TermCorrection
 import { fmtDate } from '../format';
 import { Button } from './ui/Button';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { SettingsSkeleton } from './ui/Skeleton';
+import { EmptyState } from './ui/EmptyState';
+import { Field, Input, Select } from './ui/Field';
+import { ListSkeleton, SettingsSkeleton } from './ui/Skeleton';
+import { Switch } from './ui/Switch';
 import { toast, toastError } from './ui/Toast';
 
 /** 输出语言选项（与后端 outputLanguage.ts 的 BUILTIN_LANGUAGES 对应）。 */
@@ -188,82 +191,82 @@ export function DictationView() {
         <div className="alert err">全局听写快捷键仅桌面版（Windows / Linux / macOS）可用；网页版可继续管理术语纠错与历史。</div>
       )}
 
-      <div className="settings-form">
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={draft.enabled}
-            onChange={(e) => patch({ enabled: e.target.checked })}
-          />
-          启用全局听写
-        </label>
+      {/* —— 卡片一:基本设置 —— */}
+      <div className="card">
+        <h3>基本设置</h3>
+        <div className="setting-row">
+          <div className="setting-text">
+            <span className="setting-title">启用全局听写</span>
+            <span className="setting-desc">关闭后快捷键不再触发听写</span>
+          </div>
+          <Switch checked={draft.enabled} onChange={(v) => patch({ enabled: v })} label="启用全局听写" />
+        </div>
 
-        <label>快捷键（切换式：按一下开始，再按结束）</label>
-        <input
-          value={draft.shortcut}
-          onChange={(e) => patch({ shortcut: e.target.value })}
-          placeholder="Ctrl+Alt+D（修饰键+主键，如 CmdOrCtrl+Shift+Space）"
-        />
-        {shortcutInvalid && (
-          <p className="alert err">快捷键格式无效：需「修饰键+主键」，例如 Ctrl+Alt+D、CmdOrCtrl+Shift+Space。</p>
-        )}
-
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={draft.polish}
-            onChange={(e) => patch({ polish: e.target.checked })}
-          />
-          用 AI 整理口语（去语气词、理顺句子、加标点；关闭后直接输入识别原文）
-        </label>
-
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={draft.translationCommands}
-            onChange={(e) => patch({ translationCommands: e.target.checked })}
-          />
-          语音翻译口令（句首或句尾说「用英文」「翻译成日语」等，输出直接翻译）
-        </label>
-
-        <label>固定输出语言（可选：不喊口令也总是翻译）</label>
-        <select
-          value={draft.fixedOutputLanguage ?? ''}
-          onChange={(e) => patch({ fixedOutputLanguage: e.target.value || undefined })}
+        <Field
+          label="快捷键（切换式：按一下开始，再按结束）"
+          error={shortcutInvalid ? '格式无效：需「修饰键+主键」，例如 Ctrl+Alt+D、CmdOrCtrl+Shift+Space' : undefined}
         >
-          <option value="">不固定（跟随说话语言）</option>
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
-        </select>
+          <Input
+            value={draft.shortcut}
+            onChange={(e) => patch({ shortcut: e.target.value })}
+            placeholder="Ctrl+Alt+D（修饰键+主键，如 CmdOrCtrl+Shift+Space）"
+            aria-invalid={shortcutInvalid}
+          />
+        </Field>
+
+        <div className="setting-row">
+          <div className="setting-text">
+            <span className="setting-title">用 AI 整理口语</span>
+            <span className="setting-desc">去语气词、理顺句子、加标点；关闭后直接输入识别原文</span>
+          </div>
+          <Switch checked={draft.polish} onChange={(v) => patch({ polish: v })} label="用 AI 整理口语" />
+        </div>
+
+        <div className="setting-row">
+          <div className="setting-text">
+            <span className="setting-title">语音翻译口令</span>
+            <span className="setting-desc">句首或句尾说「用英文」「翻译成日语」等，输出直接翻译</span>
+          </div>
+          <Switch checked={draft.translationCommands} onChange={(v) => patch({ translationCommands: v })} label="语音翻译口令" />
+        </div>
+
+        <Field label="固定输出语言（可选：不喊口令也总是翻译）">
+          <Select
+            value={draft.fixedOutputLanguage ?? ''}
+            onChange={(e) => patch({ fixedOutputLanguage: e.target.value || undefined })}
+          >
+            <option value="">不固定（跟随说话语言）</option>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <div className="rec-controls card-actions">
+          <Button variant="primary" loading={saving} onClick={() => void save()} disabled={shortcutInvalid}>
+            保存设置
+          </Button>
+        </div>
       </div>
 
-      <div className="rec-controls">
-        <Button variant="primary" loading={saving} onClick={() => void save()} disabled={shortcutInvalid}>
-          保存设置
-        </Button>
-      </div>
-
-      <div className="dict-corrections">
-        <h4 className="block-h">
-          <Replace size={13} aria-hidden />
-          术语纠错
-        </h4>
-        <p className="muted">
+      {/* —— 卡片二:术语纠错 —— */}
+      <div className="card">
+        <h3>术语纠错</h3>
+        <p className="muted card-desc">
           识别常错的名字/词：填「正写」与一个或多个「误写」（英文误写整词匹配）。听写输出前自动替换。
         </p>
         {draft.termCorrections.map((c, i) => (
           <div className="dict-correction-row" key={i}>
-            <input
+            <Input
               className="cor-target"
               value={c.target}
               onChange={(e) => patchCorrection(i, { target: e.target.value })}
               placeholder="正写，如 通义千问"
             />
             <span className="muted">←</span>
-            <input
+            <Input
               className="cor-variants"
               value={c.variants.join('、')}
               onChange={(e) =>
@@ -280,7 +283,7 @@ export function DictationView() {
             </Button>
           </div>
         ))}
-        <div className="rec-controls">
+        <div className="rec-controls card-actions">
           <Button
             variant="ghost"
             size="sm"
@@ -297,16 +300,14 @@ export function DictationView() {
         </div>
       </div>
 
-      <div className="dict-history">
-        <h4 className="block-h">
-          <History size={13} aria-hidden />
-          听写历史（本机保存）
-        </h4>
+      {/* —— 卡片三:听写历史 —— */}
+      <div className="card">
+        <h3>听写历史（本机保存）</h3>
         {histErr && <div className="alert err">{histErr}</div>}
         {history === null ? (
-          <p className="muted">加载中…</p>
+          <ListSkeleton rows={3} />
         ) : history.length === 0 ? (
-          <p className="muted">暂无听写记录。</p>
+          <EmptyState icon={History} title="暂无听写记录" hint="在任意应用里按下全局快捷键开始第一句听写" />
         ) : (
           <>
             <div className="dict-hist-list">
@@ -334,7 +335,7 @@ export function DictationView() {
                 </div>
               ))}
             </div>
-            <div className="rec-controls">
+            <div className="rec-controls card-actions">
               <Button variant="ghost" size="sm" onClick={() => void refreshHistory()}>
                 刷新
               </Button>
