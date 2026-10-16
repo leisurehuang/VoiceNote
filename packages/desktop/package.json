@@ -1,6 +1,6 @@
 {
   "name": "@voice-notes/desktop",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "Voice Notes 桌面外壳（Electron）",
   "main": "src/main.cjs",
