@@ -59,6 +59,7 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
           <>
             {onSaveSummary && (
               <button
+                className="ghost"
                 onClick={() => {
                   setDraft(summary ?? '');
                   setEditingBody(true);
