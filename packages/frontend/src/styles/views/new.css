@@ -1,0 +1,199 @@
+/* 新建页:录音 / 上传 / 实时转写。 */
+/* ---------- 录音 ---------- */
+.record-card {
+  min-height: 210px;
+}
+.record-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0 6px;
+}
+.mic-pulse {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mic-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--voice-soft);
+  animation: micpulse 2s ease-out infinite;
+}
+.mic-dot {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--voice);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--voice) 35%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+}
+@keyframes micpulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mic-pulse::before {
+    animation: none;
+  }
+}
+
+.recording-ui {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 0 2px;
+}
+.waveform {
+  width: 100%;
+  height: 80px;
+  display: block;
+}
+.rec-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.timer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.timer.rec {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* 整理中动效：呼应「开始（脉冲圆）/ 录音中（波形）」——脉冲扩散圈 + 缓转齿轮 + 文案 */
+.finalizing {
+  height: 80px; /* 与 .waveform 同高，状态切换时布局不跳动 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.finalizing-pulse {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.finalizing-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--voice-soft);
+  animation: micpulse 1.6s ease-out infinite; /* 复用「开始」的脉冲扩散 */
+}
+.finalizing-dot {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  animation: spin 2.4s linear infinite; /* 齿轮缓转，表示处理中 */
+}
+.finalizing-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.finalizing-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.finalizing-sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .finalizing-pulse::before,
+  .finalizing-dot {
+    animation: none;
+  }
+}
+
+/* ---------- 上传 ---------- */
+.dropzone {
+  border: 1.5px dashed var(--dashed);
+  border-radius: 10px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-2);
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover {
+  background: var(--fill-3);
+}
+.dropzone.drag {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.prog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+
+/* ---------- 实时流 / 逐字稿 ---------- */
+.stream {
+  margin-top: 14px;
+  border-top: 1px solid var(--separator);
+  padding-top: 12px;
+}
+.stream h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.transcript {
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.transcript p {
+  margin: 3px 0;
+}
+.transcript p.active {
+  background: var(--voice-soft);
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+

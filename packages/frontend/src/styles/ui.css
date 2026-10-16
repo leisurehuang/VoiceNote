@@ -1,0 +1,171 @@
+/* 通用 UI:分段控件 / 卡片 / 按钮 / 提示条 / 弹窗。 */
+/* 分段控件 */
+.segmented {
+  display: inline-flex;
+  background: var(--fill);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  margin-bottom: 16px;
+}
+.seg {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.seg:hover {
+  color: var(--text);
+}
+.seg.active {
+  background: var(--hi-1);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* 卡片 / 区块 */
+.card {
+  background: var(--card);
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.card h3 {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.block {
+  margin-bottom: 22px;
+}
+.block-h {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+}
+
+/* ---------- 按钮 ---------- */
+button {
+  font-family: inherit;
+}
+.ghost {
+  background: var(--fill);
+  color: var(--text);
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ghost:hover {
+  background: var(--fill-2);
+}
+.big {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.big:hover {
+  background: var(--accent-hover);
+}
+.big.danger,
+.danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.big.danger:hover {
+  background: color-mix(in srgb, var(--danger) 82%, #fff);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+
+/* ---------- 提示 ---------- */
+.alert {
+  border-radius: 8px;
+  padding: 9px 13px;
+  margin: 10px 0;
+  font-size: 12.5px;
+}
+.alert.err {
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  color: var(--danger-ink);
+}
+.alert.warn {
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  color: var(--warn-ink);
+}
+.alert.ok {
+  background: var(--ok-soft);
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  color: var(--ok-ink);
+}
+
+
+/* ---------- 弹窗 ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  padding: 20px 22px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: var(--shadow-2);
+}
+.modal h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.modal p {
+  margin: 0 0 16px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+.modal p b {
+  color: var(--text);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+

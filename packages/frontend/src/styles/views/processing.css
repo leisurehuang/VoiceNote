@@ -1,0 +1,21 @@
+/* 处理进度页。 */
+/* ---------- 进度 ---------- */
+.stage {
+  color: var(--accent);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.bar {
+  height: 6px;
+  background: var(--fill);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0 4px;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+

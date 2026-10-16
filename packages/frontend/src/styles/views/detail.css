@@ -1,0 +1,450 @@
+/* 详情阅读页:逐字稿阅读器 / 摘要 Markdown / 待办 / 导出 / 播放条。 */
+/* —— 阅读器（详情页逐字稿）：居中阅读栏 + 段落分组 —— */
+.transcript.reader {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 8px 20px;
+  font-size: 15.5px;
+  line-height: 1.78;
+}
+.t-para {
+  position: relative;
+  margin: 0 0 20px;
+  padding-left: 14px;
+}
+.t-para::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+/* 段内任一句在播 → 琥珀竖条 + 轻底 */
+.t-para.playing::before {
+  background: var(--voice);
+}
+.t-para.playing {
+  background: linear-gradient(90deg, var(--voice-soft), transparent 72%);
+  border-radius: 8px;
+}
+.t-para p {
+  margin: 0;
+  padding: 1px 4px;
+}
+.t-para p.active {
+  background: transparent;
+}
+.t-para p.active .ts {
+  color: var(--voice);
+  font-weight: 700;
+}
+
+/* 说话人：彩点 + 名字，仅在段首出现 */
+.spk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: nowrap;
+  vertical-align: 2px;
+}
+.spk::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot, currentColor);
+}
+/* 编辑态沿用描边胶囊 */
+.transcript .tedit .spk {
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 0 7px;
+  gap: 0;
+}
+.transcript .tedit .spk::before {
+  display: none;
+}
+
+/* 时间戳：小号等宽灰，悬停/播放时转琥珀（点击可跳音频） */
+.ts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  margin-right: 7px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.transcript.reader .ts {
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.transcript.reader .ts:hover {
+  color: var(--voice);
+}
+.audio-bar audio {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+/* 详情页：摘要 / 逐字稿 分段 tab */
+.detail-tabs {
+  margin-bottom: 14px;
+  flex-shrink: 0;
+  align-self: flex-start; /* 详情页是纵向 flex，避免 tab 被交叉轴拉伸满宽 */
+}
+
+
+/* ---------- 摘要 Markdown ---------- */
+.summary-wrap {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.markdown:is(h1, h2, h3),
+.markdown :is(h1, h2, h3) {
+  margin: 14px 0 6px;
+}
+.markdown h1 {
+  font-size: 17px;
+}
+.markdown h2 {
+  font-size: 14.5px;
+  color: var(--text);
+}
+.markdown h3 {
+  font-size: 13.5px;
+}
+.markdown ul,
+.markdown ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+.markdown li {
+  margin: 3px 0;
+}
+.markdown p {
+  margin: 6px 0;
+}
+.markdown strong {
+  color: var(--text);
+}
+.summary-actions {
+  margin-top: 14px;
+}
+.prompt-edit {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+textarea,
+input {
+  background: var(--fill);
+  color: var(--text);
+  border: 1px solid var(--separator);
+  border-radius: 7px;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+/* 摘要 / 逐字稿就地编辑 */
+.summary-edit {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.7;
+  resize: vertical;
+  min-height: 200px;
+}
+.transcript-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.transcript .tedit {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 3px 0;
+}
+.transcript .tedit .ts {
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+.transcript .tedit textarea {
+  flex: 1;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: vertical;
+  padding: 6px 8px;
+}
+
+/* 术语表编辑 */
+.glossary-box {
+  padding-top: 4px;
+}
+.glossary-box .block-h {
+  margin-bottom: 6px;
+}
+.glossary-edit {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* 待办事项 */
+.todos-box {
+  margin-bottom: 22px;
+}
+.todos-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.todos-head .block-h {
+  margin: 0;
+}
+.todos-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.todos-list li {
+  background: var(--fill);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.todo-text {
+  color: var(--text);
+}
+.todo-meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+
+/* ---------- 导出 ---------- */
+.export-bar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--separator);
+  flex-shrink: 0; /* 详情页里常驻底部，不被压缩 */
+}
+
+
+/* ==================== 方向 A · 专业阅读器（详情页） ==================== */
+/* 标题区：衬线大标题 + 一行 meta */
+.detail-head {
+  padding: 6px 2px 2px;
+  margin-bottom: 10px;
+}
+.detail-title {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.detail-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 摘要阅读栏：与逐字稿同宽的居中栏 */
+.reader-col {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.reader-col .summary-wrap {
+  font-size: 14.5px;
+  line-height: 1.8;
+}
+.reader-col .markdown h1,
+.reader-col .markdown h2,
+.reader-col .markdown h3 {
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.reader-col .markdown h2 {
+  font-size: 15px;
+  margin: 18px 0 6px;
+}
+.reader-col .markdown h2::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--voice);
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+.reader-col .markdown li {
+  margin: 5px 0;
+}
+.reader-col .summary-actions {
+  margin-top: 18px;
+}
+
+/* 底部播放条：圆钮 + 细轨道 + mono 时间 + 倍速胶囊 + 下载 */
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--separator);
+  flex-shrink: 0;
+}
+.player-spacer {
+  height: 12px;
+}
+.player-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--separator);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+.player-toggle:hover {
+  background: var(--fill-2);
+}
+.player-toggle:active {
+  transform: scale(0.94);
+}
+.player-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 96px; /* "00:00 / 32:14" 固定占位，窄窗口下不被裁切 */
+  text-align: right;
+}
+.player-rate {
+  border: 1px solid var(--separator);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 8px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.player-rate:hover {
+  color: var(--text);
+  background: var(--fill-2);
+}
+.player-dl {
+  border: 1px solid var(--separator);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 8px;
+  font-size: 12.5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.player-dl:hover {
+  color: var(--text);
+  background: var(--fill-2);
+}
+/* 进度条：原生 range 改造成细轨道 + 圆点滑块 */
+.player-track {
+  flex: 1;
+  min-width: 60px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.player-track:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.player-track::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill-2);
+}
+.player-track::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--voice);
+  margin-top: -4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.player-track::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill-2);
+}
+.player-track::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--voice);
+}
+.player-track:focus-visible {
+  outline: none;
+}
+.player-track:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--voice-soft);
+}
+
+/* 导出栏与播放条合并视觉：缩小上边距（详情页底部组） */
+.detail .export-bar {
+  margin-top: 0;
+  padding-top: 12px;
+}

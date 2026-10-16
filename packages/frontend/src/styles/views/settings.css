@@ -1,0 +1,137 @@
+/* 设置页:转写引擎卡 / 模型管理。 */
+/* 模型管理 */
+.model-mgr {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--separator);
+}
+.model-section {
+  margin-bottom: 18px;
+}
+.model-section .block-h {
+  margin-bottom: 4px;
+}
+.model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--fill);
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.model-row.model-active {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.model-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.model-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.model-size {
+  font-size: 12px;
+}
+.model-ops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.model-prog {
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.model-pull {
+  margin-top: 10px;
+}
+.model-pull input {
+  flex: 1;
+}
+.model-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--fill-3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.model-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+
+/* 设置页：转写引擎选择卡片 */
+.engine-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+.engine-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: var(--fill-3);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.engine-card:hover {
+  border-color: var(--accent-hover);
+}
+.engine-card.active {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+.engine-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.engine-card.active .engine-title::after {
+  content: '●';
+  color: var(--accent);
+  font-size: 10px;
+  margin-left: 6px;
+  vertical-align: 2px;
+}
+.engine-desc {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.engine-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+.engine-badge.ok {
+  color: var(--ok-ink);
+  background: var(--ok-soft);
+}
+.engine-badge.warn {
+  color: var(--warn-ink);
+  background: var(--warn-soft);
+}
+.settings-legend {
+  margin: 4px 0 10px;
+  font-size: 11.5px;
+}
+

@@ -1,0 +1,124 @@
+/* 设计 token,六层:L1 表面与文字 / L2 品牌与语音双强调色 / L3 语义状态三件套 / L4 尺寸 / L5 字体 / L6 动效。
+   :root 即深色默认(index.html 防闪烁脚本依赖此结构),浅色经 [data-theme="light"] 覆盖。
+   桌面端 <html.is-electron> 开毛玻璃;浏览器端回退纯色。
+   蓝/琥珀边界判据:「声音的呈现与回放」归琥珀;「应用与数据的操作」归蓝。 */
+
+:root {
+  /* L1 表面与文字 */
+  --text: rgba(238, 236, 243, 0.95);
+  --text-2: rgba(238, 236, 243, 0.6);
+  --text-3: rgba(238, 236, 243, 0.34);
+  --separator: rgba(255, 255, 255, 0.085);
+  --fill: rgba(120, 120, 128, 0.24);
+  --fill-2: rgba(120, 120, 128, 0.4);
+  --fill-3: rgba(255, 255, 255, 0.06);
+  --window: #1a1a1e;
+  --surface: #24242b;
+  --card: rgba(255, 255, 255, 0.035);
+  --card-hover: rgba(255, 255, 255, 0.06);
+  --overlay: rgba(10, 10, 14, 0.55);
+  /* 表面高亮:深色用白色半透明,浅色在 [data-theme="light"] 覆盖为黑色半透明 */
+  --hi-1: rgba(255, 255, 255, 0.12);
+  --hi-2: rgba(255, 255, 255, 0.22);
+  --hi-edge: rgba(255, 255, 255, 0.3);
+  --dashed: rgba(255, 255, 255, 0.18);
+
+  /* L2 品牌色(操作域:按钮/选中/链接/进度/勾选) */
+  --accent: #3d80f5;
+  --accent-hover: #5c96ff;
+  --accent-soft: rgba(77, 141, 255, 0.16);
+  --selected: rgba(61, 128, 245, 0.3);
+  --row-sel: rgba(99, 132, 255, 0.14);
+  /* L2 语音色(声音域:波形/播放高亮/录音态/时间戳) */
+  --voice: #ffb224;
+  --voice-soft: rgba(255, 178, 36, 0.12);
+
+  /* L3 语义状态三件套:主色 + 浅底(soft) + 提示文字(ink) */
+  --danger: #ff453a;
+  --danger-soft: rgba(255, 69, 58, 0.14);
+  --danger-ink: #ff8a82;
+  --warn: #ff9f0a;
+  --warn-soft: rgba(255, 159, 10, 0.14);
+  --warn-ink: #ffbf5e;
+  --ok: #30d158;
+  --ok-soft: rgba(48, 209, 88, 0.14);
+  --ok-ink: #4cd896;
+
+  /* L4 尺寸 */
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --fs-0: 12px;
+  --fs-1: 13px;
+  --fs-2: 14px;
+  --fs-3: 16px;
+  --fs-4: 20px;
+  --fs-5: 26px;
+  --shadow-1: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 20px 50px rgba(0, 0, 0, 0.35);
+
+  /* L5 字体:ui 走系统栈,mono 用于时间码/体积/快捷键(tabular-nums),serif 仅详情页大标题 */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-serif: 'New York', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+
+  /* L6 动效 */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0.1, 1);
+}
+
+/* 浅色主题:根元素 data-theme="light" 时覆盖变量(暖纸白) */
+[data-theme="light"] {
+  --text: rgba(28, 28, 32, 0.9);
+  --text-2: rgba(28, 28, 32, 0.56);
+  --text-3: rgba(28, 28, 32, 0.36);
+  --separator: rgba(0, 0, 0, 0.1);
+  --fill: rgba(0, 0, 0, 0.07);
+  --fill-2: rgba(0, 0, 0, 0.11);
+  --fill-3: rgba(0, 0, 0, 0.035);
+  --window: #f4f3f1;
+  --surface: #ffffff;
+  --card: rgba(0, 0, 0, 0.03);
+  --card-hover: rgba(0, 0, 0, 0.05);
+  --overlay: rgba(40, 38, 34, 0.4);
+  --hi-1: rgba(0, 0, 0, 0.08);
+  --hi-2: rgba(0, 0, 0, 0.15);
+  --hi-edge: rgba(0, 0, 0, 0.15);
+  --dashed: rgba(0, 0, 0, 0.2);
+
+  --accent: #2f6bff;
+  --accent-hover: #2456d9;
+  --accent-soft: rgba(47, 107, 255, 0.12);
+  --selected: rgba(47, 107, 255, 0.16);
+  --row-sel: rgba(47, 107, 255, 0.09);
+  --voice: #c47f00;
+  --voice-soft: rgba(196, 127, 0, 0.16);
+
+  --danger: #e0362b;
+  --danger-soft: rgba(255, 59, 48, 0.12);
+  --danger-ink: #c4261b;
+  --warn: #d48806;
+  --warn-soft: rgba(255, 149, 0, 0.16);
+  --warn-ink: #9a6400;
+  --ok: #248a3d;
+  --ok-soft: rgba(52, 199, 89, 0.14);
+  --ok-ink: #1a7f3c;
+
+  --shadow-1: 0 2px 10px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 20px 50px rgba(0, 0, 0, 0.16);
+}
+html[data-theme="light"] body {
+  background: var(--window) !important; /* 覆盖 html.is-electron body 的 transparent，遮住桌面深色毛玻璃 */
+}

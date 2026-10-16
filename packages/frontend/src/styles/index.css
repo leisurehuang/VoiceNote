@@ -1,0 +1,12 @@
+/* Voice Notes 样式入口:按序 @import,顺序即层叠顺序(tokens → base → layout → ui → views)。 */
+
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './ui.css';
+@import './views/new.css';
+@import './views/processing.css';
+@import './views/detail.css';
+@import './views/settings.css';
+@import './views/dictation.css';
+@import './views/update.css';
