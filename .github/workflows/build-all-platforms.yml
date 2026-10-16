@@ -324,7 +324,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          # 直接发布（非草稿）：electron-updater / releases/latest 只能看到已发布的 release，
+          # 草稿对未认证请求不可见，应用侧永远检测不到
+          draft: false
           generate_release_notes: true
           files: |
             artifacts/**/*.dmg
