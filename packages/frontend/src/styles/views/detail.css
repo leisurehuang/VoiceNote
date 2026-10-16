@@ -23,7 +23,7 @@
   background: transparent;
   transition: background 0.15s ease;
 }
-/* 段内任一句在播 → 琥珀竖条 + 轻底 */
+/* 段内任一句在播 → 琥珀竖条 + 轻底,当前句再加琥珀底增强 */
 .t-para.playing::before {
   background: var(--voice);
 }
@@ -36,7 +36,8 @@
   padding: 1px 4px;
 }
 .t-para p.active {
-  background: transparent;
+  background: var(--voice-soft);
+  border-radius: 6px;
 }
 .t-para p.active .ts {
   color: var(--voice);
@@ -262,8 +263,12 @@ input {
 
 
 /* ==================== 方向 A · 专业阅读器（详情页） ==================== */
-/* 标题区：衬线大标题 + 一行 meta */
+/* 标题区:衬线大标题 + meta 行,右侧放导出操作 */
 .detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   padding: 6px 2px 2px;
   margin-bottom: 10px;
 }
@@ -277,10 +282,30 @@ input {
   overflow-wrap: anywhere;
 }
 .detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   margin: 0;
   font-size: 12px;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+}
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.detail-meta svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+/* 导出操作在标题区右侧:去掉底部栏的分割线视觉 */
+.detail-head .export-bar {
+  border-top: none;
+  padding-top: 2px;
+  margin-top: 2px;
+  justify-content: flex-end;
 }
 
 /* 摘要阅读栏：与逐字稿同宽的居中栏 */
@@ -443,8 +468,91 @@ input {
   box-shadow: 0 0 0 3px var(--voice-soft);
 }
 
-/* 导出栏与播放条合并视觉：缩小上边距（详情页底部组） */
-.detail .export-bar {
+/* 播放条收尾(导出栏已上移到标题区) */
+.detail .player-bar {
   margin-top: 0;
-  padding-top: 12px;
+}
+
+/* ---------- Markdown 增强:表格 / 代码块 / 链接 / 任务列表 ---------- */
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 14px;
+  font-size: 13px;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--separator);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.markdown th {
+  background: var(--fill);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.markdown tbody tr:nth-child(even) {
+  background: var(--fill-3);
+}
+.markdown pre.md-code {
+  background: var(--fill-3);
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+}
+.markdown pre.md-code code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.markdown a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.markdown a:hover {
+  text-decoration: underline;
+}
+/* 任务列表:方框 + 完成态 */
+.markdown li.md-task {
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-left: -18px;
+}
+.markdown .md-task-box {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--dashed);
+  border-radius: 4px;
+  flex-shrink: 0;
+  position: relative;
+  top: 1px;
+}
+.markdown li.md-task-done {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+.markdown li.md-task-done .md-task-box {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.markdown li.md-task-done .md-task-box::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 3px;
+  height: 6px;
+  border: solid #fff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AudioLines, FileText, SquareCheckBig } from 'lucide-react';
+import { AudioLines, Calendar, Clock, Cpu, FileText, SquareCheckBig } from 'lucide-react';
 import { getSession, resummarize, updateSummary, updateTranscript, extractTodos, getTodos, audioUrl, sourceUrl } from '../api/client';
 import type { SessionDetail as Detail, TranscriptSegment, TodoItem } from '../api/types';
 import { TranscriptView } from './TranscriptView';
@@ -122,16 +122,30 @@ export function SessionDetail({ id }: { id: string }) {
 
   return (
     <div className="content detail">
-      {/* 标题区：大标题 + 一行 meta（时间 · 时长 · 摘要模型） */}
+      {/* 标题区:衬线大标题 + meta(时间/时长/摘要模型) + 右侧导出操作 */}
       <header className="detail-head">
         <div className="detail-head-info">
           <h1 className="detail-title">{detail.title || '未命名'}</h1>
           <p className="detail-meta">
-            {fmtDate(detail.createdAt)}
-            {detail.durationMs ? ` · ${fmtMs(detail.durationMs)}` : ''}
-            {detail.summaryModel ? ` · ${detail.summaryModel}` : ''}
+            <span className="meta-item">
+              <Calendar size={12} aria-hidden />
+              {fmtDate(detail.createdAt)}
+            </span>
+            {detail.durationMs ? (
+              <span className="meta-item">
+                <Clock size={12} aria-hidden />
+                {fmtMs(detail.durationMs)}
+              </span>
+            ) : null}
+            {detail.summaryModel ? (
+              <span className="meta-item">
+                <Cpu size={12} aria-hidden />
+                {detail.summaryModel}
+              </span>
+            ) : null}
           </p>
         </div>
+        <ExportBar id={id} />
       </header>
 
       <Segmented
@@ -195,7 +209,7 @@ export function SessionDetail({ id }: { id: string }) {
       </section>
       </div>
 
-      {/* 底部：音频播放条（有音频时） + 导出操作 */}
+      {/* 底部:音频播放条(有音频时);导出操作已上移到标题区右侧 */}
       {detail.hasAudio ? (
         <PlayerBar
           audioRef={audioRef}
@@ -206,7 +220,6 @@ export function SessionDetail({ id }: { id: string }) {
       ) : (
         <div className="player-spacer" />
       )}
-      <ExportBar id={id} />
     </div>
   );
 }
