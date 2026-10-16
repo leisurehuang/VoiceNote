@@ -81,7 +81,9 @@ Vite + React，**无路由库、无状态管理库**。`App.tsx` 持有一个 `V
 
 SSE 在 `components/ProgressView.tsx` 消费；实时 WS 在 `hooks/useRealtime.ts` + `components/RealtimeView.tsx`；`SessionDetail` 驱动音频播放，逐字稿高亮跟随播放进度。API 调用集中在 `api/client.ts`；类型与后端的 `SessionMeta`/`HealthStatus` 对齐。
 
-设置页（`components/SettingsView.tsx`）按流水线分三个 tab：「语音转文字」（`TranscriptionSettings`：引擎卡片 + 就绪徽章，whisper 模型管理/云端 API 表单就近展示）、「AI 整理」（`LlmSettings`：LLM 预设 + 固定在列表下方的编辑表单 + `OllamaModels` 仅本地预设时显示）、「术语表」。**语音输入是独立功能页**（`DictationView.tsx`，侧栏底部一级入口，与「设置」平级），不隶属设置页。**保存语义约定**：点选类操作（切引擎、设为激活、切模型）点选即生效并标「● 使用中」；表单类配置（云端 API、预设编辑、术语表、听写设置）显式点「保存」并给「✓ 已保存」反馈——新增设置项时遵循此约定。
+**样式 = `styles/` 目录纯手写 CSS（无 Tailwind/CSS Modules）**，入口 `styles/index.css` 按 tokens → base → layout → ui → views 顺序 `@import`（顺序即层叠顺序）。设计 token 全在 `styles/tokens.css`（`:root` 即深色默认，浅色经 `[data-theme="light"]` 覆盖；`index.html` 防闪烁脚本依赖此结构，勿改）。双强调色语义：蓝 `--accent` = 一切 UI 操作，琥珀 `--voice` = 一切「声音」元素（波形/播放高亮/REC）。**基础组件在 `components/ui/`**（Button/Segmented/Modal/ConfirmDialog/Toast/Skeleton/EmptyState/Badge/StatusDot/ProgressBar/Switch/Field 等），新界面一律复用，勿再手搓 `.big`/`.ghost` 散落样式或原生 `confirm()`。图标统一用 `lucide-react`，禁用 emoji 当图标。Markdown 渲染是自研的 `api/markdown.ts`（转义优先，支持表格/代码块/链接/任务列表）。详情页两个 tab 靠**挂载 + `.hidden` 切 display** 保留播放进度与编辑草稿——严禁改成条件渲染。
+
+设置页（`components/SettingsView.tsx`）按流水线分三个 tab：「语音转文字」（`TranscriptionSettings`：引擎卡片 + 就绪徽章，whisper 模型管理/云端 API 表单就近展示）、「AI 整理」（`LlmSettings`：LLM 预设 + 固定在列表下方的编辑表单 + `OllamaModels` 仅本地预设时显示）、「术语表」。**语音输入是独立功能页**（`DictationView.tsx`，侧栏底部一级入口，与「设置」平级），不隶属设置页。**保存语义约定**：点选类操作（切引擎、设为激活、切模型）点选即生效并标「使用中」Badge；表单类配置（云端 API、预设编辑、术语表、听写设置）显式点「保存」并给 toast 反馈——新增设置项时遵循此约定。
 
 开发：vite 跑在 `:5173`，把 `/api`（含 WebSocket 升级）代理到 `localhost:3000`。
 
