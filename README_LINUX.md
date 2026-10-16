@@ -2,24 +2,7 @@
 
 本项目现已支持在 Linux 上原生运行！以下是详细的使用说明。
 
-## 方式一：Docker 运行（最简单，推荐）
-
-项目已提供完整的 Docker 支持，这是在 Linux 上运行的最快方式：
-
-```bash
-# 一键启动
-docker compose up -d
-
-# 查看日志
-docker compose logs -f
-
-# 查看 Ollama 模型拉取进度
-docker compose logs -f ollama-init
-```
-
-浏览器访问 `http://localhost:3000` 即可使用。
-
-## 方式二：原生 Linux 运行
+## 原生 Linux 运行
 
 ### 系统要求
 
@@ -180,8 +163,6 @@ bash scripts/fetch-sherpa.sh
 ## GPU 加速
 
 ### Ollama GPU 加速
-
-如果您有 NVIDIA GPU 并安装了 nvidia-container-toolkit，可以在 `docker-compose.yml` 中取消注释 Ollama 服务的 GPU 配置。
 
 原生运行时，Ollama 会自动检测并使用 NVIDIA GPU（如果已安装 NVIDIA 驱动）。
 
