@@ -28,8 +28,11 @@ export interface ElectronAPI {
   /** 听写设置已保存 → 通知主进程热重载全局快捷键。 */
   dictationSettingsChanged(): void;
 
-  // 检查更新
+  // 检查更新（electron-updater 路径，结果经 onUpdate* 事件推送；win/linux 用）
   checkForUpdates(): Promise<{ success: boolean; error?: string }>;
+
+  // 检查更新（原生弹窗路径，直接返回结论；mac 用）
+  checkForUpdateDialog(): Promise<{ found: boolean; version?: string; error?: string }>;
 
   // 下载更新
   downloadUpdate(): Promise<{ success: boolean; error?: string }>;

@@ -4,6 +4,7 @@ import { getSettings, updateSettings } from '../api/client';
 import type { Settings } from '../api/types';
 import { TranscriptionSettings } from './TranscriptionSettings';
 import { LlmSettings } from './LlmSettings';
+import { UpdateCheck } from './UpdateCheck';
 import { Segmented, type SegmentedOption } from './ui/Segmented';
 import { Button } from './ui/Button';
 import { SettingsSkeleton } from './ui/Skeleton';
@@ -103,7 +104,8 @@ export function SettingsView() {
           )}
         </div>
 
-        <p className="muted settings-version">Voice Notes v{__APP_VERSION__}</p>
+        {/* 桌面端带「检查更新」入口；Web 部署仅显示版本号 */}
+        <UpdateCheck />
       </section>
     </div>
   );

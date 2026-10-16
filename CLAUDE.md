@@ -109,13 +109,14 @@ npm run dist:mac            # macOS
 
 ### 自动更新
 
-`packages/desktop/src/autoUpdater.cjs` 使用 electron-updater 实现自动更新：
-- 启动时检查更新（GitHub Releases）
-- 后台下载更新包
-- 下载完成后提示安装
-- 支持"跳过版本"
+双路径，更新源都是 GitHub `leisurehuang/VoiceNote` 的 Releases：
 
-更新源通过 `packages/desktop/electron-builder.yml` 的 `publish` 配置或环境变量 `VOICE_NOTES_UPDATE_URL` 指定。
+- **启动检测**（`main.cjs::checkForUpdate()`）：拉 `releases/latest` 比版本号，有新版弹原生对话框「前往下载」，按当前平台挑安装包（mac→dmg / win→NSIS exe / linux→AppImage）。env `VOICE_NOTES_UPDATE_URL` 可覆盖为自托管清单 JSON（`{version,url,note?}`）。
+- **应用内更新**（`autoUpdater.cjs`，electron-updater）：菜单「检查更新…」→ 前端 `UpdateBanner` 横幅（下载进度/跳过版本/重启安装）。feed 在代码里 `setFeedURL` 指向 GitHub。`initAutoUpdater` 必须保持**幂等**（窗口重建会再次进入，重复 `ipcMain.handle` 注册会崩溃）。
+- **设置页入口**（`UpdateCheck.tsx`，设置页底部版本行）：win/linux 复用 electron-updater 路径；mac 走 `check-for-update-dialog`（原生弹窗，结论直接在 IPC 返回值里回显）。
+- **mac 例外**：应用未签名（`identity: null`），Squirrel.Mac 拒装未签名更新 → mac 上 electron-updater 的「重启并安装」走不通，菜单检查更新也走「前往下载」；win/linux 才有完整应用内更新。
+
+发布流：推 `v*` tag → CI 三平台构建 → 创建 **draft release**（对未认证 API / 应用侧不可见，需到 GitHub Releases 手动 Publish 后用户才能检测到）。
 
 ## 语音听写（全局快捷键 → 润色 → 粘贴到光标）
 

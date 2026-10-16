@@ -423,6 +423,14 @@
   font-size: 11.5px;
   text-align: center;
 }
+/* 桌面端：版本行内联「检查更新」入口 */
+.settings-update {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 code {
   background: var(--fill);
   padding: 1px 6px;

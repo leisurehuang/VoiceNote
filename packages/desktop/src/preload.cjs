@@ -17,8 +17,11 @@ contextBridge.exposeInMainWorld('electron', {
   dictationSettingsChanged: () => ipcRenderer.send('dictation-settings-changed'),
 
   // ========== 自动更新 API ==========
-  // 检查更新
+  // 检查更新（electron-updater 路径，结果经事件推送；win/linux 用）
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+
+  // 检查更新（原生弹窗路径，直接返回结论 {found, version?}；mac 用）
+  checkForUpdateDialog: () => ipcRenderer.invoke('check-for-update-dialog'),
 
   // 下载更新
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
