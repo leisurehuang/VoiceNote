@@ -639,3 +639,16 @@ button:disabled {
 .model-progressbar {
   margin-top: 8px;
 }
+
+/* ---------- alert 内图标与列表 ---------- */
+.alert > svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+.miss-list {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+}
+.miss-list li {
+  margin: 2px 0;
+}

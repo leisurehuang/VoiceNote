@@ -19,3 +19,67 @@
   transition: width 0.3s;
 }
 
+
+/* ---------- 阶段指示器(上传→转码→转写→摘要) ---------- */
+.steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  padding: 0;
+  margin: 2px 0 14px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.step + .step::before {
+  content: '';
+  width: 16px;
+  height: 1px;
+  background: var(--separator);
+  margin: 0 8px;
+}
+.step-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--fill);
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.step-done {
+  color: var(--text-2);
+}
+.step-done .step-marker {
+  background: var(--ok-soft);
+  color: var(--ok-ink);
+}
+.step-active {
+  color: var(--text);
+  font-weight: 600;
+}
+.step-active .step-marker {
+  background: var(--accent);
+  color: #fff;
+}
+.step-active .spinner {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+.step-error {
+  color: var(--danger-ink);
+  font-weight: 600;
+}
+.step-error .step-marker {
+  background: var(--danger);
+  color: #fff;
+}

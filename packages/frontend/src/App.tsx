@@ -142,6 +142,7 @@ export function App() {
           {view.name === 'processing' && (
             <ProgressView
               id={view.id}
+              onBack={() => setView({ name: 'new' })}
               onDone={() => {
                 const doneId = view.id;
                 setView({ name: 'detail', id: doneId });
@@ -181,12 +182,15 @@ function DependencyNote({ health, onSettings }: { health: HealthStatus; onSettin
   else if (!health.llmModelOk) missing.push('摘要模型（首次需下载）');
   return (
     <div className="alert warn">
-      <div>还差这几步就能完整使用：{missing.join('、')}。应用可正常打开，模型在设置页下载后即时生效。</div>
-      <div style={{ marginTop: 8 }}>
-        <Button variant="primary" onClick={onSettings}>
-          前往设置下载/配置模型
-        </Button>
-      </div>
+      <div>还差这几步就能完整使用。应用可正常打开，模型在设置页下载后即时生效：</div>
+      <ul className="miss-list">
+        {missing.map((m) => (
+          <li key={m}>{m}</li>
+        ))}
+      </ul>
+      <Button variant="primary" onClick={onSettings}>
+        前往设置下载/配置模型
+      </Button>
     </div>
   );
 }

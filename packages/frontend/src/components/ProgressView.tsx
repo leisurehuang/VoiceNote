@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, CircleAlert, X } from 'lucide-react';
 import type { TranscriptSegment } from '../api/types';
 import { fmtMs } from '../format';
 import { speakerColor, speakerLabel } from '../speakers';
+import { Button } from './ui/Button';
+import { ProgressBar } from './ui/ProgressBar';
+import { Spinner } from './ui/Spinner';
+import { cn } from '../cn';
 
-const STAGE_LABEL: Record<string, string> = {
-  uploaded: '已上传，排队中…',
-  converting: '转码中（ffmpeg）…',
-  transcribing: '语音转写中（whisper）…',
-  summarizing: '生成摘要中（LLM）…',
-  done: '完成',
-  error: '出错',
-};
+/** 流水线阶段(与后端 SessionStatus 对应),处理页顶部以此展示四步指示器。 */
+const STEPS = [
+  { id: 'uploaded', label: '上传' },
+  { id: 'converting', label: '转码' },
+  { id: 'transcribing', label: '转写' },
+  { id: 'summarizing', label: '摘要' },
+] as const;
 
-export function ProgressView({ id, onDone }: { id: string; onDone: () => void }) {
+type StepState = 'done' | 'active' | 'todo' | 'error';
+
+export function ProgressView({ id, onDone, onBack }: { id: string; onDone: () => void; onBack?: () => void }) {
   const [stage, setStage] = useState('uploaded');
   const [progress, setProgress] = useState(0);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -51,19 +57,57 @@ export function ProgressView({ id, onDone }: { id: string; onDone: () => void })
     return () => es.close();
   }, [id, onDone]);
 
+  const stageIdx = STEPS.findIndex((s) => s.id === stage);
+  const stepState = (i: number): StepState => {
+    if (failed) return i < stageIdx ? 'done' : i === stageIdx ? 'error' : 'todo';
+    if (stage === 'done' || stageIdx > i) return 'done';
+    return stageIdx === i ? 'active' : 'todo';
+  };
+
   return (
     <div className="card">
-      <h3>{failed ? '⚠️ 处理失败' : '⏳ 处理中'}</h3>
+      <h3>{failed ? '处理失败' : '处理中'}</h3>
+
+      <ol className="steps">
+        {STEPS.map((s, i) => {
+          const state = stepState(i);
+          return (
+            <li key={s.id} className={cn('step', `step-${state}`)} aria-current={state === 'active' ? 'step' : undefined}>
+              <span className="step-marker" aria-hidden>
+                {state === 'done' ? (
+                  <Check size={11} />
+                ) : state === 'error' ? (
+                  <X size={11} />
+                ) : state === 'active' ? (
+                  <Spinner size={10} />
+                ) : (
+                  i + 1
+                )}
+              </span>
+              <span className="step-label">{s.label}</span>
+            </li>
+          );
+        })}
+      </ol>
+
       {failed ? (
-        <div className="alert err">{failed}</div>
-      ) : (
         <>
-          <div className="stage">{STAGE_LABEL[stage] ?? stage}</div>
-          <div className="bar">
-            <span style={{ width: `${Math.round(progress * 100)}%` }} />
+          <div className="alert err">
+            <CircleAlert size={14} aria-hidden />
+            <span>{failed}</span>
+          </div>
+          <div className="rec-controls">
+            {onBack && (
+              <Button variant="ghost" onClick={onBack}>
+                返回新建
+              </Button>
+            )}
           </div>
         </>
+      ) : (
+        <ProgressBar value={stage === 'done' ? 1 : progress} />
       )}
+
       {segments.length > 0 && (
         <div className="stream">
           <h4>逐字稿（实时）</h4>
