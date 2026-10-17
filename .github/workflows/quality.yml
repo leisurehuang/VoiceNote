@@ -1,0 +1,35 @@
+# 质量门：typecheck（backend/frontend/desktop）+ eslint + prettier + vitest。
+# 轻量快速（不打包、不下载 Electron 二进制），push main / PR 即跑。
+name: Quality
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Typecheck / Lint / Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        env:
+          # 质量门不跑 GUI，跳过 Electron 二进制下载（~100MB）
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: npm ci
+      - name: Typecheck (backend / frontend / desktop)
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Format check
+        run: npm run format:check
+      - name: Test
+        run: npm test
