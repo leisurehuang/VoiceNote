@@ -3,6 +3,12 @@ import { accessSync, constants, existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 配置双源的既定边界（有意为之，不做合并）：
+// - config.ts = 进程级环境（env + 二进制探测），启动时定死：路径、端口、外部依赖位置。
+// - settingsStore.ts = 用户级运行时设置（settings.json），可热改热生效：LLM 预设、
+//   转写引擎、听写配置等，经 applyXxx() 同步进 config 的对应运行时字段。
+// 新增配置项时先归类：进程环境放这里，用户偏好放 settingsStore。
+
 // 打包成单文件（cjs）后 import.meta.url 可能不可用，兜底到 cwd；
 // 打包模式下实际路径都由 env 提供，这里只是开发态默认值的兜底。
 let here = process.cwd();
