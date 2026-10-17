@@ -49,14 +49,15 @@ npm run setup        # brew install whisper-cpp ffmpeg + 下载 turbo 模型 + o
 # 2. 装项目依赖
 npm install
 
-# 3a. 开发模式（前端热更新 http://localhost:5173，后端 :3000）
-npm run dev
+# 3. 桌面应用开发模式（Electron 外壳 + 后端 + 前端，支持全局快捷键听写）
+npm run desktop:dev
 
-# 3b. 或生产模式（单进程 http://localhost:3000）
-npm run build && npm start
+# 4. 打桌面安装包（mac dmg/zip · win nsis/portable · linux AppImage）
+npm run desktop:dist
 ```
 
-打开浏览器访问对应地址即可。生产模式下后端单进程同时托管前端和 API。
+产品形态是纯桌面应用（三平台）。`npm run dev` 仍可用于仅调前端 UI（浏览器热更新
+:5173 + 后端 :3000），但全局听写等桌面能力只在 Electron 里可用。
 
 ## 环境要求
 
