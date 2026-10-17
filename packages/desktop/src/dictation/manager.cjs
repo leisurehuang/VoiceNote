@@ -2,25 +2,20 @@
  * 听写管理器（主进程侧）：全局快捷键 → 隐藏窗口录音 → 流式上传边录边转写 → 润色 → 粘贴到光标 → 浮窗反馈。
  *
  * 状态机：idle → recording → processing → idle；录音中 Esc（临时注册）取消。
- * 窗口：recorder（隐藏，采集音频）、overlay（底部胶囊浮窗，不抢焦点）。
- *
- * 长听写：录音期间按 ~1s 一块把 PCM 流式发给后端（VAD 切句逐句转写），
- * 结束时只等尾句与润色，时长不再受一次性上传体积限制。
+ * 组合键（globalShortcut）与长按单键（hold-key.cjs）两种触发并存。
+ * 模块分工：recorder 隐藏窗采集音频、overlay 浮窗反馈、stream-client 流式上传。
  */
-const { BrowserWindow, Notification, globalShortcut, ipcMain, screen, shell, systemPreferences } = require('electron');
+const { BrowserWindow, Notification, globalShortcut, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const { deliverText } = require('./paster.cjs');
+const overlay = require('./overlay.cjs');
+const hold = require('./hold-key.cjs');
+const { createStream } = require('./stream-client.cjs');
 
-const OVERLAY_W = 380;
-const OVERLAY_H = 78;
 const MAX_RECORD_MS = 60 * 60 * 1000; // 最长 1 小时自动结束（流式转写，无短上限必要，仅防忘关）
-const START_TIMEOUT_MS = 8000;
-const CHUNK_TIMEOUT_MS = 30000;
-const FINISH_TIMEOUT_MS = 600000; // 收尾要排空剩余转写 + 润色，长录音给足 10 分钟
-/** 每 ~1s（16000 采样）攒一块上传：32KB/块，VAD 粒度足够。 */
-const CHUNK_SAMPLES = 16000;
 
 let backendUrl = 'http://127.0.0.1:3100';
+/** @type {(msg: string) => void} */
 let log = () => {};
 
 // 状态
@@ -30,22 +25,16 @@ let autoStopTimer = null;
 let elapsedTimer = null;
 let recorderReady = null;
 let pendingUpload = null; // finish 后等录音页停止回执：{ durationMs, samples }
-
-// 流式上传
-let stream = null; // { id, ready, chain, failed, chars }
-let pendingChunks = []; // 待上传的 PCM 块
-let pendingSamples = 0;
+let stream = null; // stream-client 流对象（recording 期间存在）
 let recSamples = 0; // 本次录音总采样数
-
-// 窗口
-let recorderWin = null;
-let overlayWin = null;
-let overlayState = { phase: 'hidden' };
 
 // 快捷键
 let mainAcc = null; // 已注册的听写主快捷键
 let cancelAcc = null; // 录音中临时注册的取消键
 let dictationSettings = null; // 最近一次拉到的听写配置
+
+// 窗口
+let recorderWin = null;
 
 function ensureRecorder() {
   if (recorderWin && !recorderWin.isDestroyed()) return recorderWin;
@@ -67,73 +56,6 @@ function ensureRecorder() {
     log('recorder.html 加载失败：' + (e && e.message ? e.message : e));
   });
   return recorderWin;
-}
-
-function ensureOverlay() {
-  if (overlayWin && !overlayWin.isDestroyed()) return overlayWin;
-  overlayWin = new BrowserWindow({
-    width: OVERLAY_W,
-    height: OVERLAY_H,
-    show: false,
-    frame: false,
-    transparent: true,
-    resizable: false,
-    skipTaskbar: true,
-    focusable: false,
-    alwaysOnTop: true,
-    hasShadow: true,
-    backgroundColor: '#00000000',
-    webPreferences: {
-      preload: path.join(__dirname, 'overlay-preload.cjs'),
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
-  overlayWin.on('closed', () => {
-    overlayWin = null;
-  });
-  overlayWin.loadFile(path.join(__dirname, 'overlay.html')).catch(() => {});
-  return overlayWin;
-}
-
-/** 在光标所在屏底部居中显示浮窗（不激活、不抢焦点）。 */
-function showOverlay() {
-  const w = ensureOverlay();
-  try {
-    const cursor = screen.getCursorScreenPoint();
-    const wa = screen.getDisplayNearestPoint(cursor).workArea;
-    const x = Math.round(wa.x + (wa.width - OVERLAY_W) / 2);
-    const y = Math.round(wa.y + wa.height - OVERLAY_H - 72);
-    w.setPosition(x, y, false);
-  } catch {
-    /* 定位失败用默认位置 */
-  }
-  if (!w.isVisible()) w.showInactive();
-}
-
-function overlaySet(s) {
-  overlayState = s;
-  const w = overlayWin;
-  if (w && !w.isDestroyed()) {
-    try {
-      w.webContents.send('overlay-state', s);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-let hideTimer = null;
-/** 短暂展示终态后隐藏浮窗。 */
-function overlayFlash(s, ms) {
-  showOverlay();
-  overlaySet(s);
-  if (hideTimer) clearTimeout(hideTimer);
-  hideTimer = setTimeout(() => {
-    if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide();
-    hideTimer = null;
-  }, ms);
 }
 
 function registerCancelShortcut() {
@@ -168,230 +90,33 @@ function clearTimers() {
   }
 }
 
-// ———————————————— 流式上传 ————————————————
-
-/** 创建听写流；失败（后端不可达等）直接取消本次录音并提示。 */
-function openStream() {
-  const s = { id: null, ready: null, chain: Promise.resolve(), failed: null, chars: 0 };
-  s.ready = (async () => {
-    const res = await fetch(`${backendUrl}/api/dictation/stream/start`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(START_TIMEOUT_MS),
-    });
-    if (!res.ok) throw new Error(`后端返回 ${res.status}`);
-    const r = await res.json();
-    s.id = r.streamId;
-  })().catch((e) => {
-    s.failed = e;
-    if (phase === 'recording') {
-      log('听写流创建失败：' + (e && e.message ? e.message : e));
-      cancel();
-      overlayFlash({ phase: 'error', message: '无法连接听写服务：' + (e && e.message ? e.message : e) }, 3500);
-    }
-  });
-  return s;
-}
-
-function concatSamples(arrs) {
-  let n = 0;
-  for (const a of arrs) n += a.length;
-  const out = new Int16Array(n);
-  let o = 0;
-  for (const a of arrs) {
-    out.set(a, o);
-    o += a.length;
-  }
-  return out;
-}
-
-/** 把攒到的 PCM 块串行上传（保持顺序，VAD 依赖时序）。 */
-function flushPending(s) {
-  if (!pendingChunks.length) return;
-  const pcm = concatSamples(pendingChunks);
-  pendingChunks = [];
-  pendingSamples = 0;
-  if (!s || s.failed) return;
-  const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
-  s.chain = s.chain
-    .then(async () => {
-      await s.ready;
-      if (s.failed || s.id == null) return;
-      const res = await fetch(`${backendUrl}/api/dictation/stream/${s.id}/chunk`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/octet-stream' },
-        body: bytes,
-        signal: AbortSignal.timeout(CHUNK_TIMEOUT_MS),
-      });
-      if (!res.ok) {
-        const r = await res.json().catch(() => ({}));
-        throw new Error(r.error || `后端返回 ${res.status}`);
-      }
-      const r = await res.json();
-      if (typeof r.chars === 'number' && r.chars > 0) {
-        s.chars = r.chars;
-        if (phase === 'recording') overlaySet({ ...overlayState, chars: r.chars });
-      }
-    })
-    .catch((e) => {
-      if (s.failed) return;
-      s.failed = e;
-      log('听写流上传失败：' + (e && e.message ? e.message : e));
-      if (phase === 'recording') {
-        cancel();
-        overlayFlash({ phase: 'error', message: '上传中断：' + (e && e.message ? e.message : e) }, 3500);
-      }
-    });
-}
-
-/** 取消服务端流状态（尽力而为；失败靠 TTL 兜底）。 */
-function cancelServerStream(s) {
-  if (!s || s.failed) return;
-  void s.ready.then(() => {
-    if (s.failed || s.id == null) return;
-    fetch(`${backendUrl}/api/dictation/stream/${s.id}/cancel`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(4000),
-    }).catch(() => {});
-  });
-}
-
-/** 丢弃本地与与服务端的流状态。 */
-function discardStream() {
-  const s = stream;
-  stream = null;
-  pendingChunks = [];
-  pendingSamples = 0;
-  cancelServerStream(s);
-}
-
-// ———————————————— 长按单键触发 ————————————————
-// uiohook 全局键盘事件（唯一能拿到「松开」事件的跨平台方案）。
-// 懒加载：模块加载失败时该功能静默禁用，不影响组合键快捷键。
-// 注意：事件只监听不拦截，长按键会正常透传给焦点应用，因此只提供
-// 单独按下无副作用的键（右侧修饰键 / F 功能键，见后端白名单）。
-
-let hookMod = undefined; // undefined=未尝试 | false=不可用 | { uIOhook, UiohookKey }
-let holdCfg = null; // { key, mode } | null（null=未启用）
-let holdKc = null; // 目标键的 uiohook 键码
-let holdDownAt = 0; // 0=目标键未按下
-let holdTriggered = false; // 已达长按阈值并触发
-let holdTimer = null;
-
-/** 长按判定阈值：按住说话要跟手，长按切换要防误触。 */
-const HOLD_THRESHOLD_MS = { ptt: 300, toggle: 600 };
-
-function loadHook() {
-  if (hookMod !== undefined) return hookMod;
-  try {
-    hookMod = require('uiohook-napi');
-  } catch (e) {
-    hookMod = false;
-    log('uiohook-napi 加载失败，长按触发不可用：' + (e && e.message ? e.message : e));
-  }
-  return hookMod;
-}
-
-function resetHoldState() {
-  if (holdTimer) {
-    clearTimeout(holdTimer);
-    holdTimer = null;
-  }
-  holdDownAt = 0;
-  holdTriggered = false;
-}
-
-function onHoldKeyDown(e) {
-  if (!holdCfg || e.keycode !== holdKc || holdDownAt !== 0) return; // 自动重复忽略
-  holdDownAt = Date.now();
-  holdTriggered = false;
-  holdTimer = setTimeout(() => {
-    holdTriggered = true;
-    if (!holdCfg) return;
-    if (holdCfg.mode === 'ptt') {
-      if (phase === 'idle') begin({ ptt: true });
-    } else {
-      toggle();
-    }
-  }, HOLD_THRESHOLD_MS[holdCfg.mode] ?? 600);
-}
-
-function onHoldKeyUp(e) {
-  if (!holdCfg || e.keycode !== holdKc || holdDownAt === 0) return;
-  const wasTriggered = holdTriggered;
-  resetHoldState();
-  if (!wasTriggered) return; // 未达阈值的轻点：透传，不触发
-  if (holdCfg.mode === 'ptt') finish(); // 松开结束出字（自带 phase 守卫）
-  // toggle 模式：触发已在阈值时刻完成，松开无事可做
-}
-
-/** 启用/更新长按监听；cfg=null 停用。 */
-function setHold(cfg) {
-  const h = loadHook();
-  stopHold();
-  if (!cfg || !h) return;
-  const kc = h.UiohookKey[cfg.key];
-  if (typeof kc !== 'number') {
-    log('未知长按键：' + cfg.key);
-    return;
-  }
-  holdCfg = cfg;
-  holdKc = kc;
-  try {
-    h.uIOhook.on('keydown', onHoldKeyDown);
-    h.uIOhook.on('keyup', onHoldKeyUp);
-    h.uIOhook.start();
-  } catch (e) {
-    log('长按监听启动失败：' + (e && e.message ? e.message : e));
-    holdCfg = null;
-    holdKc = null;
-    return;
-  }
-  log('长按触发已启用：' + cfg.key + '（' + (cfg.mode === 'ptt' ? '按住说话' : '长按切换') + '）');
-  // macOS：CGEventTap 需要辅助功能权限（粘贴功能的 ⌘V 模拟同样依赖）
-  if (process.platform === 'darwin' && !systemPreferences.isTrustedAccessibilityAccessibility()) {
-    try {
-      new Notification({
-        title: 'Voice Notes 语音输入',
-        body: '长按触发需要「辅助功能」权限：请在系统设置中允许 Voice Notes 后重启应用。',
-      }).show();
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function stopHold() {
-  resetHoldState();
-  holdCfg = null;
-  holdKc = null;
-  const h = loadHook();
-  if (h) {
-    try {
-      h.uIOhook.off('keydown', onHoldKeyDown);
-      h.uIOhook.off('keyup', onHoldKeyUp);
-      h.uIOhook.stop();
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 // ———————————————— 状态机 ————————————————
 
 function begin(opts = {}) {
   ensureRecorder();
-  showOverlay();
-  overlaySet({ phase: 'recording', level: 0, elapsed: 0, chars: 0, ptt: !!opts.ptt });
-  pendingChunks = [];
-  pendingSamples = 0;
+  overlay.showOverlay();
+  overlay.overlaySet({ phase: 'recording', level: 0, elapsed: 0, chars: 0, ptt: !!opts.ptt });
   recSamples = 0;
   startedAt = Date.now();
   phase = 'recording';
   registerCancelShortcut();
-  stream = openStream();
+  stream = createStream({
+    backendUrl,
+    log,
+    onChars: (chars) => {
+      if (phase === 'recording') overlay.overlaySet({ ...overlay.overlayGet(), chars });
+    },
+    onError: (e) => {
+      // 上传链路失败：录音中直接取消并提示；收尾阶段由 finalizeStream 统一报错
+      if (phase === 'recording') {
+        cancel();
+        overlay.overlayFlash({ phase: 'error', message: '上传中断：' + (e && e.message ? e.message : e) }, 3500);
+      }
+    },
+  });
   elapsedTimer = setInterval(() => {
     if (phase === 'recording') {
-      overlaySet({ ...overlayState, elapsed: Math.floor((Date.now() - startedAt) / 1000) });
+      overlay.overlaySet({ ...overlay.overlayGet(), elapsed: Math.floor((Date.now() - startedAt) / 1000) });
     }
   }, 1000);
   // 等页面就绪后再发开始（首次启动极快按键的竞态兜底）
@@ -414,18 +139,19 @@ function cancel() {
   clearTimers();
   if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send('recorder-stop');
   recSamples = 0;
-  discardStream();
-  overlayFlash({ phase: 'cancel' }, 900);
+  stream?.cancel();
+  stream = null;
+  overlay.overlayFlash({ phase: 'cancel' }, 900);
 }
 
-/** 快捷键再按一次：结束录音并出字。等录音页停止回执后收尾（余量音频先到齐）。 */
+/** 触发结束（快捷键再按 / PTT 松开 / 超时）：等录音页停止回执后收尾（余量音频先到齐）。 */
 function finish() {
   if (phase !== 'recording') return;
   phase = 'processing';
   unregisterCancelShortcut();
   clearTimers();
-  showOverlay();
-  overlaySet({ phase: 'processing' });
+  overlay.showOverlay();
+  overlay.overlaySet({ phase: 'processing' });
   const durationMs = Date.now() - startedAt;
   const samples = recSamples;
   if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send('recorder-stop');
@@ -442,51 +168,54 @@ function finish() {
 
 /** 收尾：尾块上传 → 排空队列 → finish 出稿 → 粘贴。 */
 async function finalizeStream(durationMs, samples) {
+  const s = stream;
+  stream = null;
   try {
     if (!samples) {
       phase = 'idle';
-      discardStream();
-      overlayFlash({ phase: 'error', message: durationMs < 800 ? '按得太快，没录到音频' : '未采集到音频（检查麦克风权限）' }, 2500);
+      s?.cancel();
+      overlay.overlayFlash(
+        {
+          phase: 'error',
+          message: durationMs < 800 ? '按得太快，没录到音频' : '未采集到音频（检查麦克风权限）',
+        },
+        2500,
+      );
       return;
     }
     if (durationMs < 350) {
       phase = 'idle';
-      discardStream();
-      overlayFlash({ phase: 'error', message: '录音太短' }, 1500);
+      s?.cancel();
+      overlay.overlayFlash({ phase: 'error', message: '录音太短' }, 1500);
       return;
     }
-    const s = stream;
-    stream = null;
     if (!s) throw new Error('听写流不可用');
-    flushPending(s); // 停止前攒的尾块也要转写
-    await s.ready;
-    await s.chain;
-    if (s.failed) throw s.failed;
-    const res = await fetch(`${backendUrl}/api/dictation/stream/${s.id}/finish`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(FINISH_TIMEOUT_MS),
-    });
-    const r = (await res.json().catch(() => ({}))) || {};
-    if (!res.ok) throw new Error(r.error || `后端返回 ${res.status}`);
+    const r = await s.finish();
+    if (!r.ok) throw new Error(r.body.error || `后端返回 ${r.status}`);
     phase = 'idle';
 
-    if (r.silent || !r.text) {
-      overlayFlash({ phase: 'done', message: '未识别到语音' }, 1600);
+    if (r.body.silent || !r.body.text) {
+      overlay.overlayFlash({ phase: 'done', message: '未识别到语音' }, 1600);
       return;
     }
-    const d = await deliverText(r.text);
+    const d = await deliverText(r.body.text);
     if (d.pasted) {
-      const note = r.polishError ? '已输入（AI 整理失败，用的是识别原文）' : '已输入';
-      overlayFlash({ phase: 'done', message: note }, 1400);
+      const note = r.body.polishError ? '已输入（AI 整理失败，用的是识别原文）' : '已输入';
+      overlay.overlayFlash({ phase: 'done', message: note }, 1400);
     } else {
-      overlayFlash({ phase: 'copied', message: d.message, needAx: d.reason === 'ax' }, d.reason === 'ax' ? 8000 : 3000);
+      overlay.overlayFlash(
+        { phase: 'copied', message: d.message, needAx: d.reason === 'ax' },
+        d.reason === 'ax' ? 8000 : 3000,
+      );
     }
   } catch (e) {
     phase = 'idle';
-    cancelServerStream(stream);
-    stream = null;
+    s?.cancel(); // finish 失败时尽力清服务端流（TTL 兜底）
     log('听写失败：' + (e && e.message ? e.message : e));
-    overlayFlash({ phase: 'error', message: (e && e.message ? e.message : String(e)).slice(0, 80) }, 3500);
+    overlay.overlayFlash(
+      { phase: 'error', message: (e && e.message ? e.message : String(e)).slice(0, 80) },
+      3500,
+    );
   }
 }
 
@@ -497,7 +226,7 @@ function toggle() {
   /* processing 中忽略 */
 }
 
-/** 从后端拉取听写配置并（重）注册全局快捷键。 */
+/** 从后端拉取听写配置并（重）注册全局快捷键与长按监听。 */
 async function reloadShortcuts() {
   let d = null;
   try {
@@ -520,13 +249,20 @@ async function reloadShortcuts() {
     mainAcc = null;
   }
   if (!d || !d.enabled) {
-    setHold(null);
+    hold.setHold(null);
     return;
   }
-  setHold(
+  hold.setHold(
     d.hold && d.hold.enabled
       ? { key: d.hold.key || 'CtrlRight', mode: d.hold.mode === 'toggle' ? 'toggle' : 'ptt' }
       : null,
+    {
+      onPttBegin: () => {
+        if (phase === 'idle') begin({ ptt: true });
+      },
+      onToggle: () => toggle(),
+      onPttRelease: () => finish(),
+    },
   );
   const acc = d.shortcut || 'Ctrl+Alt+D';
   const okRegistered = globalShortcut.register(acc, toggle);
@@ -557,13 +293,11 @@ function init(opts) {
     if ((phase === 'recording' || phase === 'processing') && stream && samples && samples.length) {
       const arr = new Int16Array(samples.buffer, samples.byteOffset, samples.length);
       recSamples += arr.length;
-      pendingChunks.push(arr);
-      pendingSamples += arr.length;
-      if (pendingSamples >= CHUNK_SAMPLES) flushPending(stream);
+      stream.push(arr);
     }
   });
   ipcMain.on('recorder-level', (_e, level) => {
-    if (phase === 'recording') overlaySet({ ...overlayState, phase: 'recording', level });
+    if (phase === 'recording') overlay.overlaySet({ ...overlay.overlayGet(), phase: 'recording', level });
   });
   ipcMain.on('recorder-stopped', () => {
     if (pendingUpload) {
@@ -581,10 +315,11 @@ function init(opts) {
       unregisterCancelShortcut();
       clearTimers();
       pendingUpload = null;
-      discardStream();
+      stream?.cancel();
+      stream = null;
     }
     log('录音失败：' + message);
-    overlayFlash({ phase: 'error', message }, 4000);
+    overlay.overlayFlash({ phase: 'error', message }, 4000);
   });
 
   // —— 浮窗 IPC ——
@@ -600,7 +335,7 @@ function init(opts) {
 
 function destroy() {
   unregisterCancelShortcut();
-  stopHold();
+  hold.stopHold();
   if (mainAcc) {
     try {
       globalShortcut.unregister(mainAcc);
@@ -610,7 +345,7 @@ function destroy() {
     mainAcc = null;
   }
   if (recorderWin && !recorderWin.isDestroyed()) recorderWin.destroy();
-  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.destroy();
+  overlay.destroyOverlay();
 }
 
 module.exports = { init, toggle, reloadShortcuts, destroy };

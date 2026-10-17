@@ -16,7 +16,8 @@
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
     "dist:mac": "electron-builder --mac",
-    "dist:all": "electron-builder --win --linux --mac"
+    "dist:all": "electron-builder --win --linux --mac",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "electron": "33.4.11",

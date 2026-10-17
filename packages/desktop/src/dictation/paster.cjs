@@ -33,6 +33,7 @@ async function simulatePaste() {
     } catch (e) {
       const s = `${e.stderr || ''}${e.message || ''}`;
       if (/assistive|accessibility|1002|not allowed/i.test(s)) {
+        /** @type {Error & {code?: string}} */
         const err = new Error('需要辅助功能权限：系统设置 → 隐私与安全性 → 辅助功能，勾选 Voice Notes');
         err.code = 'ax';
         throw err;
@@ -53,7 +54,7 @@ async function simulatePaste() {
 
 /**
  * 把文字输入到当前焦点窗口。
- * @returns {{pasted:boolean, reason?:'ax'|'no_tool'|'error', message?:string}}
+ * @returns {Promise<{pasted:boolean, reason?:'ax'|'no_tool'|'error', message?:string}>}
  *          pasted=false 时文字已留在剪贴板，由浮窗提示手动粘贴。
  */
 async function deliverText(text) {
@@ -62,13 +63,15 @@ async function deliverText(text) {
   try {
     await simulatePaste();
   } catch (e) {
-    const noTool = e.code === 'ENOENT';
-    const reason = e.code === 'ax' ? 'ax' : noTool ? 'no_tool' : 'error';
+    /** @type {Error & {code?: string}} */
+    const err = e;
+    const noTool = err.code === 'ENOENT';
+    const reason = err.code === 'ax' ? 'ax' : noTool ? 'no_tool' : 'error';
     const msg = noTool
       ? '未找到 xdotool（Wayland 或未安装），内容已复制'
-      : e.code === 'ax'
-        ? e.message
-        : `模拟粘贴失败（${e.message || e}），内容已复制`;
+      : err.code === 'ax'
+        ? err.message
+        : `模拟粘贴失败（${err.message || err}），内容已复制`;
     return { pasted: false, reason, message: msg };
   }
   // 给目标应用 250ms 完成粘贴，再还原原剪贴板（原本为空则清掉）

@@ -120,6 +120,7 @@ async function startOllama() {
 async function startBackend() {
   const backendFile = resPath('app', 'backend.cjs');
   logf('backend.cjs: ' + backendFile + ' exists=' + fs.existsSync(backendFile));
+  /** @type {Record<string, string | undefined>} */
   const env = {
     ...process.env,
     PORT: String(BACKEND_PORT),
@@ -342,6 +343,7 @@ async function checkForUpdate() {
 ipcMain.handle('check-for-update-dialog', () => checkForUpdate());
 
 function buildMenu() {
+  /** @type {import('electron').MenuItemConstructorOptions[]} */
   const tpl = [
     {
       label: 'Voice Notes',

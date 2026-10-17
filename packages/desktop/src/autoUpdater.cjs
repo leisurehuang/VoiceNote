@@ -9,9 +9,9 @@ const log = require('electron-log');
 const path = require('path');
 const fs = require('fs');
 
-// 配置日志
+// 配置日志（electron-log 自带类型，直接引用；autoUpdater.logger 的声明类型偏窄）
 autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+log.transports.file.level = 'info';
 
 // 跳过的版本存储路径
 const skippedVersionsPath = path.join(app.getPath('userData'), 'skipped-versions.json');
@@ -75,7 +75,7 @@ function clearSkippedVersions() {
  * 初始化自动更新
  * 幂等：窗口销毁后重建（Dock activate 等）会再次进入，重复注册 IPC handler 会抛
  * "Attempted to register a second handler"，且事件监听器翻倍会双弹窗——故只初始化一次。
- * @param {BrowserWindow} mainWindow - 主窗口
+ * @param {import('electron').BrowserWindow} mainWindow - 主窗口
  */
 let inited = false;
 let updateWin = null; // 事件推送目标窗口：每次进入都更新引用，避免向已销毁窗口 send
@@ -146,6 +146,7 @@ function initAutoUpdater(mainWindow) {
     log.info('更新下载完成:', info.version);
     // 通知用户安装更新（主窗口可能已销毁/重建，取当前引用；无窗口则弹无父窗口对话框）
     const target = updateWin && !updateWin.isDestroyed() ? updateWin : null;
+    /** @type {import('electron').MessageBoxOptions} */
     const opts = {
       type: 'info',
       buttons: ['立即安装', '稍后'],
