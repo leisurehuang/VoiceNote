@@ -1,14 +1,13 @@
-import { unlinkSync } from 'node:fs';
-import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from '@fastify/websocket';
 import { config } from '../config.js';
-import { transcribeUtteranceWithEngine, transcriptForLLM } from '../pipeline/transcribe.js';
+import { transcriptForLLM } from '../pipeline/transcribe.js';
 import { transcribeWithDiarization } from '../pipeline/sherpa.js';
 import { summarize, summarizeIncremental, generateTitle } from '../pipeline/summarize.js';
-import { EnergyVad } from '../pipeline/vad.js';
+import { UtteranceTranscriber } from '../pipeline/utteranceTranscriber.js';
 import { writeWav } from '../util/wav.js';
 import * as store from '../store/sessionStore.js';
+import type { TranscriptSegment } from '../store/sessionStore.js';
 
 function send(socket: WebSocket, obj: unknown): void {
   try {
@@ -22,17 +21,10 @@ function send(socket: WebSocket, obj: unknown): void {
 export function registerRealtimeRoute(app: FastifyInstance): void {
   app.get('/api/realtime', { websocket: true }, (socket: WebSocket) => {
     let sessionId: string | null = null;
-    let vad: EnergyVad | null = null;
-    let seq = 0;
+    let transcriber: UtteranceTranscriber | null = null;
     let running = false;
     let finalized = false;
-    // 串行化转写/收尾，避免并发 whisper 与 transcript 竞态
-    let chain: Promise<void> = Promise.resolve();
-    const enqueue = (fn: () => Promise<void>) => {
-      chain = chain.then(fn).catch((e) => {
-        send(socket, { type: 'error', error: e instanceof Error ? e.message : String(e) });
-      });
-    };
+    let finalizing: Promise<void> | null = null; // stop 与 close 并发时只跑一次收尾
 
     // —— 实时增量摘要状态（仅内存，不落盘；终版由 finalize 用高质量 prompt 覆盖）——
     let prevSummary = ''; // 上一版增量摘要全文
@@ -43,6 +35,14 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
     let pcmChunks: Buffer[] = []; // 累积全部麦克风 PCM，finalize 时写成完整 audio.wav
 
     // 触发判定：新增字符达阈值、距上次够久、当前空闲 → 排一个增量摘要（串行，不并发）
+    // 增量摘要串行队列（runIncremental 内部已捕获错误，这里兜底意外异常）
+    let incrementalChain: Promise<void> = Promise.resolve();
+    const enqueue = (fn: () => Promise<void>) => {
+      incrementalChain = incrementalChain.then(fn).catch((e) => {
+        send(socket, { type: 'error', error: e instanceof Error ? e.message : String(e) });
+      });
+    };
+
     const maybeRunIncremental = () => {
       if (!sessionId || !running) return;
       if (incrementalInFlight) {
@@ -80,36 +80,21 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
       }
     };
 
-    const doUtterance = async (pcm: Int16Array, startMs: number, _endMs: number) => {
+    const doUtterance = (u: { index: number; startMs: number; endMs: number; segments: TranscriptSegment[] }) => {
       if (!sessionId) return;
-      const n = ++seq;
-      const wavPath = join(store.sessionDir(sessionId), `utt-${n}.wav`);
-      try {
-        writeWav(wavPath, pcm);
-        const segs = await transcribeUtteranceWithEngine(wavPath, {
-          language: config.whisper.language,
-          durationMs: Math.max(0, _endMs - startMs),
-        });
-        for (const seg of segs) {
-          // whisper 给的是单句内时间戳，叠加本句在会话中的起点
-          const abs = {
-            text: seg.text,
-            startMs: startMs + seg.startMs,
-            endMs: startMs + seg.endMs,
-          };
-          store.appendTranscriptSegment(sessionId, abs);
-          send(socket, { type: 'segment', segment: abs });
-          pendingText += (pendingText ? '\n' : '') + seg.text;
-        }
-        // 本句转写完，尝试触发一次滚动增量摘要（内部自带阈值/间隔/串行门控）
-        maybeRunIncremental();
-      } finally {
-        try {
-          unlinkSync(wavPath);
-        } catch {
-          /* ignore */
-        }
+      for (const seg of u.segments) {
+        // whisper 给的是单句内时间戳，叠加本句在会话中的起点
+        const abs = {
+          text: seg.text,
+          startMs: u.startMs + seg.startMs,
+          endMs: u.startMs + seg.endMs,
+        };
+        store.appendTranscriptSegment(sessionId, abs);
+        send(socket, { type: 'segment', segment: abs });
+        pendingText += (pendingText ? '\n' : '') + seg.text;
       }
+      // 本句转写完，尝试触发一次滚动增量摘要（内部自带阈值/间隔/串行门控）
+      maybeRunIncremental();
     };
 
     const finalize = async () => {
@@ -174,14 +159,26 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
       send(socket, { type: 'done', id: sessionId });
     };
 
+    /** stop/close 共用收尾：切尾句 → 排空转写队列 → finalize（并发只跑一次）。 */
+    const finishUp = () => {
+      if (!finalizing) {
+        finalizing = (async () => {
+          transcriber?.flush();
+          await transcriber?.waitIdle();
+          await finalize();
+        })();
+      }
+      return finalizing;
+    };
+
     socket.on('message', (data: Buffer, isBinary: boolean) => {
       try {
         if (isBinary) {
-          if (!running || !vad) return;
+          if (!running || !transcriber) return;
           const buf = Buffer.from(data);
           pcmChunks.push(buf);
           const pcm = new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
-          vad.feed(pcm);
+          transcriber.feed(pcm);
           return;
         }
         const msg = JSON.parse(data.toString()) as { type: string; language?: string };
@@ -189,6 +186,7 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
           if (running) return;
           running = true;
           finalized = false;
+          finalizing = null;
           prevSummary = '';
           pendingText = '';
           lastSummaryAt = 0;
@@ -196,14 +194,17 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
           incrementalDirty = false;
           pcmChunks = [];
           sessionId = store.createRealtimeSession();
-          vad = new EnergyVad({ sampleRate: 16000 });
-          vad.onutterance = (pcm, s, e) => enqueue(() => doUtterance(pcm, s, e));
+          transcriber = new UtteranceTranscriber({
+            workDir: store.sessionDir(sessionId),
+            filePrefix: 'utt-',
+            onUtterance: doUtterance,
+            onError: (error) => send(socket, { type: 'error', error }),
+          });
           send(socket, { type: 'ready', id: sessionId });
         } else if (msg.type === 'stop') {
           if (!running) return;
           running = false;
-          vad?.flush();
-          enqueue(() => finalize());
+          finishUp();
         }
       } catch (e) {
         send(socket, { type: 'error', error: e instanceof Error ? e.message : String(e) });
@@ -212,10 +213,7 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
 
     socket.on('close', () => {
       running = false;
-      if (sessionId && !finalized) {
-        vad?.flush();
-        enqueue(() => finalize());
-      }
+      if (sessionId && !finalized) finishUp();
     });
   });
 }
