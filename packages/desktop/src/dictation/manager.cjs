@@ -7,7 +7,7 @@
  * 长听写：录音期间按 ~1s 一块把 PCM 流式发给后端（VAD 切句逐句转写），
  * 结束时只等尾句与润色，时长不再受一次性上传体积限制。
  */
-const { BrowserWindow, Notification, globalShortcut, ipcMain, screen, shell } = require('electron');
+const { BrowserWindow, Notification, globalShortcut, ipcMain, screen, shell, systemPreferences } = require('electron');
 const path = require('node:path');
 const { deliverText } = require('./paster.cjs');
 
@@ -264,12 +264,124 @@ function discardStream() {
   cancelServerStream(s);
 }
 
+// ———————————————— 长按单键触发 ————————————————
+// uiohook 全局键盘事件（唯一能拿到「松开」事件的跨平台方案）。
+// 懒加载：模块加载失败时该功能静默禁用，不影响组合键快捷键。
+// 注意：事件只监听不拦截，长按键会正常透传给焦点应用，因此只提供
+// 单独按下无副作用的键（右侧修饰键 / F 功能键，见后端白名单）。
+
+let hookMod = undefined; // undefined=未尝试 | false=不可用 | { uIOhook, UiohookKey }
+let holdCfg = null; // { key, mode } | null（null=未启用）
+let holdKc = null; // 目标键的 uiohook 键码
+let holdDownAt = 0; // 0=目标键未按下
+let holdTriggered = false; // 已达长按阈值并触发
+let holdTimer = null;
+
+/** 长按判定阈值：按住说话要跟手，长按切换要防误触。 */
+const HOLD_THRESHOLD_MS = { ptt: 300, toggle: 600 };
+
+function loadHook() {
+  if (hookMod !== undefined) return hookMod;
+  try {
+    hookMod = require('uiohook-napi');
+  } catch (e) {
+    hookMod = false;
+    log('uiohook-napi 加载失败，长按触发不可用：' + (e && e.message ? e.message : e));
+  }
+  return hookMod;
+}
+
+function resetHoldState() {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+  holdDownAt = 0;
+  holdTriggered = false;
+}
+
+function onHoldKeyDown(e) {
+  if (!holdCfg || e.keycode !== holdKc || holdDownAt !== 0) return; // 自动重复忽略
+  holdDownAt = Date.now();
+  holdTriggered = false;
+  holdTimer = setTimeout(() => {
+    holdTriggered = true;
+    if (!holdCfg) return;
+    if (holdCfg.mode === 'ptt') {
+      if (phase === 'idle') begin({ ptt: true });
+    } else {
+      toggle();
+    }
+  }, HOLD_THRESHOLD_MS[holdCfg.mode] ?? 600);
+}
+
+function onHoldKeyUp(e) {
+  if (!holdCfg || e.keycode !== holdKc || holdDownAt === 0) return;
+  const wasTriggered = holdTriggered;
+  resetHoldState();
+  if (!wasTriggered) return; // 未达阈值的轻点：透传，不触发
+  if (holdCfg.mode === 'ptt') finish(); // 松开结束出字（自带 phase 守卫）
+  // toggle 模式：触发已在阈值时刻完成，松开无事可做
+}
+
+/** 启用/更新长按监听；cfg=null 停用。 */
+function setHold(cfg) {
+  const h = loadHook();
+  stopHold();
+  if (!cfg || !h) return;
+  const kc = h.UiohookKey[cfg.key];
+  if (typeof kc !== 'number') {
+    log('未知长按键：' + cfg.key);
+    return;
+  }
+  holdCfg = cfg;
+  holdKc = kc;
+  try {
+    h.uIOhook.on('keydown', onHoldKeyDown);
+    h.uIOhook.on('keyup', onHoldKeyUp);
+    h.uIOhook.start();
+  } catch (e) {
+    log('长按监听启动失败：' + (e && e.message ? e.message : e));
+    holdCfg = null;
+    holdKc = null;
+    return;
+  }
+  log('长按触发已启用：' + cfg.key + '（' + (cfg.mode === 'ptt' ? '按住说话' : '长按切换') + '）');
+  // macOS：CGEventTap 需要辅助功能权限（粘贴功能的 ⌘V 模拟同样依赖）
+  if (process.platform === 'darwin' && !systemPreferences.isTrustedAccessibilityAccessibility()) {
+    try {
+      new Notification({
+        title: 'Voice Notes 语音输入',
+        body: '长按触发需要「辅助功能」权限：请在系统设置中允许 Voice Notes 后重启应用。',
+      }).show();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function stopHold() {
+  resetHoldState();
+  holdCfg = null;
+  holdKc = null;
+  const h = loadHook();
+  if (h) {
+    try {
+      h.uIOhook.off('keydown', onHoldKeyDown);
+      h.uIOhook.off('keyup', onHoldKeyUp);
+      h.uIOhook.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 // ———————————————— 状态机 ————————————————
 
-function begin() {
+function begin(opts = {}) {
   ensureRecorder();
   showOverlay();
-  overlaySet({ phase: 'recording', level: 0, elapsed: 0, chars: 0 });
+  overlaySet({ phase: 'recording', level: 0, elapsed: 0, chars: 0, ptt: !!opts.ptt });
   pendingChunks = [];
   pendingSamples = 0;
   recSamples = 0;
@@ -407,7 +519,15 @@ async function reloadShortcuts() {
     }
     mainAcc = null;
   }
-  if (!d || !d.enabled) return;
+  if (!d || !d.enabled) {
+    setHold(null);
+    return;
+  }
+  setHold(
+    d.hold && d.hold.enabled
+      ? { key: d.hold.key || 'CtrlRight', mode: d.hold.mode === 'toggle' ? 'toggle' : 'ptt' }
+      : null,
+  );
   const acc = d.shortcut || 'Ctrl+Alt+D';
   const okRegistered = globalShortcut.register(acc, toggle);
   if (okRegistered) {
@@ -480,6 +600,7 @@ function init(opts) {
 
 function destroy() {
   unregisterCancelShortcut();
+  stopHold();
   if (mainAcc) {
     try {
       globalShortcut.unregister(mainAcc);

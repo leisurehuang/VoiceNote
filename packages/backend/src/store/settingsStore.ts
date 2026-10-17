@@ -30,6 +30,15 @@ export interface TermCorrection {
   variants: string[];
 }
 
+/** 长按单键触发听写（桌面端全局键盘事件监听；macOS 需辅助功能权限）。 */
+export interface DictationHoldSettings {
+  enabled: boolean;
+  /** uiohook 键名（CtrlRight/AltRight/MetaRight/F6/F7/F8）。 */
+  key: string;
+  /** ptt=按住说话（按住 ≥300ms 开始，松开结束出字）；toggle=长按切换（≥600ms，与组合键行为一致）。 */
+  mode: 'ptt' | 'toggle';
+}
+
 /** 语音听写（桌面端全局快捷键 → 录音 → 润色 → 粘贴）配置。 */
 export interface DictationSettings {
   /** 总开关：false 时桌面端不注册全局快捷键。 */
@@ -38,6 +47,8 @@ export interface DictationSettings {
   shortcut: string;
   /** 录音期间的取消键（仅录音中临时注册）。 */
   cancelShortcut: string;
+  /** 长按单键触发（与组合键快捷键并存，任一触发均可）。 */
+  hold: DictationHoldSettings;
   /** 是否用激活的 LLM 预设润色；false 直接输出识别原文。 */
   polish: boolean;
   /** 是否启用句首/句尾翻译口令（「用英文」等）。 */
@@ -52,6 +63,9 @@ export interface DictationSettings {
 
 export const DEFAULT_DICTATION_SHORTCUT = 'Ctrl+Alt+D';
 export const DEFAULT_DICTATION_CANCEL_SHORTCUT = 'Escape';
+
+/** 长按键白名单：均为单独按下无副作用（或副作用可忽略）的键，避免劫持日常输入。 */
+const HOLD_KEYS: readonly string[] = ['CtrlRight', 'AltRight', 'MetaRight', 'F6', 'F7', 'F8'];
 
 const ENGINE_VALUES: readonly TranscriptionEngine[] = ['whisper', 'sherpa', 'api'];
 
@@ -91,6 +105,11 @@ function parseDictation(v: unknown): DictationSettings {
       typeof x.cancelShortcut === 'string' && x.cancelShortcut.trim()
         ? x.cancelShortcut.trim()
         : DEFAULT_DICTATION_CANCEL_SHORTCUT,
+    hold: {
+      enabled: x.hold?.enabled === true,
+      key: typeof x.hold?.key === 'string' && HOLD_KEYS.includes(x.hold.key) ? x.hold.key : 'CtrlRight',
+      mode: x.hold?.mode === 'toggle' ? 'toggle' : 'ptt',
+    },
     polish: x.polish !== false,
     translationCommands: x.translationCommands !== false,
     fixedOutputLanguage: typeof x.fixedOutputLanguage === 'string' && x.fixedOutputLanguage ? x.fixedOutputLanguage : undefined,

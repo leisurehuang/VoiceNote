@@ -116,7 +116,7 @@
           icon.textContent = ''; icon.style.display = 'none';
           setBars(s.level || 0, true);
           var head = '录音中' + (s.elapsed != null ? ' ' + fmtDur(s.elapsed) : '');
-          var sub = '再按一次快捷键结束 · Esc 取消' + (s.chars ? ' · 已识别 ' + s.chars + ' 字' : '');
+          var sub = (s.ptt ? '松开按键结束' : '再按一次快捷键结束') + ' · Esc 取消' + (s.chars ? ' · 已识别 ' + s.chars + ' 字' : '');
           msg.innerHTML = head + '<small>' + sub + '</small>';
           break;
         case 'processing':

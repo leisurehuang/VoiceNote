@@ -13,6 +13,9 @@ compression: maximum
 files:
   - src/**
   - package.json
+# 原生模块（uiohook-napi 长按触发）需解包出 asar 才能加载 .node
+asarUnpack:
+  - node_modules/uiohook-napi/**
 extraResources:
   - from: ../../resources
     to: vn

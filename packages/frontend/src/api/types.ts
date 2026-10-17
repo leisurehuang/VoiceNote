@@ -96,13 +96,24 @@ export interface TermCorrection {
   variants: string[];
 }
 
-/** 语音听写配置（桌面端生效；Web 端仅展示/编辑）。 */
+/** 长按单键触发配置（桌面端 uiohook 全局键盘事件实现）。 */
+export interface DictationHoldSettings {
+  enabled: boolean;
+  /** uiohook 键名（CtrlRight/AltRight/MetaRight/F6/F7/F8）。 */
+  key: string;
+  /** ptt=按住说话（松开结束出字）；toggle=长按切换（行为同组合键）。 */
+  mode: 'ptt' | 'toggle';
+}
+
+/** 语音听写配置（桌面端生效）。 */
 export interface DictationSettings {
   enabled: boolean;
   /** Electron accelerator，如 'Ctrl+Alt+D'。 */
   shortcut: string;
   /** 录音期间的取消键。 */
   cancelShortcut: string;
+  /** 长按单键触发（与组合键快捷键并存）。 */
+  hold: DictationHoldSettings;
   polish: boolean;
   translationCommands: boolean;
   /** 固定输出语言代码；不固定为空。 */

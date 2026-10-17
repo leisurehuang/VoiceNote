@@ -12,7 +12,7 @@ import {
   getSettings,
   updateSettings,
 } from '../api/client';
-import type { DictationHistoryEntry, DictationSettings, Settings, TermCorrection } from '../api/types';
+import type { DictationHistoryEntry, DictationHoldSettings, DictationSettings, Settings, TermCorrection } from '../api/types';
 import { fmtDate } from '../format';
 import { Button } from './ui/Button';
 import { ConfirmDialog } from './ui/ConfirmDialog';
@@ -37,12 +37,23 @@ const DEFAULT_DICTATION: DictationSettings = {
   enabled: true,
   shortcut: 'Ctrl+Alt+D',
   cancelShortcut: 'Escape',
+  hold: { enabled: false, key: 'CtrlRight', mode: 'ptt' },
   polish: true,
   translationCommands: true,
   fixedOutputLanguage: undefined,
   termCorrections: [],
   historyLimit: 500,
 };
+
+/** 长按键预设：只收单独按下无副作用的键（透传不拦截）。 */
+const HOLD_KEY_OPTIONS: Array<{ id: string; label: string; macOnly?: boolean }> = [
+  { id: 'CtrlRight', label: '右 Ctrl（⌃）' },
+  { id: 'AltRight', label: '右 Option / Alt（⌥）', macOnly: true },
+  { id: 'MetaRight', label: '右 Command / Win（⌘）', macOnly: true },
+  { id: 'F6', label: 'F6' },
+  { id: 'F7', label: 'F7' },
+  { id: 'F8', label: 'F8' },
+];
 
 /** accelerator 宽松校验：修饰键(+修饰键)*+主键。 */
 function isValidAccelerator(acc: string): boolean {
@@ -57,6 +68,7 @@ function isValidAccelerator(acc: string): boolean {
 
 /** 语音输入页：自加载 settings（独立页面，不经设置页）。 */
 export function DictationView() {
+  const isMac = /mac/i.test(navigator.userAgent); // 右 ⌥/⌘ 仅 mac 无副作用
   const [settings, setSettings] = useState<Settings | null>(null);
   const [draft, setDraft] = useState<DictationSettings>(DEFAULT_DICTATION);
   const [history, setHistory] = useState<DictationHistoryEntry[] | null>(null);
@@ -109,12 +121,21 @@ export function DictationView() {
     }));
   }
 
+  function patchHold(p: Partial<DictationHoldSettings>) {
+    setDraft((d) => ({ ...d, hold: { ...d.hold, ...p } }));
+  }
+
   async function save() {
     if (!settings || saving) return;
     setSaving(true);
     const cleaned: DictationSettings = {
       ...draft,
       shortcut: draft.shortcut.trim() || DEFAULT_DICTATION.shortcut,
+      hold: {
+        enabled: draft.hold.enabled,
+        key: HOLD_KEY_OPTIONS.some((k) => k.id === draft.hold.key) ? draft.hold.key : 'CtrlRight',
+        mode: draft.hold.mode === 'toggle' ? 'toggle' : 'ptt',
+      },
       termCorrections: draft.termCorrections
         .map((c) => ({
           target: c.target.trim(),
@@ -246,7 +267,46 @@ export function DictationView() {
         </div>
       </div>
 
-      {/* —— 卡片二:术语纠错 —— */}
+      {/* —— 卡片二:长按单键触发 —— */}
+      <div className="card">
+        <h3>长按单键触发</h3>
+        <p className="muted card-desc">
+          组合键不顺手时，改为长按单个键触发。按键事件只监听不拦截、会正常透传给其他应用，
+          因此只提供单独按下无副作用的键；macOS 需已授予辅助功能权限。
+        </p>
+        <div className="setting-row">
+          <div className="setting-text">
+            <span className="setting-title">启用长按触发</span>
+            <span className="setting-desc">与组合键快捷键并存，任一方式均可触发</span>
+          </div>
+          <Switch checked={draft.hold.enabled} onChange={(v) => patchHold({ enabled: v })} label="启用长按触发" />
+        </div>
+        <Field label="长按按键">
+          <Select value={draft.hold.key} onChange={(e) => patchHold({ key: e.target.value })}>
+            {HOLD_KEY_OPTIONS.filter((k) => !k.macOnly || isMac).map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="触发方式">
+          <Select
+            value={draft.hold.mode}
+            onChange={(e) => patchHold({ mode: e.target.value === 'toggle' ? 'toggle' : 'ptt' })}
+          >
+            <option value="ptt">按住说话：按住约 0.3 秒开始，松开结束出字</option>
+            <option value="toggle">长按切换：按住约 0.6 秒触发，行为同组合键</option>
+          </Select>
+        </Field>
+        <div className="rec-controls card-actions">
+          <Button variant="primary" loading={saving} onClick={() => void save()}>
+            保存设置
+          </Button>
+        </div>
+      </div>
+
+      {/* —— 卡片三:术语纠错 —— */}
       <div className="card">
         <h3>术语纠错</h3>
         <p className="muted card-desc">
@@ -295,7 +355,7 @@ export function DictationView() {
         </div>
       </div>
 
-      {/* —— 卡片三:听写历史 —— */}
+      {/* —— 卡片四:听写历史 —— */}
       <div className="card">
         <h3>听写历史（本机保存）</h3>
         {histErr && <div className="alert err">{histErr}</div>}
