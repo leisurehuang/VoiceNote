@@ -1,7 +1,6 @@
 /**
  * 语音输入（全局听写）一级页面：独立功能入口（侧栏直达），不隶属设置页。
  * 快捷键/润色/翻译口令/术语纠错 + 听写历史。
- * 桌面端（Electron）下快捷键生效；Web 部署下仅能管理纠错表与历史。
  */
 
 import { useEffect, useState } from 'react';
@@ -58,7 +57,6 @@ function isValidAccelerator(acc: string): boolean {
 
 /** 语音输入页：自加载 settings（独立页面，不经设置页）。 */
 export function DictationView() {
-  const isDesktop = !!window.electron?.isDesktop;
   const [settings, setSettings] = useState<Settings | null>(null);
   const [draft, setDraft] = useState<DictationSettings>(DEFAULT_DICTATION);
   const [history, setHistory] = useState<DictationHistoryEntry[] | null>(null);
@@ -187,9 +185,6 @@ export function DictationView() {
         在任意应用里按全局快捷键说话：再按一下结束，识别并用 AI 整理后自动粘贴到当前光标处；
         录音中按 Esc 取消。识别用「设置 → 语音转文字」选定的引擎，整理用「设置 → AI 整理」激活的预设。
       </p>
-      {!isDesktop && (
-        <div className="alert err">全局听写快捷键仅桌面版（Windows / Linux / macOS）可用；网页版可继续管理术语纠错与历史。</div>
-      )}
 
       {/* —— 卡片一:基本设置 —— */}
       <div className="card">

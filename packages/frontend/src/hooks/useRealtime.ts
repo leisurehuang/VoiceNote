@@ -70,7 +70,7 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
     setSummaryStreaming(false);
     setFinalizing(false);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('实时转写需要安全上下文（HTTPS 或 localhost）。请通过 https 访问。');
+      setError('当前环境不支持录音，请重启应用后再试。');
       return;
     }
     try {

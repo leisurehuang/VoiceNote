@@ -47,7 +47,7 @@ export function Recorder({
     <div className="card record-card">
       <h3>
         <Mic size={15} aria-hidden />
-        浏览器录音
+        录音
       </h3>
       {(error || uploadErr) && <div className="alert err">{error ?? uploadErr}</div>}
 
@@ -74,7 +74,7 @@ export function Recorder({
           </div>
         </div>
       )}
-      <p className="muted">录音在浏览器本地完成，上传到本机后端转写。</p>
+      <p className="muted">录音在本机完成，送本机后端转写。</p>
     </div>
   );
 }
