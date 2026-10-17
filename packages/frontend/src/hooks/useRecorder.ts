@@ -22,6 +22,21 @@ function pickMime(): { mimeType: string; ext: string } {
   return { mimeType: '', ext: 'webm' };
 }
 
+/** getUserMedia 失败转友好中文提示（浏览器/系统给的错误多为英文）。 */
+function friendlyMicError(e: unknown): string {
+  const name = e instanceof DOMException ? e.name : '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return '麦克风权限被拒绝：请在系统（或浏览器）设置中允许本应用使用麦克风';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'DevicesNotFoundError') {
+    return '未找到可用的麦克风设备';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') {
+    return '麦克风无法启动：可能被其他应用占用';
+  }
+  return e instanceof Error && e.message ? e.message : '无法访问麦克风，请检查权限';
+}
+
 export function useRecorder() {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -123,7 +138,7 @@ export function useRecorder() {
       setRecording(true);
       timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '无法访问麦克风，请检查权限');
+      setError(friendlyMicError(e));
     }
   }, []);
 

@@ -68,6 +68,8 @@
       running = false;
       var msg = e && e.name === 'NotAllowedError'
         ? '麦克风权限被拒绝：请在系统设置中允许 Voice Notes 使用麦克风'
+        : e && (e.name === 'NotReadableError' || e.name === 'AbortError')
+        ? '麦克风无法启动：可能被其他应用占用'
         : '无法打开麦克风：' + (e && e.message ? e.message : e);
       window.recorder.micError(msg);
       return;

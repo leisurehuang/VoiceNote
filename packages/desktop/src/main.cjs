@@ -398,15 +398,16 @@ if (!gotLock) {
     showMainWindow();
   });
 
-  /** 麦克风权限：只放行自家 file:// 页面（听写隐藏录音窗/浮窗）。 */
+  /** 麦克风权限：只放行自家页面（主窗口的后端源 + 听写隐藏录音窗的 file:// 页）。 */
   function setupPermissions() {
-    const isOwnFilePage = (url) => typeof url === 'string' && url.startsWith('file://');
+    const isOwnPage = (url) =>
+      typeof url === 'string' && (url.startsWith(BACKEND_URL) || url.startsWith('file://'));
     session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-      if (permission === 'media' && isOwnFilePage(wc.getURL())) return cb(true);
+      if (permission === 'media' && isOwnPage(wc.getURL())) return cb(true);
       cb(false);
     });
     session.defaultSession.setPermissionCheckHandler((wc, permission, requestingUrl) => {
-      return permission === 'media' && isOwnFilePage(requestingUrl || (wc && wc.getURL()));
+      return permission === 'media' && isOwnPage(requestingUrl || (wc && wc.getURL()));
     });
   }
 
