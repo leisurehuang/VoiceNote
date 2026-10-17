@@ -124,7 +124,7 @@ export interface TermCorrection {
   /** 正写（纠正目标）。 */
   target: string;
   /** 误写（识别常错的形式），命中即替换为 target。 */
-  variants: string[];
+  variants?: string[];
 }
 
 /** 变体是否含拉丁字母/数字（需要整词边界，防止子串误伤）。 */
@@ -142,9 +142,10 @@ export function applyTermCorrections(text: string, corrections: TermCorrection[]
   // 候选：[variant, target]，按变体长度降序保证长词优先
   const candidates: Array<{ variant: string; target: string; latin: boolean }> = [];
   for (const c of corrections) {
-    const target = c.target.trim();
+    const target = (c.target ?? '').trim();
     if (!target) continue;
-    for (const raw of c.variants) {
+    const variants = Array.isArray(c.variants) ? c.variants : [];
+    for (const raw of variants) {
       const variant = raw.trim();
       if (!variant || variant === target) continue;
       candidates.push({ variant, target, latin: isLatinVariant(variant) });

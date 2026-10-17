@@ -16,7 +16,8 @@
     "typecheck": "npm run typecheck -w @voice-notes/backend && npm run typecheck -w @voice-notes/frontend",
     "bundle:backend": "esbuild packages/backend/src/index.ts --bundle --platform=node --format=cjs --outfile=resources/app/backend.cjs",
     "desktop:dev": "npm run dev -w @voice-notes/desktop",
-    "desktop:dist": "npm run dist -w @voice-notes/desktop"
+    "desktop:dist": "npm run dist -w @voice-notes/desktop",
+    "test": "npm run test -w @voice-notes/backend"
   },
   "devDependencies": {
     "@fission-ai/openspec": "^1.8.0",
