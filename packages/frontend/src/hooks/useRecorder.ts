@@ -28,7 +28,11 @@ function friendlyMicError(e: unknown): string {
   if (name === 'NotAllowedError' || name === 'SecurityError') {
     return '麦克风权限被拒绝：请在系统（或浏览器）设置中允许本应用使用麦克风';
   }
-  if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'DevicesNotFoundError') {
+  if (
+    name === 'NotFoundError' ||
+    name === 'OverconstrainedError' ||
+    name === 'DevicesNotFoundError'
+  ) {
     return '未找到可用的麦克风设备';
   }
   if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') {
@@ -60,36 +64,33 @@ export function useRecorder() {
     analyserRef.current = null;
   }, []);
 
-  const stop = useCallback(
-    (): Promise<RecorderResult | null> => {
-      return new Promise((resolve) => {
-        const rec = recRef.current;
-        if (!rec) {
-          resolve(null);
-          return;
-        }
-        rec.onstop = () => {
-          const type = mimeRef.current.mimeType || 'audio/webm';
-          const blob = new Blob(chunksRef.current, { type });
-          chunksRef.current = [];
-          teardownAnalysis();
-          resolve({ blob, mimeType: type, ext: mimeRef.current.ext });
-        };
-        try {
-          rec.stop();
-        } catch {
-          /* ignore */
-        }
-        if (timerRef.current) {
-          window.clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-        rec.stream.getTracks().forEach((t) => t.stop());
-        setRecording(false);
-      });
-    },
-    [teardownAnalysis],
-  );
+  const stop = useCallback((): Promise<RecorderResult | null> => {
+    return new Promise((resolve) => {
+      const rec = recRef.current;
+      if (!rec) {
+        resolve(null);
+        return;
+      }
+      rec.onstop = () => {
+        const type = mimeRef.current.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type });
+        chunksRef.current = [];
+        teardownAnalysis();
+        resolve({ blob, mimeType: type, ext: mimeRef.current.ext });
+      };
+      try {
+        rec.stop();
+      } catch {
+        /* ignore */
+      }
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      rec.stream.getTracks().forEach((t) => t.stop());
+      setRecording(false);
+    });
+  }, [teardownAnalysis]);
 
   const start = useCallback(async () => {
     setError(null);

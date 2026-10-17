@@ -9,7 +9,13 @@ interface SkeletonProps {
 
 /** 骨架块:加载占位。组合出页面级骨架见下方导出。 */
 export function Skeleton({ w, h = 12, r = 6, className }: SkeletonProps) {
-  return <span className={cn('skeleton', className)} style={{ width: w, height: h, borderRadius: r }} aria-hidden />;
+  return (
+    <span
+      className={cn('skeleton', className)}
+      style={{ width: w, height: h, borderRadius: r }}
+      aria-hidden
+    />
+  );
 }
 
 /** 详情页骨架:大标题 + 段落 */

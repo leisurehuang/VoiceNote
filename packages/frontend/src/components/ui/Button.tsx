@@ -10,7 +10,16 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /** 统一按钮:variant 语义 = primary 主操作 / secondary 常规 / ghost 次要 / danger 破坏性 */
-export function Button({ variant = 'secondary', size = 'md', loading, className, children, disabled, type, ...rest }: Props) {
+export function Button({
+  variant = 'secondary',
+  size = 'md',
+  loading,
+  className,
+  children,
+  disabled,
+  type,
+  ...rest
+}: Props) {
   return (
     <button
       type={type ?? 'button'}

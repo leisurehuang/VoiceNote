@@ -75,7 +75,12 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
       });
       streamRef.current = stream;
 
@@ -163,5 +168,15 @@ export function useRealtime({ onDone }: { onDone?: (id: string) => void }) {
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  return { recording, finalizing, segments, liveSummary, summaryStreaming, error, analyserRef, start, stop };
+  return {
+    recording,
+    finalizing,
+    segments,
+    liveSummary,
+    summaryStreaming,
+    error,
+    analyserRef,
+    start,
+    stop,
+  };
 }

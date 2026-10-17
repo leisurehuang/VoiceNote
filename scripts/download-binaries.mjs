@@ -35,7 +35,7 @@ const SOURCES = {
     },
     whisper: {
       // 需要从 CI 构建产物获取
-      url: null,  // 待配置
+      url: null, // 待配置
       extract: 'zip',
     },
     ollama: {
@@ -60,11 +60,11 @@ const SOURCES = {
   },
   macos: {
     ffmpeg: {
-      url: null,  // 使用 brew
+      url: null, // 使用 brew
       extract: null,
     },
     whisper: {
-      url: null,  // 使用 brew
+      url: null, // 使用 brew
       extract: null,
     },
     ollama: {
@@ -75,31 +75,34 @@ const SOURCES = {
 };
 
 /**
- * 下载文件
+ * 下载文件（历史保留：当前脚本改用 fetch，未再调用）
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function download(url, dest) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
     const file = writeFileSync(dest, '');
 
-    protocol.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        // 重定向
-        return download(response.headers.location, dest).then(resolve).catch(reject);
-      }
-      if (response.statusCode !== 200) {
-        reject(new Error(`下载失败: ${response.statusCode}`));
-        return;
-      }
+    protocol
+      .get(url, (response) => {
+        if (response.statusCode === 302 || response.statusCode === 301) {
+          // 重定向
+          return download(response.headers.location, dest).then(resolve).catch(reject);
+        }
+        if (response.statusCode !== 200) {
+          reject(new Error(`下载失败: ${response.statusCode}`));
+          return;
+        }
 
-      response.pipe(file);
-      file.on('finish', () => {
-        file.close();
-        resolve();
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          resolve();
+        });
+      })
+      .on('error', (err) => {
+        reject(err);
       });
-    }).on('error', (err) => {
-      reject(err);
-    });
   });
 }
 

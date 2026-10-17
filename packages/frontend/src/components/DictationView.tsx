@@ -12,7 +12,13 @@ import {
   getSettings,
   updateSettings,
 } from '../api/client';
-import type { DictationHistoryEntry, DictationHoldSettings, DictationSettings, Settings, TermCorrection } from '../api/types';
+import type {
+  DictationHistoryEntry,
+  DictationHoldSettings,
+  DictationSettings,
+  Settings,
+  TermCorrection,
+} from '../api/types';
 import { fmtDate } from '../format';
 import { Button } from './ui/Button';
 import { ConfirmDialog } from './ui/ConfirmDialog';
@@ -57,9 +63,25 @@ const HOLD_KEY_OPTIONS: Array<{ id: string; label: string; macOnly?: boolean }> 
 
 /** accelerator 宽松校验：修饰键(+修饰键)*+主键。 */
 function isValidAccelerator(acc: string): boolean {
-  const mods = ['Ctrl', 'CommandOrControl', 'CmdOrCtrl', 'Command', 'Cmd', 'Alt', 'Option', 'AltGr', 'Shift', 'Super', 'Meta'];
-  const keys = /^([A-Z0-9]|F([1-9]|1[0-9]|2[0-4])|Space|Tab|CapsLock|NumLock|ScrollLock|Home|End|PageUp|PageDown|Left|Right|Up|Down|Plus|Minus|Escape|Backspace|Delete|Insert|`|\/|\\|\[|\]|;|'|,|\.|\/)$/;
-  const parts = acc.split('+').map((s) => s.trim()).filter(Boolean);
+  const mods = [
+    'Ctrl',
+    'CommandOrControl',
+    'CmdOrCtrl',
+    'Command',
+    'Cmd',
+    'Alt',
+    'Option',
+    'AltGr',
+    'Shift',
+    'Super',
+    'Meta',
+  ];
+  const keys =
+    /^([A-Z0-9]|F([1-9]|1[0-9]|2[0-4])|Space|Tab|CapsLock|NumLock|ScrollLock|Home|End|PageUp|PageDown|Left|Right|Up|Down|Plus|Minus|Escape|Backspace|Delete|Insert|`|\/|\\|\[|\]|;|'|,|\.|\/)$/;
+  const parts = acc
+    .split('+')
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (parts.length < 2) return false;
   const last = parts[parts.length - 1] ?? '';
   if (!keys.test(last)) return false;
@@ -187,7 +209,8 @@ export function DictationView() {
     }
   }
 
-  const shortcutInvalid = draft.shortcut.trim() !== '' && !isValidAccelerator(draft.shortcut.trim());
+  const shortcutInvalid =
+    draft.shortcut.trim() !== '' && !isValidAccelerator(draft.shortcut.trim());
   if (!settings) {
     return (
       <div className="content">
@@ -204,7 +227,8 @@ export function DictationView() {
       </h4>
       <p className="muted">
         在任意应用里按全局快捷键说话：再按一下结束，识别并用 AI 整理后自动粘贴到当前光标处；
-        录音中按 Esc 取消。识别用「设置 → 语音转文字」选定的引擎，整理用「设置 → AI 整理」激活的预设。
+        录音中按 Esc 取消。识别用「设置 → 语音转文字」选定的引擎，整理用「设置 → AI
+        整理」激活的预设。
       </p>
 
       {/* —— 卡片一:基本设置 —— */}
@@ -215,12 +239,20 @@ export function DictationView() {
             <span className="setting-title">启用全局听写</span>
             <span className="setting-desc">关闭后快捷键不再触发听写</span>
           </div>
-          <Switch checked={draft.enabled} onChange={(v) => patch({ enabled: v })} label="启用全局听写" />
+          <Switch
+            checked={draft.enabled}
+            onChange={(v) => patch({ enabled: v })}
+            label="启用全局听写"
+          />
         </div>
 
         <Field
           label="快捷键（切换式：按一下开始，再按结束）"
-          error={shortcutInvalid ? '格式无效：需「修饰键+主键」，例如 Ctrl+Alt+D、CmdOrCtrl+Shift+Space' : undefined}
+          error={
+            shortcutInvalid
+              ? '格式无效：需「修饰键+主键」，例如 Ctrl+Alt+D、CmdOrCtrl+Shift+Space'
+              : undefined
+          }
         >
           <Input
             value={draft.shortcut}
@@ -235,15 +267,25 @@ export function DictationView() {
             <span className="setting-title">用 AI 整理口语</span>
             <span className="setting-desc">去语气词、理顺句子、加标点；关闭后直接输入识别原文</span>
           </div>
-          <Switch checked={draft.polish} onChange={(v) => patch({ polish: v })} label="用 AI 整理口语" />
+          <Switch
+            checked={draft.polish}
+            onChange={(v) => patch({ polish: v })}
+            label="用 AI 整理口语"
+          />
         </div>
 
         <div className="setting-row">
           <div className="setting-text">
             <span className="setting-title">语音翻译口令</span>
-            <span className="setting-desc">句首或句尾说「用英文」「翻译成日语」等，输出直接翻译</span>
+            <span className="setting-desc">
+              句首或句尾说「用英文」「翻译成日语」等，输出直接翻译
+            </span>
           </div>
-          <Switch checked={draft.translationCommands} onChange={(v) => patch({ translationCommands: v })} label="语音翻译口令" />
+          <Switch
+            checked={draft.translationCommands}
+            onChange={(v) => patch({ translationCommands: v })}
+            label="语音翻译口令"
+          />
         </div>
 
         <Field label="固定输出语言（可选：不喊口令也总是翻译）">
@@ -261,7 +303,12 @@ export function DictationView() {
         </Field>
 
         <div className="rec-controls card-actions">
-          <Button variant="primary" loading={saving} onClick={() => void save()} disabled={shortcutInvalid}>
+          <Button
+            variant="primary"
+            loading={saving}
+            onClick={() => void save()}
+            disabled={shortcutInvalid}
+          >
             保存设置
           </Button>
         </div>
@@ -279,7 +326,11 @@ export function DictationView() {
             <span className="setting-title">启用长按触发</span>
             <span className="setting-desc">与组合键快捷键并存，任一方式均可触发</span>
           </div>
-          <Switch checked={draft.hold.enabled} onChange={(v) => patchHold({ enabled: v })} label="启用长按触发" />
+          <Switch
+            checked={draft.hold.enabled}
+            onChange={(v) => patchHold({ enabled: v })}
+            label="启用长按触发"
+          />
         </div>
         <Field label="长按按键">
           <Select value={draft.hold.key} onChange={(e) => patchHold({ key: e.target.value })}>
@@ -325,14 +376,21 @@ export function DictationView() {
               className="cor-variants"
               value={c.variants.join('、')}
               onChange={(e) =>
-                patchCorrection(i, { variants: e.target.value.split(/[、,，]/).map((s) => s.trim()).filter(Boolean) })
+                patchCorrection(i, {
+                  variants: e.target.value
+                    .split(/[、,，]/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                })
               }
               placeholder="误写（、分隔），如 同义千问、通译千问"
             />
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => patch({ termCorrections: draft.termCorrections.filter((_, j) => j !== i) })}
+              onClick={() =>
+                patch({ termCorrections: draft.termCorrections.filter((_, j) => j !== i) })
+              }
             >
               删除
             </Button>
@@ -342,7 +400,9 @@ export function DictationView() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => patch({ termCorrections: [...draft.termCorrections, { target: '', variants: [] }] })}
+            onClick={() =>
+              patch({ termCorrections: [...draft.termCorrections, { target: '', variants: [] }] })
+            }
           >
             <Plus size={13} aria-hidden />
             添加纠错
@@ -362,7 +422,11 @@ export function DictationView() {
         {history === null ? (
           <ListSkeleton rows={3} />
         ) : history.length === 0 ? (
-          <EmptyState icon={History} title="暂无听写记录" hint="在任意应用里按下全局快捷键开始第一句听写" />
+          <EmptyState
+            icon={History}
+            title="暂无听写记录"
+            hint="在任意应用里按下全局快捷键开始第一句听写"
+          />
         ) : (
           <>
             <div className="dict-hist-list">
@@ -375,7 +439,9 @@ export function DictationView() {
                     )}
                     <div className="muted dict-hist-meta">
                       {fmtDate(e.time)}
-                      {e.targetLanguage ? ` · 译为${LANGUAGES.find((l) => l.code === e.targetLanguage)?.label ?? e.targetLanguage}` : ''}
+                      {e.targetLanguage
+                        ? ` · 译为${LANGUAGES.find((l) => l.code === e.targetLanguage)?.label ?? e.targetLanguage}`
+                        : ''}
                       {` · ${Math.round(e.durationMs / 1000)}s`}
                     </div>
                   </div>
@@ -403,8 +469,9 @@ export function DictationView() {
       </div>
 
       <p className="muted">
-        平台提示：macOS 首次使用需授予麦克风与辅助功能（模拟 ⌘V）权限；Linux 建议安装 xdotool（Wayland
-        下自动降级为复制到剪贴板）；Windows 少数管理员窗口会拒绝自动粘贴，此时内容已在剪贴板。
+        平台提示：macOS 首次使用需授予麦克风与辅助功能（模拟 ⌘V）权限；Linux 建议安装
+        xdotool（Wayland 下自动降级为复制到剪贴板）；Windows
+        少数管理员窗口会拒绝自动粘贴，此时内容已在剪贴板。
       </p>
 
       <ConfirmDialog

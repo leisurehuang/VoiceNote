@@ -18,7 +18,14 @@ interface Props<V extends string> {
 }
 
 /** 分段控件:tab 切换的统一外观,支持图标。 */
-export function Segmented<V extends string>({ options, value, onChange, disabled, lockedHint, className }: Props<V>) {
+export function Segmented<V extends string>({
+  options,
+  value,
+  onChange,
+  disabled,
+  lockedHint,
+  className,
+}: Props<V>) {
   return (
     <div className={cn('segmented', className)} role="tablist">
       {options.map((o) => {

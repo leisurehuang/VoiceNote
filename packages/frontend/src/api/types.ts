@@ -32,12 +32,7 @@ export interface HealthStatus {
 }
 
 export type SessionStatus =
-  | 'uploaded'
-  | 'converting'
-  | 'transcribing'
-  | 'summarizing'
-  | 'done'
-  | 'error';
+  'uploaded' | 'converting' | 'transcribing' | 'summarizing' | 'done' | 'error';
 
 export interface TranscriptSegment {
   text: string;

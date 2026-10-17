@@ -5,7 +5,7 @@ import type { LlmModelsResult } from '../api/types';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { ProgressBar } from './ui/ProgressBar';
-import { toast, toastError } from './ui/Toast';
+import { toast } from './ui/Toast';
 
 const DEFAULT_LLM_MODEL = 'qwen2.5:7b-instruct';
 
@@ -95,7 +95,9 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
         <Package size={13} aria-hidden />
         LLM 模型（Ollama）
       </h4>
-      <p className="muted">激活预设使用本地 Ollama 时在此管理：下载/切换模型，对激活预设即时生效。</p>
+      <p className="muted">
+        激活预设使用本地 Ollama 时在此管理：下载/切换模型，对激活预设即时生效。
+      </p>
       {err && <div className="alert err">{err}</div>}
       {llm.error && <p className="muted">{llm.error}</p>}
       {llm.models.map((m) => (
@@ -121,7 +123,9 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
         </div>
       ))}
       {llm.models.length === 0 && !llm.error && (
-        <p className="muted">尚无模型。首次使用建议拉取 {DEFAULT_LLM_MODEL}（约 4.7GB，一次即可）。</p>
+        <p className="muted">
+          尚无模型。首次使用建议拉取 {DEFAULT_LLM_MODEL}（约 4.7GB，一次即可）。
+        </p>
       )}
 
       <div className="rec-controls model-pull">
@@ -131,7 +135,12 @@ export function OllamaModels({ activePresetId }: { activePresetId?: string }) {
           placeholder={DEFAULT_LLM_MODEL}
           disabled={pulling}
         />
-        <Button variant="primary" loading={pulling} onClick={pull} disabled={pulling || !pullName.trim()}>
+        <Button
+          variant="primary"
+          loading={pulling}
+          onClick={pull}
+          disabled={pulling || !pullName.trim()}
+        >
           拉取
         </Button>
       </div>

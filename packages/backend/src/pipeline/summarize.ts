@@ -64,7 +64,7 @@ export async function postChat(
     const hint = isLocal
       ? `请确认已运行 \`ollama serve\`，且模型 ${opts.model} 已下载（打开 设置 → 模型 可下载/检查），或在设置中改用自定义 OpenAI 兼容服务。`
       : `请检查网络与 API 配置（设置 → 整理模型预设）。`;
-    throw new Error(`无法连接摘要 LLM（${url}）。${hint}原因：${cause}`);
+    throw new Error(`无法连接摘要 LLM（${url}）。${hint}原因：${cause}`, { cause: e });
   }
 
   if (!res.ok) {
@@ -107,7 +107,10 @@ export async function postChat(
 }
 
 /** 生成结构化中文摘要。 */
-export async function summarize(transcript: string, opts: SummarizeOptions = {}): Promise<SummarizeResult> {
+export async function summarize(
+  transcript: string,
+  opts: SummarizeOptions = {},
+): Promise<SummarizeResult> {
   const model = opts.model ?? config.llm.model;
   let systemPrompt = opts.systemPrompt ?? config.llm.summarySystemPrompt;
   if (config.whisper.glossary.length) {

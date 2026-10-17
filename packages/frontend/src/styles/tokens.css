@@ -65,7 +65,8 @@
   --shadow-2: 0 20px 50px rgba(0, 0, 0, 0.35);
 
   /* L5 字体:ui 走系统栈,mono 用于时间码/体积/快捷键(tabular-nums),serif 仅详情页大标题 */
-  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --font-serif: 'New York', 'Songti SC', 'Noto Serif SC', Georgia, serif;
   font-family: var(--font-ui);
@@ -80,7 +81,7 @@
 }
 
 /* 浅色主题:根元素 data-theme="light" 时覆盖变量(暖纸白) */
-[data-theme="light"] {
+[data-theme='light'] {
   --text: rgba(28, 28, 32, 0.9);
   --text-2: rgba(28, 28, 32, 0.56);
   --text-3: rgba(28, 28, 32, 0.36);
@@ -119,6 +120,8 @@
   --shadow-1: 0 2px 10px rgba(0, 0, 0, 0.08);
   --shadow-2: 0 20px 50px rgba(0, 0, 0, 0.16);
 }
-html[data-theme="light"] body {
-  background: var(--window) !important; /* 覆盖 html.is-electron body 的 transparent，遮住桌面深色毛玻璃 */
+html[data-theme='light'] body {
+  background: var(
+    --window
+  ) !important; /* 覆盖 html.is-electron body 的 transparent，遮住桌面深色毛玻璃 */
 }

@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+**/release
+**/resources
+coverage
+package-lock.json
+**/package-lock.json
+*.md
+data

@@ -154,7 +154,9 @@
   text-align: center;
   cursor: pointer;
   color: var(--text-2);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .dropzone:hover {
   background: var(--fill-3);
@@ -168,7 +170,6 @@
   flex-direction: column;
   gap: 6px;
 }
-
 
 /* ---------- 实时流 / 逐字稿 ---------- */
 .stream {
@@ -196,4 +197,3 @@
   border-radius: 6px;
   transition: background 0.15s ease;
 }
-

@@ -45,7 +45,10 @@ function readAll(): DictationHistoryEntry[] {
 function writeAll(entries: DictationHistoryEntry[]): void {
   mkdirSync(historyDir, { recursive: true });
   const tmp = `${historyPath}.tmp`;
-  writeFileSync(tmp, entries.map((e) => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''));
+  writeFileSync(
+    tmp,
+    entries.map((e) => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''),
+  );
   renameSync(tmp, historyPath);
 }
 

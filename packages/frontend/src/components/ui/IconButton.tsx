@@ -10,11 +10,24 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /** 图标按钮:正方形、hover 浮起,必须传 label(aria-label + title) */
-export function IconButton({ label, children, tone = 'default', size = 'md', className, type, ...rest }: Props) {
+export function IconButton({
+  label,
+  children,
+  tone = 'default',
+  size = 'md',
+  className,
+  type,
+  ...rest
+}: Props) {
   return (
     <button
       type={type ?? 'button'}
-      className={cn('icon-btn', size === 'sm' && 'icon-btn-sm', tone === 'danger' && 'icon-btn-danger', className)}
+      className={cn(
+        'icon-btn',
+        size === 'sm' && 'icon-btn-sm',
+        tone === 'danger' && 'icon-btn-danger',
+        className,
+      )}
       aria-label={label}
       title={label}
       {...rest}

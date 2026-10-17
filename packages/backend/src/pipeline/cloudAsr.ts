@@ -10,7 +10,8 @@ function wavDurationMs(path: string): number {
     const sampleRate = buf.readUInt32LE(24);
     const byteRate = buf.readUInt32LE(28) || sampleRate * 2;
     // data 块大小在标准头位于 40；非标准头退回用文件大小估算
-    const dataSize = buf.toString('latin1', 36, 40) === 'data' ? buf.readUInt32LE(40) : buf.length - 44;
+    const dataSize =
+      buf.toString('latin1', 36, 40) === 'data' ? buf.readUInt32LE(40) : buf.length - 44;
     if (!sampleRate || !dataSize) return 0;
     return Math.round((dataSize / byteRate) * 1000);
   } catch {
@@ -43,6 +44,7 @@ export async function transcribeCloudApi(
     const cause = e instanceof Error ? e.message : String(e);
     throw new Error(
       `无法连接云端转写服务（${url}）。请检查网络与 设置 → 转写引擎 → 云端 API 的地址/密钥。原因：${cause}`,
+      { cause: e },
     );
   }
 
@@ -50,7 +52,7 @@ export async function transcribeCloudApi(
     throw new Error(`云端转写服务返回 ${res.status}：${(await res.text()).slice(0, 300)}`);
   }
 
-  let text = '';
+  let text: string;
   try {
     const j = (await res.json()) as { text?: string };
     text = (j.text ?? '').trim();

@@ -22,7 +22,11 @@ describe('EnergyVad', () => {
     const cuts: Array<[number, number]> = [];
     const vad = new EnergyVad({ sampleRate: 16000 });
     vad.onutterance = (_p, s, e) => cuts.push([s, e]);
-    for (const c of seq([[1000, LOUD], [1000, 0]])) vad.feed(c);
+    for (const c of seq([
+      [1000, LOUD],
+      [1000, 0],
+    ]))
+      vad.feed(c);
     expect(cuts.length).toBe(1);
     const [s, e] = cuts[0]!;
     expect(s).toBeGreaterThanOrEqual(0);
@@ -36,7 +40,13 @@ describe('EnergyVad', () => {
     const vad = new EnergyVad({ sampleRate: 16000 });
     vad.onutterance = () => cuts.push(1);
     // 起声需要连续 250ms 高能，200ms 高能 + 静音 → 从未起声
-    for (const c of seq([[200, LOUD], [500, 0], [1000, LOUD], [500, 0]])) vad.feed(c);
+    for (const c of seq([
+      [200, LOUD],
+      [500, 0],
+      [1000, LOUD],
+      [500, 0],
+    ]))
+      vad.feed(c);
     expect(cuts.length).toBe(0);
   });
 

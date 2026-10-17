@@ -19,7 +19,8 @@ const STATUS_LABEL: Record<string, string> = {
 function rowMeta(s: SessionMeta): string {
   const d = new Date(s.createdAt);
   const md = `${d.getMonth() + 1}月${d.getDate()}日`;
-  if (s.status !== 'done' && s.status !== 'error') return `${md} · ${STATUS_LABEL[s.status] ?? s.status}`;
+  if (s.status !== 'done' && s.status !== 'error')
+    return `${md} · ${STATUS_LABEL[s.status] ?? s.status}`;
   const dur = s.durationMs ? ` · ${Math.max(1, Math.round(s.durationMs / 60000))} 分钟` : '';
   return md + dur;
 }
@@ -106,7 +107,8 @@ export function SessionList({
         message={
           pending && (
             <>
-              确认删除「<b>{pending.title || '未命名'}</b>」？其录音、逐字稿和摘要将被永久删除，无法恢复。
+              确认删除「<b>{pending.title || '未命名'}</b>
+              」？其录音、逐字稿和摘要将被永久删除，无法恢复。
             </>
           )
         }

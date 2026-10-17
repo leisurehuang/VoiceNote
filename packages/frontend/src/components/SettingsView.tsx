@@ -64,12 +64,18 @@ export function SettingsView() {
     <div className="content settings">
       <section className="block">
         <Segmented options={TABS} value={tab} onChange={setTab} className="settings-tabs" />
-        <p className="muted settings-legend">点选类操作（切引擎、设为激活、切模型）即时生效；表单类配置需点「保存」。</p>
+        <p className="muted settings-legend">
+          点选类操作（切引擎、设为激活、切模型）即时生效；表单类配置需点「保存」。
+        </p>
         {err && <div className="alert err">{err}</div>}
 
         {/* 语音转文字：引擎卡片 + 各引擎配置/模型管理 */}
         <div className={tab === 'transcribe' ? '' : 'hidden'}>
-          {!settings ? <SettingsSkeleton /> : <TranscriptionSettings settings={settings} persist={persist} />}
+          {!settings ? (
+            <SettingsSkeleton />
+          ) : (
+            <TranscriptionSettings settings={settings} persist={persist} />
+          )}
         </div>
 
         {/* AI 整理：LLM 预设 + 本地 Ollama 模型管理 */}
@@ -85,8 +91,8 @@ export function SettingsView() {
             <div className="glossary-box">
               <h4 className="block-h">术语表</h4>
               <p className="muted">
-                专有名词 / 人名 / 公司名，每行一个。转写与整理时自动偏置，提升识别准确率
-                （sherpa 引擎不支持偏置）。
+                专有名词 / 人名 / 公司名，每行一个。转写与整理时自动偏置，提升识别准确率 （sherpa
+                引擎不支持偏置）。
               </p>
               <textarea
                 className="glossary-edit"

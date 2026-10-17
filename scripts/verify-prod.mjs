@@ -13,7 +13,10 @@ async function main() {
   }
 
   const index = await (await fetch(`${BASE}/`)).text();
-  console.log('GET /         ->', index.includes('<div id="root">') ? '✓ 返回前端 index.html' : '✗ 非 SPA 页面');
+  console.log(
+    'GET /         ->',
+    index.includes('<div id="root">') ? '✓ 返回前端 index.html' : '✗ 非 SPA 页面',
+  );
 
   const health = await (await fetch(`${BASE}/api/health`)).json();
   console.log('GET /api/health ->', JSON.stringify(health));

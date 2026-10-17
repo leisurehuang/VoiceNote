@@ -34,7 +34,8 @@ describe('UtteranceTranscriber', () => {
     const t = new UtteranceTranscriber({
       workDir,
       filePrefix: 'a-',
-      onUtterance: (u) => void results.push(`${u.index}:${u.segments.map((s) => s.text.trim()).join('')}`),
+      onUtterance: (u) =>
+        void results.push(`${u.index}:${u.segments.map((s) => s.text.trim()).join('')}`),
     });
     transcribeMock.mockResolvedValueOnce([seg('你好')]).mockResolvedValueOnce([seg('second')]);
     t.feed(speech(600, '').pcm);
@@ -58,8 +59,14 @@ describe('UtteranceTranscriber', () => {
   it('转写抛错：error 记录、onError 上报、后续句不受影响', async () => {
     transcribeMock.mockReset();
     const errors: string[] = [];
-    const t = new UtteranceTranscriber({ workDir, filePrefix: 'c-', onError: (m) => void errors.push(m) });
-    transcribeMock.mockRejectedValueOnce(new Error('engine boom')).mockResolvedValueOnce([seg('ok')]);
+    const t = new UtteranceTranscriber({
+      workDir,
+      filePrefix: 'c-',
+      onError: (m) => void errors.push(m),
+    });
+    transcribeMock
+      .mockRejectedValueOnce(new Error('engine boom'))
+      .mockResolvedValueOnce([seg('ok')]);
     t.feed(speech(600, '').pcm);
     t.feed(speech(600, '').pcm);
     await t.waitIdle();
@@ -73,9 +80,10 @@ describe('UtteranceTranscriber', () => {
     const t = new UtteranceTranscriber({ workDir, filePrefix: 'd-' });
     let resolveFirst: () => void;
     transcribeMock.mockImplementationOnce(
-      () => new Promise<TranscriptSegment[]>((r) => {
-        resolveFirst = () => r([seg('first')]);
-      }),
+      () =>
+        new Promise<TranscriptSegment[]>((r) => {
+          resolveFirst = () => r([seg('first')]);
+        }),
     );
     transcribeMock.mockResolvedValue([seg('never')]);
     t.feed(speech(600, '').pcm);

@@ -55,7 +55,10 @@ async function main() {
     ok(res.status === 200, 'POST /api/dictation 200');
     ok(typeof j.transcript === 'string', '返回 transcript 字段');
     ok(typeof j.text === 'string', '返回 text 字段');
-    ok(typeof j.durationMs === 'number' && j.durationMs >= 950, `durationMs≈1000（实际 ${j.durationMs}）`);
+    ok(
+      typeof j.durationMs === 'number' && j.durationMs >= 950,
+      `durationMs≈1000（实际 ${j.durationMs}）`,
+    );
     ok(j.silent === true || j.transcript === '', '静音 → silent/空文本');
 
     // 太短的录音要 400

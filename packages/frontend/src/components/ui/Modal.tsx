@@ -34,7 +34,14 @@ export function Modal({ open, onClose, title, children, closeable = true }: Prop
         if (closeable && e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        ref={ref}
+        tabIndex={-1}
+      >
         <div className="modal-head">
           <h3>{title}</h3>
           {closeable && (

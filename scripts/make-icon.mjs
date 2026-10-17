@@ -13,13 +13,17 @@ const px = Buffer.alloc(S * S * 4);
 const set = (x, y, r, g, b, a = 255) => {
   if (x < 0 || y < 0 || x >= S || y >= S) return;
   const i = (y * S + x) * 4;
-  px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = a;
+  px[i] = r;
+  px[i + 1] = g;
+  px[i + 2] = b;
+  px[i + 3] = a;
 };
 const inRR = (x, y, bx, by, bw, bh, rr) => {
   if (x < bx || x >= bx + bw || y < by || y >= by + bh) return false;
   const ix = Math.max(bx + rr, Math.min(x, bx + bw - rr));
   const iy = Math.max(by + rr, Math.min(y, by + bh - rr));
-  const dx = x - ix, dy = y - iy;
+  const dx = x - ix,
+    dy = y - iy;
   return dx * dx + dy * dy <= rr * rr;
 };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -39,7 +43,9 @@ for (let y = 0; y < S; y++) {
     if (inRR(x, y, 412, 296, 200, 250, 100)) mic = true; // 头
     if (x >= 497 && x <= 527 && y >= 548 && y <= 692) mic = true; // 杆
     if (inRR(x, y, 392, 700, 240, 44, 22)) mic = true; // 底座
-    const dx = x - 512, dy = y - 426, d2 = dx * dx + dy * dy; // 弧形支架
+    const dx = x - 512,
+      dy = y - 426,
+      d2 = dx * dx + dy * dy; // 弧形支架
     if (d2 <= 178 * 178 && d2 >= 140 * 140 && y >= 426 && y <= 612) mic = true;
     if (mic) set(x, y, 255, 255, 255, 255);
   }
@@ -71,14 +77,20 @@ const encodePNG = (w, h, rgba) => {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; ihdr[9] = 6;
+  ihdr[8] = 8;
+  ihdr[9] = 6;
   const raw = Buffer.alloc((w * 4 + 1) * h);
   for (let y = 0; y < h; y++) {
     raw[y * (w * 4 + 1)] = 0;
     rgba.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4);
   }
   const idat = deflateSync(raw, { level: 9 });
-  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
+  return Buffer.concat([
+    sig,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
 };
 
 mkdirSync(dirname(OUT), { recursive: true });
@@ -97,13 +109,21 @@ for (const sz of sizes) {
 }
 // 重命名成 iconutil 要求的命名
 const rename = [
-  [16, 'icon_16x16.png'], [32, 'icon_16x16@2x.png'], [32, 'icon_32x32.png'],
-  [64, 'icon_32x32@2x.png'], [128, 'icon_128x128.png'], [256, 'icon_128x128@2x.png'],
-  [256, 'icon_256x256.png'], [512, 'icon_256x256@2x.png'], [512, 'icon_512x512.png'],
+  [16, 'icon_16x16.png'],
+  [32, 'icon_16x16@2x.png'],
+  [32, 'icon_32x32.png'],
+  [64, 'icon_32x32@2x.png'],
+  [128, 'icon_128x128.png'],
+  [256, 'icon_128x128@2x.png'],
+  [256, 'icon_256x256.png'],
+  [512, 'icon_256x256@2x.png'],
+  [512, 'icon_512x512.png'],
   [1024, 'icon_512x512@2x.png'],
 ];
 for (const [sz, name] of rename) {
-  execSync(`sips -z ${sz} ${sz} "${masterPng}" --out "${iconset}/${name}" >/dev/null`, { stdio: 'ignore' });
+  execSync(`sips -z ${sz} ${sz} "${masterPng}" --out "${iconset}/${name}" >/dev/null`, {
+    stdio: 'ignore',
+  });
 }
 execSync(`iconutil -c icns "${iconset}" -o "${OUT}"`, { stdio: 'ignore' });
 rmSync(work, { recursive: true, force: true });

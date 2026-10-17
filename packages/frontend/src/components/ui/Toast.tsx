@@ -45,7 +45,11 @@ export function ToastHost() {
     <div className="toast-host" aria-live="polite">
       {list.map((t) => (
         <div key={t.id} className={cn('toast', t.tone === 'err' && 'toast-err')}>
-          {t.tone === 'err' ? <CircleX size={14} aria-hidden /> : <CircleCheck size={14} aria-hidden />}
+          {t.tone === 'err' ? (
+            <CircleX size={14} aria-hidden />
+          ) : (
+            <CircleCheck size={14} aria-hidden />
+          )}
           <span>{t.text}</span>
         </div>
       ))}

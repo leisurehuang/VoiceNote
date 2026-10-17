@@ -92,7 +92,9 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
         : paras.map((idxs, pi) => (
             <div
               key={pi}
-              className={'t-para' + (activeIndex >= 0 && idxs.includes(activeIndex) ? ' playing' : '')}
+              className={
+                't-para' + (activeIndex >= 0 && idxs.includes(activeIndex) ? ' playing' : '')
+              }
             >
               {idxs.map((i) => {
                 const s = segments[i];
@@ -111,7 +113,12 @@ export function TranscriptView({ segments, activeIndex = -1, onSeek, onSaveTrans
                     {first && s.speaker != null && (
                       <span
                         className="spk"
-                        style={{ color: speakerColor(s.speaker), '--dot': speakerColor(s.speaker) } as React.CSSProperties}
+                        style={
+                          {
+                            color: speakerColor(s.speaker),
+                            '--dot': speakerColor(s.speaker),
+                          } as React.CSSProperties
+                        }
                       >
                         说话人 {speakerLabel(s.speaker)}
                       </span>

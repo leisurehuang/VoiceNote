@@ -18,7 +18,15 @@ const STEPS = [
 
 type StepState = 'done' | 'active' | 'todo' | 'error';
 
-export function ProgressView({ id, onDone, onBack }: { id: string; onDone: () => void; onBack?: () => void }) {
+export function ProgressView({
+  id,
+  onDone,
+  onBack,
+}: {
+  id: string;
+  onDone: () => void;
+  onBack?: () => void;
+}) {
   const [stage, setStage] = useState('uploaded');
   const [progress, setProgress] = useState(0);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -72,7 +80,11 @@ export function ProgressView({ id, onDone, onBack }: { id: string; onDone: () =>
         {STEPS.map((s, i) => {
           const state = stepState(i);
           return (
-            <li key={s.id} className={cn('step', `step-${state}`)} aria-current={state === 'active' ? 'step' : undefined}>
+            <li
+              key={s.id}
+              className={cn('step', `step-${state}`)}
+              aria-current={state === 'active' ? 'step' : undefined}
+            >
               <span className="step-marker" aria-hidden>
                 {state === 'done' ? (
                   <Check size={11} />

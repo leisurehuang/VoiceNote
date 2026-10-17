@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { AudioLines, Calendar, Clock, Cpu, FileText, SquareCheckBig } from 'lucide-react';
-import { getSession, resummarize, updateSummary, updateTranscript, extractTodos, getTodos, audioUrl, sourceUrl } from '../api/client';
+import {
+  getSession,
+  resummarize,
+  updateSummary,
+  updateTranscript,
+  extractTodos,
+  getTodos,
+  audioUrl,
+  sourceUrl,
+} from '../api/client';
 import type { SessionDetail as Detail, TranscriptSegment, TodoItem } from '../api/types';
 import { TranscriptView } from './TranscriptView';
 import { SummaryView } from './SummaryView';
@@ -160,53 +169,55 @@ export function SessionDetail({ id }: { id: string }) {
 
       {/* 中间内容区独立滚动；顶部 tab 与底部导出栏固定 */}
       <div className="detail-body">
-      {/* 两个 tab 常驻 DOM、用 display 切换：音频不随 tab 卸载，播放进度与摘要编辑态都保留 */}
-      <section className={tab === 'summary' ? 'block' : 'block hidden'}>
-        {detail.transcript.length > 0 && (
-          <div className="todos-box">
-            <div className="todos-head">
-              <h3 className="block-h todos-title">
-                <SquareCheckBig size={13} aria-hidden />
-                待办事项
-              </h3>
-              <Button variant="ghost" size="sm" loading={extracting} onClick={handleExtractTodos}>
-                {todos.length ? '重新提取' : '提取待办'}
-              </Button>
+        {/* 两个 tab 常驻 DOM、用 display 切换：音频不随 tab 卸载，播放进度与摘要编辑态都保留 */}
+        <section className={tab === 'summary' ? 'block' : 'block hidden'}>
+          {detail.transcript.length > 0 && (
+            <div className="todos-box">
+              <div className="todos-head">
+                <h3 className="block-h todos-title">
+                  <SquareCheckBig size={13} aria-hidden />
+                  待办事项
+                </h3>
+                <Button variant="ghost" size="sm" loading={extracting} onClick={handleExtractTodos}>
+                  {todos.length ? '重新提取' : '提取待办'}
+                </Button>
+              </div>
+              {todos.length > 0 ? (
+                <ul className="todos-list">
+                  {todos.map((t, i) => (
+                    <li key={i}>
+                      <span className="todo-text">{t.text}</span>
+                      {t.owner && <span className="todo-meta">负责人：{t.owner}</span>}
+                      {t.due && <span className="todo-meta">时限：{t.due}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">
+                  点「提取待办」让模型从逐字稿抽取结构化待办（含负责人、时限）。
+                </p>
+              )}
             </div>
-            {todos.length > 0 ? (
-              <ul className="todos-list">
-                {todos.map((t, i) => (
-                  <li key={i}>
-                    <span className="todo-text">{t.text}</span>
-                    {t.owner && <span className="todo-meta">负责人：{t.owner}</span>}
-                    {t.due && <span className="todo-meta">时限：{t.due}</span>}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">点「提取待办」让模型从逐字稿抽取结构化待办（含负责人、时限）。</p>
-            )}
+          )}
+          <div className="reader-col">
+            <SummaryView
+              summary={detail.summary}
+              summarizing={summarizing}
+              onResummarize={handleResummarize}
+              onSaveSummary={handleSaveSummary}
+            />
           </div>
-        )}
-        <div className="reader-col">
-          <SummaryView
-            summary={detail.summary}
-            summarizing={summarizing}
-            onResummarize={handleResummarize}
-            onSaveSummary={handleSaveSummary}
-          />
-        </div>
-        {err && <div className="alert err">{err}</div>}
-      </section>
+          {err && <div className="alert err">{err}</div>}
+        </section>
 
-      <section className={tab === 'transcript' ? 'block' : 'block hidden'}>
-        <TranscriptView
-          segments={detail.transcript}
-          activeIndex={activeIndex}
-          onSeek={handleSeek}
-          onSaveTranscript={handleSaveTranscript}
-        />
-      </section>
+        <section className={tab === 'transcript' ? 'block' : 'block hidden'}>
+          <TranscriptView
+            segments={detail.transcript}
+            activeIndex={activeIndex}
+            onSeek={handleSeek}
+            onSaveTranscript={handleSaveTranscript}
+          />
+        </section>
       </div>
 
       {/* 底部:音频播放条(有音频时);导出操作已上移到标题区右侧 */}

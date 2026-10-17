@@ -98,11 +98,7 @@ export async function runPipeline(id: string): Promise<void> {
     store.emitter(id)?.emit('done', { id });
   } catch (e) {
     const msg =
-      e instanceof DependencyMissingError
-        ? e.message
-        : e instanceof Error
-          ? e.message
-          : String(e);
+      e instanceof DependencyMissingError ? e.message : e instanceof Error ? e.message : String(e);
     await store.update(id, { status: 'error', stage: '出错', error: msg });
     // 注意：不能用 'error' 事件名——EventEmitter 在无监听时会把 'error' 当致命错误抛出。
     store.emitter(id)?.emit('failed', { id, error: msg });

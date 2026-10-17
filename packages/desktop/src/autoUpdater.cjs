@@ -4,7 +4,7 @@
  */
 
 const { autoUpdater } = require('electron-updater');
-const { app, dialog, shell } = require('electron');
+const { app, dialog } = require('electron');
 const log = require('electron-log');
 const path = require('path');
 const fs = require('fs');

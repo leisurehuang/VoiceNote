@@ -58,7 +58,11 @@ export function App() {
 
   async function onDelete(id: string) {
     await deleteSession(id);
-    setView((v) => (v.name !== 'new' && v.name !== 'settings' && v.name !== 'dictation' && v.id === id ? { name: 'new' } : v));
+    setView((v) =>
+      v.name !== 'new' && v.name !== 'settings' && v.name !== 'dictation' && v.id === id
+        ? { name: 'new' }
+        : v,
+    );
     refresh();
   }
 

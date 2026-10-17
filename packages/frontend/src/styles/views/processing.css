@@ -19,7 +19,6 @@
   transition: width 0.3s;
 }
 
-
 /* ---------- 阶段指示器(上传→转码→转写→摘要) ---------- */
 .steps {
   list-style: none;

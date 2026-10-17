@@ -12,13 +12,18 @@ const PASTE_KEY = process.platform === 'darwin' ? 'Cmd+V' : 'Ctrl+V';
 
 function run(cmd, args, timeoutMs = 4000) {
   return new Promise((resolve, reject) => {
-    const child = execFile(cmd, args, { timeout: timeoutMs, windowsHide: true }, (err, stdout, stderr) => {
-      if (err) {
-        err.stderr = stderr;
-        err.stdout = stdout;
-        reject(err);
-      } else resolve(stdout);
-    });
+    const child = execFile(
+      cmd,
+      args,
+      { timeout: timeoutMs, windowsHide: true },
+      (err, stdout, stderr) => {
+        if (err) {
+          err.stderr = stderr;
+          err.stdout = stdout;
+          reject(err);
+        } else resolve(stdout);
+      },
+    );
     // execFile 超时后只 kill 子进程，这里无需额外处理
     void child;
   });
@@ -28,13 +33,18 @@ function run(cmd, args, timeoutMs = 4000) {
 async function simulatePaste() {
   if (process.platform === 'darwin') {
     try {
-      await run('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
+      await run('osascript', [
+        '-e',
+        'tell application "System Events" to keystroke "v" using command down',
+      ]);
       return;
     } catch (e) {
       const s = `${e.stderr || ''}${e.message || ''}`;
       if (/assistive|accessibility|1002|not allowed/i.test(s)) {
         /** @type {Error & {code?: string}} */
-        const err = new Error('需要辅助功能权限：系统设置 → 隐私与安全性 → 辅助功能，勾选 Voice Notes');
+        const err = new Error(
+          '需要辅助功能权限：系统设置 → 隐私与安全性 → 辅助功能，勾选 Voice Notes',
+        );
         err.code = 'ax';
         throw err;
       }
@@ -43,7 +53,9 @@ async function simulatePaste() {
   }
   if (process.platform === 'win32') {
     await run('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-Command',
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
       "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')",
     ]);
     return;

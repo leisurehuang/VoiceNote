@@ -23,9 +23,24 @@ const MODEL_URL_BASE =
   process.env.WHISPER_MODEL_URL_BASE ?? 'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main';
 
 export const WHISPER_MODELS: WhisperModelSpec[] = [
-  { name: 'ggml-large-v3-turbo.bin', label: 'turbo（推荐）', size: '~1.5GB', url: `${MODEL_URL_BASE}/ggml-large-v3-turbo.bin` },
-  { name: 'ggml-large-v3.bin', label: 'large-v3', size: '~3.0GB', url: `${MODEL_URL_BASE}/ggml-large-v3.bin` },
-  { name: 'ggml-small.bin', label: 'small（轻量）', size: '~466MB', url: `${MODEL_URL_BASE}/ggml-small.bin` },
+  {
+    name: 'ggml-large-v3-turbo.bin',
+    label: 'turbo（推荐）',
+    size: '~1.5GB',
+    url: `${MODEL_URL_BASE}/ggml-large-v3-turbo.bin`,
+  },
+  {
+    name: 'ggml-large-v3.bin',
+    label: 'large-v3',
+    size: '~3.0GB',
+    url: `${MODEL_URL_BASE}/ggml-large-v3.bin`,
+  },
+  {
+    name: 'ggml-small.bin',
+    label: 'small（轻量）',
+    size: '~466MB',
+    url: `${MODEL_URL_BASE}/ggml-small.bin`,
+  },
 ];
 
 /** 内置只读模型目录（打包态由 desktop 注入；新包为空，目录可能不存在）。 */
@@ -74,7 +89,16 @@ export function listWhisper(): WhisperModelsResult {
   const byName = new Map<string, WhisperModelInfo>();
   const upsert = (i: WhisperModelInfo) => {
     const prev = byName.get(i.name);
-    byName.set(i.name, prev ? { ...prev, installed: prev.installed || i.installed, deletable: prev.deletable || i.deletable } : i);
+    byName.set(
+      i.name,
+      prev
+        ? {
+            ...prev,
+            installed: prev.installed || i.installed,
+            deletable: prev.deletable || i.deletable,
+          }
+        : i,
+    );
   };
   // 1) 固定档位（用户目录或内置目录中任一存在即算已装）
   for (const m of WHISPER_MODELS) {
@@ -98,13 +122,31 @@ export function listWhisper(): WhisperModelsResult {
     } catch {
       /* ignore */
     }
-    upsert({ name, label: name.replace(/\.bin$/, ''), size, url: '', installed: true, active: name === activeBase, builtin: false, deletable: true });
+    upsert({
+      name,
+      label: name.replace(/\.bin$/, ''),
+      size,
+      url: '',
+      installed: true,
+      active: name === activeBase,
+      builtin: false,
+      deletable: true,
+    });
   }
   // 3) 内置目录中的其他 .bin
   for (const p of BUNDLED_MODELS_DIR ? listBinFiles(BUNDLED_MODELS_DIR) : []) {
     const name = basename(p);
     if (byName.has(name)) continue;
-    upsert({ name, label: name.replace(/\.bin$/, ''), size: '', url: '', installed: true, active: name === activeBase, builtin: true, deletable: false });
+    upsert({
+      name,
+      label: name.replace(/\.bin$/, ''),
+      size: '',
+      url: '',
+      installed: true,
+      active: name === activeBase,
+      builtin: true,
+      deletable: false,
+    });
   }
   return { dir, activePath: config.whisper.model, models: [...byName.values()] };
 }
@@ -117,7 +159,9 @@ export function listWhisper(): WhisperModelsResult {
 export function downloadWhisperSpec(spec: { name: string; url: string }): EventEmitter {
   const em = new EventEmitter();
   // 防路径穿越：只取文件名，清洗非法字符，强制 .bin 后缀
-  const name = basename(spec.name || '').replace(/[^\w.\-\u4e00-\u9fa5]+/g, '_').replace(/^\.+/, '');
+  const name = basename(spec.name || '')
+    .replace(/[^\w.\-\u4e00-\u9fa5]+/g, '_')
+    .replace(/^\.+/, '');
   const finalName = name.endsWith('.bin') ? name : `${name}.bin`;
   const url = (spec.url || '').trim();
   if (!finalName || finalName === '.bin') {

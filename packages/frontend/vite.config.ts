@@ -6,9 +6,9 @@ import react from '@vitejs/plugin-react';
 
 // 构建时从根 package.json 读版本号内联，dev/build 均生效，不依赖运行时读文件
 const here = dirname(fileURLToPath(import.meta.url));
-const rootPkg = JSON.parse(
-  readFileSync(resolve(here, '..', '..', 'package.json'), 'utf8'),
-) as { version: string };
+const rootPkg = JSON.parse(readFileSync(resolve(here, '..', '..', 'package.json'), 'utf8')) as {
+  version: string;
+};
 
 export default defineConfig({
   plugins: [react()],

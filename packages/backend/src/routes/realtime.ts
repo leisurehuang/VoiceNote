@@ -80,7 +80,12 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
       }
     };
 
-    const doUtterance = (u: { index: number; startMs: number; endMs: number; segments: TranscriptSegment[] }) => {
+    const doUtterance = (u: {
+      index: number;
+      startMs: number;
+      endMs: number;
+      segments: TranscriptSegment[];
+    }) => {
       if (!sessionId) return;
       for (const seg of u.segments) {
         // whisper 给的是单句内时间戳，叠加本句在会话中的起点
@@ -133,7 +138,8 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
             send(socket, {
               type: 'warning',
               message:
-                '说话人分离失败，已保留原转写：' + (diaErr instanceof Error ? diaErr.message : String(diaErr)),
+                '说话人分离失败，已保留原转写：' +
+                (diaErr instanceof Error ? diaErr.message : String(diaErr)),
             });
           }
         }
@@ -154,7 +160,11 @@ export function registerRealtimeRoute(app: FastifyInstance): void {
         }
         store.update(sessionId, { status: 'done', stage: '完成', progress: 1, error: null });
       } catch (e) {
-        store.update(sessionId, { status: 'error', stage: '出错', error: e instanceof Error ? e.message : String(e) });
+        store.update(sessionId, {
+          status: 'error',
+          stage: '出错',
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
       send(socket, { type: 'done', id: sessionId });
     };

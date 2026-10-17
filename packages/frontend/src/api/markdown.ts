@@ -3,7 +3,11 @@
 // 围栏代码块、http(s) 链接、加粗、行内代码。不支持嵌套结构（按行处理）。
 
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /** 行内格式:行内代码优先「占位保护」,链接仅允许 http(s) 并强制新开页。 */
@@ -14,8 +18,12 @@ function inline(s: string): string {
     return `\u0000${codes.length - 1}\u0000`;
   });
   t = t
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+    )
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // eslint-disable-next-line no-control-regex -- \x00 是行内代码占位符的既定编码
   t = t.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => codes[Number(i)] ?? '');
   return t;
 }
@@ -118,7 +126,9 @@ export function renderMarkdown(md: string): string {
       const task = (m[1] ?? '').match(/^\[( |x|X)\]\s+(.*)$/);
       if (task) {
         const done = (task[1] ?? '').toLowerCase() === 'x';
-        out.push(`<li class="md-task${done ? ' md-task-done' : ''}"><span class="md-task-box" aria-hidden="true"></span>${inline(task[2] ?? '')}</li>`);
+        out.push(
+          `<li class="md-task${done ? ' md-task-done' : ''}"><span class="md-task-box" aria-hidden="true"></span>${inline(task[2] ?? '')}</li>`,
+        );
       } else {
         out.push(`<li>${inline(m[1] ?? '')}</li>`);
       }

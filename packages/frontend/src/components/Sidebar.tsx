@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react';
-import { AudioLines, CircleCheck, Mic, Moon, Plus, Search, Settings, Sun, SunMoon, TriangleAlert } from 'lucide-react';
+import {
+  AudioLines,
+  CircleCheck,
+  Mic,
+  Moon,
+  Plus,
+  Search,
+  Settings,
+  Sun,
+  SunMoon,
+  TriangleAlert,
+} from 'lucide-react';
 import type { HealthStatus, SessionMeta } from '../api/types';
 import { SessionList } from './SessionList';
 import { searchSessions } from '../api/client';
@@ -22,7 +33,17 @@ const THEME_META = {
   dark: { Icon: Moon, label: '深色，点击切自动' },
 } as const;
 
-export function Sidebar({ sessions, activeId, health, disabled = false, onNew, onOpen, onSettings, onDictation, onDelete }: Props) {
+export function Sidebar({
+  sessions,
+  activeId,
+  health,
+  disabled = false,
+  onNew,
+  onOpen,
+  onSettings,
+  onDictation,
+  onDelete,
+}: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SessionMeta[] | null>(null);
   const [theme, setTheme] = useState<'auto' | 'light' | 'dark'>(() => {
@@ -66,7 +87,9 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
       return;
     }
     const t = setTimeout(() => {
-      searchSessions(q).then(setResults).catch(() => setResults([]));
+      searchSessions(q)
+        .then(setResults)
+        .catch(() => setResults([]));
     }, 300);
     return () => clearTimeout(t);
   }, [query]);
@@ -119,11 +142,21 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
           />
         </div>
         <div className="sidebar-nav">
-          <button className="settings-btn" onClick={onDictation} disabled={disabled} title="全局语音听写">
+          <button
+            className="settings-btn"
+            onClick={onDictation}
+            disabled={disabled}
+            title="全局语音听写"
+          >
             <Mic size={14} aria-hidden />
             <span>语音输入</span>
           </button>
-          <button className="settings-btn" onClick={onSettings} disabled={disabled} title="模型配置">
+          <button
+            className="settings-btn"
+            onClick={onSettings}
+            disabled={disabled}
+            title="模型配置"
+          >
             <Settings size={14} aria-hidden />
             <span>设置</span>
           </button>
@@ -144,7 +177,9 @@ export function Sidebar({ sessions, activeId, health, disabled = false, onNew, o
         )}
         <button
           className="theme-toggle"
-          onClick={() => setTheme((t) => (t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto'))}
+          onClick={() =>
+            setTheme((t) => (t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto'))
+          }
           title={THEME_META[theme].label}
           aria-label="切换主题"
         >

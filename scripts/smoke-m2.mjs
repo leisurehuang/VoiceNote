@@ -56,7 +56,7 @@ async function main() {
   const list = await (await fetch(`${API}/sessions`)).json();
   console.log('GET /sessions -> 条数', Array.isArray(list) ? list.length : '?');
 
-  const before = (await (await fetch(`${API}/sessions/${id}`)).json());
+  const before = await (await fetch(`${API}/sessions/${id}`)).json();
   console.log('detail before: status=%s title=%s', before.status, before.title);
 
   const pr = await fetch(`${API}/sessions/${id}/process`, { method: 'POST' });
@@ -65,9 +65,15 @@ async function main() {
   // 等流水线跑完（转码或失败）
   for (let i = 0; i < 20; i++) {
     await new Promise((x) => setTimeout(x, 400));
-    const d = (await (await fetch(`${API}/sessions/${id}`)).json());
+    const d = await (await fetch(`${API}/sessions/${id}`)).json();
     if (d.status === 'done' || d.status === 'error') {
-      console.log('process 结果: status=%s stage=%s durationMs=%s error=%s', d.status, d.stage, d.durationMs, d.error);
+      console.log(
+        'process 结果: status=%s stage=%s durationMs=%s error=%s',
+        d.status,
+        d.stage,
+        d.durationMs,
+        d.error,
+      );
       break;
     }
   }

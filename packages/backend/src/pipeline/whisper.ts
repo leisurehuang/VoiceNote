@@ -11,7 +11,9 @@ interface RawWhisperSegment {
 }
 
 /** 把 whisper.cpp stdout 里的一行（`[00:00:00.000 --> 00:00:03.000] 文本`）解析成段。 */
-export function parseSegmentLine(line: string): { text: string; startMs: number; endMs: number } | null {
+export function parseSegmentLine(
+  line: string,
+): { text: string; startMs: number; endMs: number } | null {
   const m = line.match(
     /\[\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*\]\s*(.*)$/,
   );
@@ -43,7 +45,10 @@ function parseWhisperJson(raw: string): TranscriptSegment[] {
 /** 核心转写：对一个 wav 文件跑 whisper-cli，返回分段。批处理与实时共用。 */
 export async function transcribeWavFile(
   wavPath: string,
-  opts: { language?: string; onSegment?: (seg: { text: string; startMs: number; endMs: number }) => void } = {},
+  opts: {
+    language?: string;
+    onSegment?: (seg: { text: string; startMs: number; endMs: number }) => void;
+  } = {},
 ): Promise<TranscriptSegment[]> {
   const cli = config.whisper.cli;
   if (!existsSync(cli)) throw new DependencyMissingError('whisper-cli');
@@ -51,12 +56,17 @@ export async function transcribeWavFile(
   if (!existsSync(model)) throw new DependencyMissingError(`whisper 模型（${model}）`);
 
   const args = [
-    '-m', model,
-    '-f', wavPath,
-    '-l', opts.language ?? config.whisper.language,
-    '-t', String(config.whisper.threads),
+    '-m',
+    model,
+    '-f',
+    wavPath,
+    '-l',
+    opts.language ?? config.whisper.language,
+    '-t',
+    String(config.whisper.threads),
     '-oj',
-    '-of', wavPath,
+    '-of',
+    wavPath,
   ];
   // 把术语表拼进解码预热 prompt，偏置专有名词识别
   const promptParts = [config.whisper.prompt];

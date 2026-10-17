@@ -1,4 +1,9 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
 import { cn } from '../../cn';
 
 interface FieldProps {
@@ -18,7 +23,11 @@ export function Field({ label, help, error, children, htmlFor }: FieldProps) {
         {label}
       </label>
       {children}
-      {error ? <span className="field-msg field-msg-err">{error}</span> : help ? <span className="field-msg">{help}</span> : null}
+      {error ? (
+        <span className="field-msg field-msg-err">{error}</span>
+      ) : help ? (
+        <span className="field-msg">{help}</span>
+      ) : null}
     </div>
   );
 }

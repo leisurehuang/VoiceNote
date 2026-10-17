@@ -63,7 +63,10 @@ export function Uploader({ onCreated }: { onCreated: (id: string) => void }) {
         ) : (
           <>
             <FolderUp size={26} strokeWidth={1.75} className="dropzone-icon" aria-hidden />
-            <p>点击选择，或拖入音频 / 视频文件（mp3 / m4a / wav / webm / mp4 / mov …，视频自动抽取音轨）</p>
+            <p>
+              点击选择，或拖入音频 / 视频文件（mp3 / m4a / wav / webm / mp4 / mov
+              …，视频自动抽取音轨）
+            </p>
           </>
         )}
         <input ref={inputRef} type="file" accept="audio/*,video/*" onChange={onPick} hidden />

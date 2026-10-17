@@ -1,4 +1,14 @@
-import type { DictationHistoryEntry, HealthStatus, SessionDetail, SessionMeta, Settings, TranscriptSegment, TodoItem, WhisperModelsResult, LlmModelsResult } from './types';
+import type {
+  DictationHistoryEntry,
+  HealthStatus,
+  SessionDetail,
+  SessionMeta,
+  Settings,
+  TranscriptSegment,
+  TodoItem,
+  WhisperModelsResult,
+  LlmModelsResult,
+} from './types';
 
 const API = '/api';
 
@@ -79,7 +89,8 @@ export const extractTodos = async (id: string): Promise<TodoItem[]> => {
 };
 
 export const getTodos = async (id: string): Promise<TodoItem[]> =>
-  ((await (await fetch(`${API}/sessions/${id}/todos`)).json()) as { todos: TodoItem[] }).todos ?? [];
+  ((await (await fetch(`${API}/sessions/${id}/todos`)).json()) as { todos: TodoItem[] }).todos ??
+  [];
 
 export const deleteSession = (id: string): Promise<Response> =>
   fetch(`${API}/sessions/${id}`, { method: 'DELETE' });
@@ -92,11 +103,13 @@ export const getSettings = async (): Promise<Settings> =>
   (await (await fetch(`${API}/settings`)).json()) as Settings;
 
 export const updateSettings = async (body: Settings): Promise<Settings> =>
-  (await (await fetch(`${API}/settings`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })).json()) as Settings;
+  (await (
+    await fetch(`${API}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  ).json()) as Settings;
 
 export const testConnection = async (body: {
   baseUrl: string;

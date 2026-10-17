@@ -16,13 +16,17 @@ const px = Buffer.alloc(S * S * 4);
 const set = (x, y, r, g, b, a = 255) => {
   if (x < 0 || y < 0 || x >= S || y >= S) return;
   const i = (y * S + x) * 4;
-  px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = a;
+  px[i] = r;
+  px[i + 1] = g;
+  px[i + 2] = b;
+  px[i + 3] = a;
 };
 const inRR = (x, y, bx, by, bw, bh, rr) => {
   if (x < bx || x >= bx + bw || y < by || y >= by + bh) return false;
   const ix = Math.max(bx + rr, Math.min(x, bx + bw - rr));
   const iy = Math.max(by + rr, Math.min(y, by + bh - rr));
-  const dx = x - ix, dy = y - iy;
+  const dx = x - ix,
+    dy = y - iy;
   return dx * dx + dy * dy <= rr * rr;
 };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -40,7 +44,9 @@ for (let y = 0; y < S; y++) {
     if (inRR(x, y, 412, 296, 200, 250, 100)) mic = true;
     if (x >= 497 && x <= 527 && y >= 548 && y <= 692) mic = true;
     if (inRR(x, y, 392, 700, 240, 44, 22)) mic = true;
-    const dx = x - 512, dy = y - 426, d2 = dx * dx + dy * dy;
+    const dx = x - 512,
+      dy = y - 426,
+      d2 = dx * dx + dy * dy;
     if (d2 <= 178 * 178 && d2 >= 140 * 140 && y >= 426 && y <= 612) mic = true;
     if (mic) set(x, y, 255, 255, 255, 255);
   }
@@ -72,14 +78,20 @@ const encodePNG = (w, h, rgba) => {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; ihdr[9] = 6;
+  ihdr[8] = 8;
+  ihdr[9] = 6;
   const raw = Buffer.alloc((w * 4 + 1) * h);
   for (let y = 0; y < h; y++) {
     raw[y * (w * 4 + 1)] = 0;
     rgba.copy(raw, y * (w * 4 + 1) + 1, y * w * 4, (y + 1) * w * 4);
   }
   const idat = deflateSync(raw, { level: 9 });
-  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
+  return Buffer.concat([
+    sig,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
 };
 
 // ==================== 面积均值降采样（逐级 2x2）====================
@@ -89,15 +101,19 @@ function downscale2(buf, w) {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       for (let c = 0; c < 4; c++) {
-        const i00 = ((2 * y) * 2 * w + 2 * x) * 4 + c;
+        const i00 = (2 * y * 2 * w + 2 * x) * 4 + c;
         const i01 = i00 + 4;
         const i10 = i00 + 2 * w * 4;
         const i11 = i10 + 4;
         // 半透明边缘用 alpha 加权平均，避免白边/黑边
-        const a00 = buf[i00 + 3], a01 = buf[i01 + 3], a10 = buf[i10 + 3], a11 = buf[i11 + 3];
+        const a00 = buf[i00 + 3],
+          a01 = buf[i01 + 3],
+          a10 = buf[i10 + 3],
+          a11 = buf[i11 + 3];
         const aSum = a00 + a01 + a10 + a11 || 1;
         const rgb =
-          (buf[i00 + c] * a00 + buf[i01 + c] * a01 + buf[i10 + c] * a10 + buf[i11 + c] * a11) / aSum;
+          (buf[i00 + c] * a00 + buf[i01 + c] * a01 + buf[i10 + c] * a10 + buf[i11 + c] * a11) /
+          aSum;
         out[(y * w + x) * 4 + c] = c === 3 ? Math.round(aSum / 4) : Math.round(rgb);
       }
     }

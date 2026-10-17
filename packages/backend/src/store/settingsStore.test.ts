@@ -24,13 +24,21 @@ describe('settingsStore', () => {
     s.dictation.hold = { enabled: true, key: 'MetaRight', mode: 'toggle' };
     const saved = saveSettings(s);
     expect(saved.dictation.hold).toEqual({ enabled: true, key: 'MetaRight', mode: 'toggle' });
-    expect(getSettings().dictation.hold).toEqual({ enabled: true, key: 'MetaRight', mode: 'toggle' });
+    expect(getSettings().dictation.hold).toEqual({
+      enabled: true,
+      key: 'MetaRight',
+      mode: 'toggle',
+    });
   });
 
   it('非法值兜底：未知长按键回退 CtrlRight，未知模式回退 ptt', () => {
     const s = getSettings();
     s.dictation.hold = { enabled: true, key: 'Hack', mode: 'weird' as 'ptt' };
-    expect(saveSettings(s).dictation.hold).toEqual({ enabled: true, key: 'CtrlRight', mode: 'ptt' });
+    expect(saveSettings(s).dictation.hold).toEqual({
+      enabled: true,
+      key: 'CtrlRight',
+      mode: 'ptt',
+    });
   });
 
   it('historyLimit 夹取到 [50, 5000]；术语纠错清洗空项', () => {
@@ -42,7 +50,9 @@ describe('settingsStore', () => {
     ];
     const saved = saveSettings(s);
     expect(saved.dictation.historyLimit).toBe(50);
-    expect(saved.dictation.termCorrections).toEqual([{ target: '通义千问', variants: ['同义千问'] }]);
+    expect(saved.dictation.termCorrections).toEqual([
+      { target: '通义千问', variants: ['同义千问'] },
+    ]);
   });
 
   it('缺字段的预设被拒绝', () => {

@@ -68,8 +68,7 @@ export async function registerSettingsRoutes(app: FastifyInstance): Promise<void
         const j = (await res.json()) as { data?: { id?: string }[] };
         const ids = (j.data ?? []).map((m) => m.id ?? '');
         const want = model.trim();
-        const hit =
-          ids.includes(want) || ids.some((id) => id.split(':')[0] === want.split(':')[0]);
+        const hit = ids.includes(want) || ids.some((id) => id.split(':')[0] === want.split(':')[0]);
         return hit
           ? { ok: true }
           : { ok: true, warning: `连接成功，但端点模型列表中未见「${want}」，请确认模型名` };

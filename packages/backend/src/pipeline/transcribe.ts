@@ -16,7 +16,10 @@ export interface TranscribeOpts {
  * - sherpa：diarization + 逐段 ASR，跑完批量出带 speaker 段；进度经 onProgress。
  * - api：整段上传云端，返回单段文本（无时间戳/说话人）。
  */
-export async function transcribeWithEngine(wavPath: string, opts: TranscribeOpts = {}): Promise<TranscriptSegment[]> {
+export async function transcribeWithEngine(
+  wavPath: string,
+  opts: TranscribeOpts = {},
+): Promise<TranscriptSegment[]> {
   if (config.transcription.engine === 'sherpa') {
     return transcribeWithDiarization(wavPath, opts);
   }

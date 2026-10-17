@@ -110,13 +110,19 @@ function begin(opts = {}) {
       // 上传链路失败：录音中直接取消并提示；收尾阶段由 finalizeStream 统一报错
       if (phase === 'recording') {
         cancel();
-        overlay.overlayFlash({ phase: 'error', message: '上传中断：' + (e && e.message ? e.message : e) }, 3500);
+        overlay.overlayFlash(
+          { phase: 'error', message: '上传中断：' + (e && e.message ? e.message : e) },
+          3500,
+        );
       }
     },
   });
   elapsedTimer = setInterval(() => {
     if (phase === 'recording') {
-      overlay.overlaySet({ ...overlay.overlayGet(), elapsed: Math.floor((Date.now() - startedAt) / 1000) });
+      overlay.overlaySet({
+        ...overlay.overlayGet(),
+        elapsed: Math.floor((Date.now() - startedAt) / 1000),
+      });
     }
   }, 1000);
   // 等页面就绪后再发开始（首次启动极快按键的竞态兜底）
@@ -297,7 +303,8 @@ function init(opts) {
     }
   });
   ipcMain.on('recorder-level', (_e, level) => {
-    if (phase === 'recording') overlay.overlaySet({ ...overlay.overlayGet(), phase: 'recording', level });
+    if (phase === 'recording')
+      overlay.overlaySet({ ...overlay.overlayGet(), phase: 'recording', level });
   });
   ipcMain.on('recorder-stopped', () => {
     if (pendingUpload) {
@@ -326,7 +333,9 @@ function init(opts) {
   ipcMain.on('dictation-cancel-requested', () => cancel());
   ipcMain.on('dictation-open-ax-settings', () => {
     shell
-      .openExternal('x-app.apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+      .openExternal(
+        'x-app.apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+      )
       .catch(() => {});
   });
 

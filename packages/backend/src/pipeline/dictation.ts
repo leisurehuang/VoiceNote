@@ -96,15 +96,18 @@ export async function polishDictation(
     ? DICTATION_POLISH_PROMPT_EN
     : DICTATION_POLISH_PROMPT_ZH;
   if (config.whisper.glossary.length) {
-    system += '\n\n用户常提到的专有名词（识别如有出入请纠正为以下正写）：' + config.whisper.glossary.join('、');
+    system +=
+      '\n\n用户常提到的专有名词（识别如有出入请纠正为以下正写）：' +
+      config.whisper.glossary.join('、');
   }
   if (opts.targetLanguage) {
     system += translationSuffix(opts.targetLanguage);
   }
   // 听写都是短句，超长兜底截断（保尾部）
-  const clipped = transcript.length > config.llm.maxTranscriptChars
-    ? transcript.slice(-config.llm.maxTranscriptChars)
-    : transcript;
+  const clipped =
+    transcript.length > config.llm.maxTranscriptChars
+      ? transcript.slice(-config.llm.maxTranscriptChars)
+      : transcript;
   const user = `<transcript>\n${clipped}\n</transcript>${
     opts.targetLanguage ? `\n【本次要求：用${opts.targetLanguage.label}输出】` : ''
   }`;

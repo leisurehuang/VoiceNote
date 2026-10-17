@@ -17,9 +17,12 @@ export async function probeDurationMs(file: string): Promise<number> {
   if (!bin) return 0;
   try {
     const res = await run(bin, [
-      '-v', 'error',
-      '-show_entries', 'format=duration',
-      '-of', 'default=noprint_wrappers=1:nokey=1',
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
       file,
     ]);
     const s = parseFloat(res.stdout.trim());
@@ -36,14 +39,7 @@ export async function probeDurationMs(file: string): Promise<number> {
 export async function convertToWav(input: string, output: string): Promise<{ durationMs: number }> {
   const bin = config.ffmpegBin ?? which('ffmpeg');
   if (!bin) throw new DependencyMissingError('ffmpeg');
-  await run(bin, [
-    '-y',
-    '-i', input,
-    '-ar', '16000',
-    '-ac', '1',
-    '-c:a', 'pcm_s16le',
-    output,
-  ]);
+  await run(bin, ['-y', '-i', input, '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', output]);
   const durationMs = await probeDurationMs(output);
   return { durationMs };
 }

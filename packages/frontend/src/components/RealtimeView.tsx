@@ -14,8 +14,17 @@ export function RealtimeView({
   onDone: (id: string) => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const { recording, finalizing, segments, liveSummary, summaryStreaming, error, analyserRef, start, stop } =
-    useRealtime({ onDone });
+  const {
+    recording,
+    finalizing,
+    segments,
+    liveSummary,
+    summaryStreaming,
+    error,
+    analyserRef,
+    start,
+    stop,
+  } = useRealtime({ onDone });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 录音/整理进行中时通知父组件：禁止切走，否则 WS 关闭会终止录音
@@ -109,7 +118,10 @@ export function RealtimeView({
                   {s.speaker != null && (
                     <span
                       className="spk"
-                      style={{ color: speakerColor(s.speaker), borderColor: speakerColor(s.speaker) }}
+                      style={{
+                        color: speakerColor(s.speaker),
+                        borderColor: speakerColor(s.speaker),
+                      }}
                     >
                       说话人 {speakerLabel(s.speaker)}
                     </span>

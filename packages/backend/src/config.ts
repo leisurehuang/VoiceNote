@@ -100,7 +100,9 @@ export interface AppConfig {
 
 function shell(cmd: string): string {
   try {
-    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
   } catch {
     return '';
   }
@@ -136,7 +138,8 @@ function resolveWhisperCli(): string {
 }
 
 // sherpa-onnx 二进制 / 模型默认目录（brew 无 sherpa-onnx formula，靠 fetch-sherpa.sh 下预编译）
-const sherpaDir = process.env.SHERPA_DIR ?? join(process.env.HOME ?? '', '.voice-notes-models', 'sherpa-onnx');
+const sherpaDir =
+  process.env.SHERPA_DIR ?? join(process.env.HOME ?? '', '.voice-notes-models', 'sherpa-onnx');
 const sherpaModelsDir = process.env.SHERPA_MODELS_DIR ?? join(sherpaDir, 'models');
 
 /** 解析 sherpa-onnx 二进制路径：env 优先 → PATH 探测 → 默认下载目录。 */
@@ -146,7 +149,6 @@ function resolveSherpaCli(name: string, envKey: string): string {
   if (fromPath) return fromPath;
   return join(sherpaDir, 'bin', name);
 }
-
 
 const SUMMARY_SYSTEM_PROMPT =
   '你是专业会议纪要整理器，负责将用户传入的语音转写文稿整理为结构化标准中文会议纪要。\n' +
@@ -205,7 +207,10 @@ export const config: AppConfig = {
     glossary: [], // 启动为空，由 settingsStore.init() 从 settings 应用
   },
   sherpa: {
-    diarizationCli: resolveSherpaCli('sherpa-onnx-offline-speaker-diarization', 'SHERPA_DIARIZATION_CLI'),
+    diarizationCli: resolveSherpaCli(
+      'sherpa-onnx-offline-speaker-diarization',
+      'SHERPA_DIARIZATION_CLI',
+    ),
     asrCli: resolveSherpaCli('sherpa-onnx-offline', 'SHERPA_ASR_CLI'),
     segmentationModel:
       process.env.SHERPA_SEGMENTATION_MODEL ??
@@ -219,7 +224,7 @@ export const config: AppConfig = {
     asrTokens:
       process.env.SHERPA_ASR_TOKENS ??
       join(sherpaModelsDir, 'sherpa-onnx-paraformer-zh-2024-03-09', 'tokens.txt'),
-    clusterThreshold: Number(process.env.SHERPA_CLUSTER_THRESHOLD ?? 0.90),
+    clusterThreshold: Number(process.env.SHERPA_CLUSTER_THRESHOLD ?? 0.9),
     numSpeakers: process.env.SHERPA_NUM_SPEAKERS ? Number(process.env.SHERPA_NUM_SPEAKERS) : null,
     threads: Number(process.env.SHERPA_THREADS ?? 8),
   },
@@ -290,7 +295,12 @@ export async function checkHealth(): Promise<HealthStatus> {
   const sherpaAsrModelOk = existsSync(config.sherpa.asrModel);
   const sherpaAsrTokensOk = existsSync(config.sherpa.asrTokens);
   const sherpaOk =
-    sherpaDiarOk && sherpaAsrCliOk && sherpaSegOk && sherpaEmbOk && sherpaAsrModelOk && sherpaAsrTokensOk;
+    sherpaDiarOk &&
+    sherpaAsrCliOk &&
+    sherpaSegOk &&
+    sherpaEmbOk &&
+    sherpaAsrModelOk &&
+    sherpaAsrTokensOk;
 
   let ollama = false;
   let llmModelOk = false;
@@ -306,13 +316,14 @@ export async function checkHealth(): Promise<HealthStatus> {
         const j = (await res.json()) as { data?: { id?: string }[] };
         const ids = (j.data ?? []).map((m) => m.id ?? '');
         const want = config.llm.model;
-        llmModelOk = ids.includes(want) || ids.some((id) => id.split(':')[0] === want.split(':')[0]);
+        llmModelOk =
+          ids.includes(want) || ids.some((id) => id.split(':')[0] === want.split(':')[0]);
       } catch {
         llmModelOk = false; // 列表不可解析（部分云服务），仅提示不阻塞
       }
     }
   } catch {
-    ollama = false;
+    /* 连不上即保持 false */
   }
 
   // 云端转写 API：配置齐全性 + （引擎为 api 时）可达性探测
@@ -376,10 +387,4 @@ export const SESSION_RUNNING_STATUSES = new Set([
 ]);
 
 export type SessionStatus =
-  | 'uploaded'
-  | 'recording'
-  | 'converting'
-  | 'transcribing'
-  | 'summarizing'
-  | 'done'
-  | 'error';
+  'uploaded' | 'recording' | 'converting' | 'transcribing' | 'summarizing' | 'done' | 'error';

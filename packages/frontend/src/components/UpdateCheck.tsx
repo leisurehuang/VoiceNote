@@ -8,7 +8,9 @@ import { Button } from './ui/Button';
  */
 export function UpdateCheck() {
   const electron = window.electron;
-  const [status, setStatus] = useState<'idle' | 'checking' | 'latest' | 'available' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'checking' | 'latest' | 'available' | 'error'>(
+    'idle',
+  );
   const [newVersion, setNewVersion] = useState('');
   const [error, setError] = useState('');
 

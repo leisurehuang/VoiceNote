@@ -97,22 +97,32 @@ function parseDictation(v: unknown): DictationSettings {
         }))
         .filter((c) => c.target)
     : [];
-  const limit = typeof x.historyLimit === 'number' && x.historyLimit > 0 ? Math.floor(x.historyLimit) : 500;
+  const limit =
+    typeof x.historyLimit === 'number' && x.historyLimit > 0 ? Math.floor(x.historyLimit) : 500;
   return {
     enabled: x.enabled !== false,
-    shortcut: typeof x.shortcut === 'string' && x.shortcut.trim() ? x.shortcut.trim() : DEFAULT_DICTATION_SHORTCUT,
+    shortcut:
+      typeof x.shortcut === 'string' && x.shortcut.trim()
+        ? x.shortcut.trim()
+        : DEFAULT_DICTATION_SHORTCUT,
     cancelShortcut:
       typeof x.cancelShortcut === 'string' && x.cancelShortcut.trim()
         ? x.cancelShortcut.trim()
         : DEFAULT_DICTATION_CANCEL_SHORTCUT,
     hold: {
       enabled: x.hold?.enabled === true,
-      key: typeof x.hold?.key === 'string' && HOLD_KEYS.includes(x.hold.key) ? x.hold.key : 'CtrlRight',
+      key:
+        typeof x.hold?.key === 'string' && HOLD_KEYS.includes(x.hold.key)
+          ? x.hold.key
+          : 'CtrlRight',
       mode: x.hold?.mode === 'toggle' ? 'toggle' : 'ptt',
     },
     polish: x.polish !== false,
     translationCommands: x.translationCommands !== false,
-    fixedOutputLanguage: typeof x.fixedOutputLanguage === 'string' && x.fixedOutputLanguage ? x.fixedOutputLanguage : undefined,
+    fixedOutputLanguage:
+      typeof x.fixedOutputLanguage === 'string' && x.fixedOutputLanguage
+        ? x.fixedOutputLanguage
+        : undefined,
     termCorrections: corrections,
     historyLimit: Math.min(Math.max(limit, 50), 5000),
   };
@@ -176,7 +186,8 @@ export function getSettings(): Settings {
       dictation: parseDictation(parsed.dictation),
       sherpa: {
         numSpeakers:
-          typeof parsed.sherpa?.numSpeakers === 'number' && (parsed.sherpa.numSpeakers as number) > 0
+          typeof parsed.sherpa?.numSpeakers === 'number' &&
+          (parsed.sherpa.numSpeakers as number) > 0
             ? parsed.sherpa.numSpeakers
             : null,
         clusterThreshold:
@@ -232,7 +243,8 @@ export function saveSettings(s: Settings): Settings {
     presets,
     glossary,
     transcriptionEngine: parseEngine(s.transcriptionEngine),
-    whisperModelPath: typeof s.whisperModelPath === 'string' ? s.whisperModelPath.trim() : undefined,
+    whisperModelPath:
+      typeof s.whisperModelPath === 'string' ? s.whisperModelPath.trim() : undefined,
     asrApi: parseAsrApi(s.asrApi),
     dictation: parseDictation(s.dictation),
     sherpa: {

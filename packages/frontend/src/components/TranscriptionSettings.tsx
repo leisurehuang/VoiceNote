@@ -60,7 +60,11 @@ function AsrApiForm({
   const [draft, setDraft] = useState(settings.asrApi);
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; warning?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    error?: string;
+    warning?: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // 外部 settings 变化（保存成功回写）时同步 draft
@@ -135,11 +139,18 @@ function AsrApiForm({
         >
           测试连接
         </Button>
-        <Button variant="primary" loading={saving} onClick={() => void save()} disabled={!draft.baseUrl.trim() || !draft.model.trim()}>
+        <Button
+          variant="primary"
+          loading={saving}
+          onClick={() => void save()}
+          disabled={!draft.baseUrl.trim() || !draft.model.trim()}
+        >
           保存
         </Button>
       </div>
-      <p className="muted">录音/上传会整段发送给该服务转写；语音听写同样使用此引擎。请注意所选服务的隐私与计费条款。</p>
+      <p className="muted">
+        录音/上传会整段发送给该服务转写；语音听写同样使用此引擎。请注意所选服务的隐私与计费条款。
+      </p>
     </div>
   );
 }

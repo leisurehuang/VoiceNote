@@ -188,7 +188,12 @@ export function WhisperModels({
               m.active ? (
                 <Badge tone="accent">使用中</Badge>
               ) : (
-                <Button variant="ghost" size="sm" onClick={() => removeWhisper(m.name)} disabled={!m.deletable}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeWhisper(m.name)}
+                  disabled={!m.deletable}
+                >
                   删除
                 </Button>
               )
@@ -198,7 +203,9 @@ export function WhisperModels({
               </Button>
             )}
           </div>
-          {dlPct[m.name] != null && <ProgressBar value={dlPct[m.name] ?? 0} className="model-progressbar" />}
+          {dlPct[m.name] != null && (
+            <ProgressBar value={dlPct[m.name] ?? 0} className="model-progressbar" />
+          )}
         </div>
       ))}
 

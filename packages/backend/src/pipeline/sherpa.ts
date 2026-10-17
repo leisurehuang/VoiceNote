@@ -21,7 +21,8 @@ export function parseSherpaLine(line: string): DiarTurn | null {
   const startMs = Math.round(Number(m[1]) * 1000);
   const endMs = Math.round(Number(m[2]) * 1000);
   const speaker = Number(m[3]);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || !Number.isFinite(speaker)) return null;
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || !Number.isFinite(speaker))
+    return null;
   return { speaker, startMs, endMs };
 }
 
@@ -36,16 +37,22 @@ export function parseProgress(line: string): number | null {
 /** 检查 sherpa-onnx 二进制 + 模型是否就绪；缺任一抛 DependencyMissingError。 */
 export function checkSherpaDeps(): void {
   const s = config.sherpa;
-  if (!existsSync(s.diarizationCli)) throw new DependencyMissingError('sherpa-onnx-offline-speaker-diarization');
+  if (!existsSync(s.diarizationCli))
+    throw new DependencyMissingError('sherpa-onnx-offline-speaker-diarization');
   if (!existsSync(s.asrCli)) throw new DependencyMissingError('sherpa-onnx-offline（ASR 二进制）');
-  if (!existsSync(s.segmentationModel)) throw new DependencyMissingError('sherpa 分段模型（pyannote）');
-  if (!existsSync(s.embeddingModel)) throw new DependencyMissingError('sherpa 说话人嵌入模型（3D-Speaker）');
+  if (!existsSync(s.segmentationModel))
+    throw new DependencyMissingError('sherpa 分段模型（pyannote）');
+  if (!existsSync(s.embeddingModel))
+    throw new DependencyMissingError('sherpa 说话人嵌入模型（3D-Speaker）');
   if (!existsSync(s.asrModel)) throw new DependencyMissingError('sherpa ASR 模型（Paraformer）');
   if (!existsSync(s.asrTokens)) throw new DependencyMissingError('sherpa ASR tokens.txt');
 }
 
 /** 跑说话人分离 CLI，返回按开始时间排序的 speaker 段（无文本）。进度从 stderr 解析推送。 */
-async function runDiarization(wavPath: string, onProgress?: (ratio: number) => void): Promise<DiarTurn[]> {
+async function runDiarization(
+  wavPath: string,
+  onProgress?: (ratio: number) => void,
+): Promise<DiarTurn[]> {
   const s = config.sherpa;
   const args = [
     `--segmentation.pyannote-model=${s.segmentationModel}`,
@@ -77,12 +84,32 @@ async function runDiarization(wavPath: string, onProgress?: (ratio: number) => v
 }
 
 /** ffmpeg 按 [startMs, endMs] 切出 16kHz 单声道 wav 切片（供逐段 ASR）。 */
-async function sliceWav(src: string, startMs: number, endMs: number, outPath: string): Promise<void> {
+async function sliceWav(
+  src: string,
+  startMs: number,
+  endMs: number,
+  outPath: string,
+): Promise<void> {
   const bin = config.ffmpegBin ?? which('ffmpeg');
   if (!bin) throw new DependencyMissingError('ffmpeg');
   const startSec = (startMs / 1000).toFixed(3);
   const durSec = Math.max(0, (endMs - startMs) / 1000).toFixed(3);
-  await run(bin, ['-y', '-ss', startSec, '-i', src, '-t', durSec, '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', outPath]);
+  await run(bin, [
+    '-y',
+    '-ss',
+    startSec,
+    '-i',
+    src,
+    '-t',
+    durSec,
+    '-ar',
+    '16000',
+    '-ac',
+    '1',
+    '-c:a',
+    'pcm_s16le',
+    outPath,
+  ]);
 }
 
 /**

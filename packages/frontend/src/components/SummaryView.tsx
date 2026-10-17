@@ -85,7 +85,11 @@ export function SummaryView({ summary, summarizing, onResummarize, onSaveSummary
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
           />
-          <Button variant="primary" onClick={() => onResummarize(prompt.trim() || undefined)} disabled={summarizing}>
+          <Button
+            variant="primary"
+            onClick={() => onResummarize(prompt.trim() || undefined)}
+            disabled={summarizing}
+          >
             生成
           </Button>
         </div>

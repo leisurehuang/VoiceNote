@@ -2,7 +2,17 @@
 // dev 模式复用系统 brew 装的 whisper/ffmpeg/ollama；打包态用 app 内自带的 resources。
 // 启动不下载任何模型、不阻塞：缺什么由前端横幅引导到 设置 → 模型 里下载。
 // 另含：全局听写（dictation/manager.cjs）、系统托盘常驻（关窗不退出）。
-const { app, BrowserWindow, shell, Menu, dialog, Tray, nativeImage, ipcMain, session } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  shell,
+  Menu,
+  dialog,
+  Tray,
+  nativeImage,
+  ipcMain,
+  session,
+} = require('electron');
 const { fork, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -145,7 +155,12 @@ async function startBackend() {
       // 尝试找到 whisper-cli
       let whisperCli = process.env.WHISPER_CLI;
       if (!whisperCli) {
-        const userWhisper = path.join(process.env.HOME || '', '.voice-notes-models', 'bin', 'whisper-cli');
+        const userWhisper = path.join(
+          process.env.HOME || '',
+          '.voice-notes-models',
+          'bin',
+          'whisper-cli',
+        );
         if (fs.existsSync(userWhisper)) {
           whisperCli = userWhisper;
         }
@@ -155,7 +170,11 @@ async function startBackend() {
       // 尝试找到 whisper 模型
       let whisperModel = process.env.WHISPER_MODEL;
       if (!whisperModel) {
-        const userModel = path.join(process.env.HOME || '', '.voice-notes-models', 'ggml-large-v3-turbo.bin');
+        const userModel = path.join(
+          process.env.HOME || '',
+          '.voice-notes-models',
+          'ggml-large-v3-turbo.bin',
+        );
         if (fs.existsSync(userModel)) {
           whisperModel = userModel;
         }
@@ -173,7 +192,6 @@ async function startBackend() {
 
 function createWindow() {
   const isMac = process.platform === 'darwin';
-  const isLinux = process.platform === 'linux';
   const windowOpts = {
     width: 1080,
     height: 740,
@@ -198,7 +216,8 @@ function createWindow() {
   win = new BrowserWindow(windowOpts);
   win.loadURL(BACKEND_URL);
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(BACKEND_URL) || url.startsWith('http://127.0.0.1:')) return { action: 'allow' };
+    if (url.startsWith(BACKEND_URL) || url.startsWith('http://127.0.0.1:'))
+      return { action: 'allow' };
     shell.openExternal(url);
     return { action: 'deny' };
   });
@@ -334,7 +353,7 @@ async function checkForUpdate() {
     }
   } catch (e) {
     logf('更新检查失败：' + (e && e.message ? e.message : e));
-    return { found: false, error: (e && e.message ? e.message : String(e)) };
+    return { found: false, error: e && e.message ? e.message : String(e) };
   }
 }
 
@@ -431,7 +450,10 @@ if (!gotLock) {
       void checkForUpdate(); // 非阻塞
     } catch (e) {
       logf('启动失败：' + (e && e.stack ? e.stack : e));
-      dialog.showErrorBox('Voice Notes 启动失败', (e && e.message ? e.message : e) + '\n\n请检查 app 内依赖是否完整。');
+      dialog.showErrorBox(
+        'Voice Notes 启动失败',
+        (e && e.message ? e.message : e) + '\n\n请检查 app 内依赖是否完整。',
+      );
       createWindow();
     }
   });

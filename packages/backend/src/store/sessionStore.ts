@@ -212,7 +212,9 @@ export async function createFromUpload(args: CreateArgs): Promise<string> {
   entries.set(id, { meta, emitter: new EventEmitter() });
   // 先落盘 meta，再写入音频源文件
   persist(id);
-  const dest = createWriteStream(join(sessionDir(id), `source${extFor(args.mimeType, args.filename)}`));
+  const dest = createWriteStream(
+    join(sessionDir(id), `source${extFor(args.mimeType, args.filename)}`),
+  );
   await pipeline(args.stream, dest);
   return id;
 }

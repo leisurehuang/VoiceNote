@@ -50,7 +50,8 @@ async function watchSSE(id) {
         console.log(`\n[stage] ${data}`);
       } else if (evt === 'meta') {
         const m = JSON.parse(data);
-        if (m.status === 'done' || m.status === 'error') console.log(`\n[meta] status=${m.status} progress=${m.progress}`);
+        if (m.status === 'done' || m.status === 'error')
+          console.log(`\n[meta] status=${m.status} progress=${m.progress}`);
       } else if (evt === 'done') {
         console.log('\n[done]');
         return segs;
@@ -73,7 +74,16 @@ const liveSegs = await sse;
 console.log(`SSE 共收到 ${liveSegs.length} 段`);
 
 const detail = await (await fetch(`${API}/sessions/${id}`)).json();
-console.log('最终 status =', detail.status, ' 标题 =', detail.title, ' 段数 =', detail.transcript.length, ' durationMs =', detail.durationMs);
+console.log(
+  '最终 status =',
+  detail.status,
+  ' 标题 =',
+  detail.title,
+  ' 段数 =',
+  detail.transcript.length,
+  ' durationMs =',
+  detail.durationMs,
+);
 console.log('---- 全文 ----');
 console.log(detail.transcript.map((s) => s.text).join(''));
 console.log('---- 摘要 ----');

@@ -15,7 +15,14 @@ import { Field, Input } from './ui/Field';
 import { IconButton } from './ui/IconButton';
 import { toast, toastError } from './ui/Toast';
 
-const EMPTY: LlmPreset = { id: '', name: '', baseUrl: '', apiKey: '', model: '', incrementalModel: '' };
+const EMPTY: LlmPreset = {
+  id: '',
+  name: '',
+  baseUrl: '',
+  apiKey: '',
+  model: '',
+  incrementalModel: '',
+};
 
 export function LlmSettings({
   settings,
@@ -26,7 +33,11 @@ export function LlmSettings({
 }) {
   const [editing, setEditing] = useState<LlmPreset | null>(null);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; warning?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    error?: string;
+    warning?: string;
+  } | null>(null);
   const [showKey, setShowKey] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -87,7 +98,11 @@ export function LlmSettings({
     setTestResult(null);
     try {
       setTestResult(
-        await testConnection({ baseUrl: editing.baseUrl, apiKey: editing.apiKey, model: editing.model }),
+        await testConnection({
+          baseUrl: editing.baseUrl,
+          apiKey: editing.apiKey,
+          model: editing.model,
+        }),
       );
     } catch (e) {
       setTestResult({ ok: false, error: e instanceof Error ? e.message : '请求失败' });
@@ -107,9 +122,14 @@ export function LlmSettings({
       </p>
 
       <div className="preset-list">
-        {settings.presets.length === 0 && <p className="muted">尚无预设，点下方「新增预设」添加。</p>}
+        {settings.presets.length === 0 && (
+          <p className="muted">尚无预设，点下方「新增预设」添加。</p>
+        )}
         {settings.presets.map((p) => (
-          <div key={p.id} className={'preset-item' + (p.id === settings.activePresetId ? ' preset-active' : '')}>
+          <div
+            key={p.id}
+            className={'preset-item' + (p.id === settings.activePresetId ? ' preset-active' : '')}
+          >
             <div className="preset-info">
               <b>{p.name || '未命名'}</b>
               <span className="muted">
@@ -178,7 +198,10 @@ export function LlmSettings({
                 placeholder="如 qwen2.5:7b-instruct / gpt-4o-mini"
               />
             </Field>
-            <Field label="增量摘要模型（可选，留空跟随主模型）" help="实时转写时滚动摘要用，小快模型更跟手">
+            <Field
+              label="增量摘要模型（可选，留空跟随主模型）"
+              help="实时转写时滚动摘要用，小快模型更跟手"
+            >
               <Input
                 value={editing.incrementalModel ?? ''}
                 onChange={(e) => setEditing({ ...editing, incrementalModel: e.target.value })}
@@ -192,7 +215,11 @@ export function LlmSettings({
               </div>
             )}
             <div className="rec-controls">
-              <Button variant="ghost" onClick={() => void doTest()} disabled={testing || !editing.baseUrl.trim()}>
+              <Button
+                variant="ghost"
+                onClick={() => void doTest()}
+                disabled={testing || !editing.baseUrl.trim()}
+              >
                 {testing ? '测试中…' : '测试连接'}
               </Button>
               <Button variant="primary" onClick={saveEdit}>

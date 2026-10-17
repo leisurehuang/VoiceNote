@@ -21,12 +21,10 @@ html.is-electron body {
   background: transparent; /* 透出窗口毛玻璃 */
 }
 
-
 /* 通用隐藏（用于 tab 内容切换，保留 DOM 不卸载） */
 .hidden {
   display: none;
 }
-
 
 /* ---------- 滚动条（细，悬浮） ---------- */
 ::-webkit-scrollbar {
@@ -55,7 +53,6 @@ textarea {
   -webkit-user-select: text;
   user-select: text;
 }
-
 
 /* ---------- 键盘可达:全局焦点环(Tab 导航时显示,鼠标点击不触发) ---------- */
 :focus-visible {

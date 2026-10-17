@@ -18,7 +18,9 @@ export function buildExportMarkdown(d: SessionDetail): string {
   const lines: string[] = [];
   lines.push(`# ${d.title}`);
   lines.push('');
-  lines.push(`> ${d.createdAt} · 时长 ${d.durationMs ? fmtMs(d.durationMs) : '未知'} · 来源：${d.sourceKind === 'record' ? '录音' : '上传'}`);
+  lines.push(
+    `> ${d.createdAt} · 时长 ${d.durationMs ? fmtMs(d.durationMs) : '未知'} · 来源：${d.sourceKind === 'record' ? '录音' : '上传'}`,
+  );
   lines.push('');
   if (d.summary && d.summary.trim()) {
     lines.push('## 摘要', '');
@@ -157,7 +159,9 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
     const transcript = segments.map((s) => s.text).join('\n');
     // 自定义提示是在默认 system prompt 基础上追加「额外要求」，而非整体替换
     const custom = body.systemPrompt?.trim();
-    const systemPrompt = custom ? `${config.llm.summarySystemPrompt}\n\n额外要求：${custom}` : undefined;
+    const systemPrompt = custom
+      ? `${config.llm.summarySystemPrompt}\n\n额外要求：${custom}`
+      : undefined;
     await store.update(id, { status: 'summarizing', stage: '重新生成摘要', error: null });
 
     void (async () => {
@@ -245,7 +249,10 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
     const utf8Name = encodeURIComponent(`${detail.title || 'voice-notes'}.md`.slice(0, 80));
     reply.header('Content-Type', 'text/markdown; charset=utf-8');
     // 头必须是 ASCII：filename 给兜底名，filename* 给真实 UTF-8 文件名（RFC 5987）
-    reply.header('Content-Disposition', `attachment; filename="voice-notes.md"; filename*=UTF-8''${utf8Name}`);
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename="voice-notes.md"; filename*=UTF-8''${utf8Name}`,
+    );
     return buildExportMarkdown(detail);
   });
 
@@ -268,7 +275,7 @@ export async function registerSessionRoutes(app: FastifyInstance): Promise<void>
       reply.header('Content-Range', `bytes */${total}`);
       return reply.code(416).send();
     }
-    let start = parseInt(m[1]!, 10);
+    const start = parseInt(m[1]!, 10);
     const endStr = m[2];
     let end = endStr ? parseInt(endStr, 10) : total - 1;
     if (start >= total) {

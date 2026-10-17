@@ -146,9 +146,7 @@ export function UpdateBanner() {
             <Package size={18} aria-hidden />
             <span className="update-title">发现新版本 {updateInfo.version}</span>
           </div>
-          {updateInfo.releaseNotes && (
-            <div className="update-notes">{updateInfo.releaseNotes}</div>
-          )}
+          {updateInfo.releaseNotes && <div className="update-notes">{updateInfo.releaseNotes}</div>}
           <div className="update-actions">
             <Button variant="primary" onClick={downloadUpdate}>
               立即更新
@@ -169,7 +167,8 @@ export function UpdateBanner() {
           <div className="update-progress">
             <ProgressBar value={progress.percent / 100} tone="warn" />
             <div className="progress-text">
-              {progress.percent}% ({(progress.transferred / 1024 / 1024).toFixed(1)} MB / {(progress.total / 1024 / 1024).toFixed(1)} MB)
+              {progress.percent}% ({(progress.transferred / 1024 / 1024).toFixed(1)} MB /{' '}
+              {(progress.total / 1024 / 1024).toFixed(1)} MB)
             </div>
           </div>
         </div>
