@@ -98,6 +98,12 @@
       }
     }
 
+    function fmtDur(sec) {
+      var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+      var mm = (m < 10 ? '0' : '') + m, ss = (s < 10 ? '0' : '') + s;
+      return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+    }
+
     function render(s) {
       cancelBtn.style.display = s.phase === 'recording' ? '' : 'none';
       axBtn.style.display = s.needAx ? '' : 'none';
@@ -109,7 +115,9 @@
         case 'recording':
           icon.textContent = ''; icon.style.display = 'none';
           setBars(s.level || 0, true);
-          msg.innerHTML = '录音中<small>再按一次快捷键结束 · Esc 取消</small>';
+          var head = '录音中' + (s.elapsed != null ? ' ' + fmtDur(s.elapsed) : '');
+          var sub = '再按一次快捷键结束 · Esc 取消' + (s.chars ? ' · 已识别 ' + s.chars + ' 字' : '');
+          msg.innerHTML = head + '<small>' + sub + '</small>';
           break;
         case 'processing':
           setBars(0, false);

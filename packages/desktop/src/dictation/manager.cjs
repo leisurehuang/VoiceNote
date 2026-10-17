@@ -1,8 +1,11 @@
 /**
- * 听写管理器（主进程侧）：全局快捷键 → 隐藏窗口录音 → 后端转写/润色 → 粘贴到光标 → 浮窗反馈。
+ * 听写管理器（主进程侧）：全局快捷键 → 隐藏窗口录音 → 流式上传边录边转写 → 润色 → 粘贴到光标 → 浮窗反馈。
  *
  * 状态机：idle → recording → processing → idle；录音中 Esc（临时注册）取消。
  * 窗口：recorder（隐藏，采集音频）、overlay（底部胶囊浮窗，不抢焦点）。
+ *
+ * 长听写：录音期间按 ~1s 一块把 PCM 流式发给后端（VAD 切句逐句转写），
+ * 结束时只等尾句与润色，时长不再受一次性上传体积限制。
  */
 const { BrowserWindow, Notification, globalShortcut, ipcMain, screen, shell } = require('electron');
 const path = require('node:path');
@@ -10,18 +13,29 @@ const { deliverText } = require('./paster.cjs');
 
 const OVERLAY_W = 380;
 const OVERLAY_H = 78;
-const MAX_RECORD_MS = 180000; // 最长 3 分钟自动结束
-const POST_TIMEOUT_MS = 180000;
+const MAX_RECORD_MS = 60 * 60 * 1000; // 最长 1 小时自动结束（流式转写，无短上限必要，仅防忘关）
+const START_TIMEOUT_MS = 8000;
+const CHUNK_TIMEOUT_MS = 30000;
+const FINISH_TIMEOUT_MS = 600000; // 收尾要排空剩余转写 + 润色，长录音给足 10 分钟
+/** 每 ~1s（16000 采样）攒一块上传：32KB/块，VAD 粒度足够。 */
+const CHUNK_SAMPLES = 16000;
 
 let backendUrl = 'http://127.0.0.1:3100';
 let log = () => {};
 
 // 状态
 let phase = 'idle'; // idle | recording | processing
-let chunks = [];
 let startedAt = 0;
 let autoStopTimer = null;
+let elapsedTimer = null;
 let recorderReady = null;
+let pendingUpload = null; // finish 后等录音页停止回执：{ durationMs, samples }
+
+// 流式上传
+let stream = null; // { id, ready, chain, failed, chars }
+let pendingChunks = []; // 待上传的 PCM 块
+let pendingSamples = 0;
+let recSamples = 0; // 本次录音总采样数
 
 // 窗口
 let recorderWin = null;
@@ -143,65 +157,39 @@ function unregisterCancelShortcut() {
   }
 }
 
-function begin() {
-  ensureRecorder();
-  showOverlay();
-  overlaySet({ phase: 'recording', level: 0 });
-  chunks = [];
-  startedAt = Date.now();
-  phase = 'recording';
-  registerCancelShortcut();
-  // 等页面就绪后再发开始（首次启动极快按键的竞态兜底）
-  Promise.resolve(recorderReady).then(() => {
-    if (phase === 'recording' && recorderWin && !recorderWin.isDestroyed()) {
-      recorderWin.webContents.send('recorder-start');
+function clearTimers() {
+  if (autoStopTimer) {
+    clearTimeout(autoStopTimer);
+    autoStopTimer = null;
+  }
+  if (elapsedTimer) {
+    clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+}
+
+// ———————————————— 流式上传 ————————————————
+
+/** 创建听写流；失败（后端不可达等）直接取消本次录音并提示。 */
+function openStream() {
+  const s = { id: null, ready: null, chain: Promise.resolve(), failed: null, chars: 0 };
+  s.ready = (async () => {
+    const res = await fetch(`${backendUrl}/api/dictation/stream/start`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(START_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`后端返回 ${res.status}`);
+    const r = await res.json();
+    s.id = r.streamId;
+  })().catch((e) => {
+    s.failed = e;
+    if (phase === 'recording') {
+      log('听写流创建失败：' + (e && e.message ? e.message : e));
+      cancel();
+      overlayFlash({ phase: 'error', message: '无法连接听写服务：' + (e && e.message ? e.message : e) }, 3500);
     }
   });
-  if (autoStopTimer) clearTimeout(autoStopTimer);
-  autoStopTimer = setTimeout(() => {
-    log('听写达到最长 3 分钟，自动结束');
-    finish();
-  }, MAX_RECORD_MS);
-}
-
-function cancel() {
-  if (phase !== 'recording') return;
-  phase = 'idle';
-  unregisterCancelShortcut();
-  if (autoStopTimer) {
-    clearTimeout(autoStopTimer);
-    autoStopTimer = null;
-  }
-  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send('recorder-stop');
-  chunks = [];
-  overlayFlash({ phase: 'cancel' }, 900);
-}
-
-/** 快捷键再按一次：结束录音并出字。等录音页停止回执后上传（余量音频先到齐）。 */
-let pendingUpload = null; // { samples, durationMs, fallbackTimer }
-function finish() {
-  if (phase !== 'recording') return;
-  phase = 'processing';
-  unregisterCancelShortcut();
-  if (autoStopTimer) {
-    clearTimeout(autoStopTimer);
-    autoStopTimer = null;
-  }
-  showOverlay();
-  overlaySet({ phase: 'processing' });
-  const samples = chunks;
-  chunks = [];
-  const durationMs = Date.now() - startedAt;
-  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send('recorder-stop');
-  // 页面崩溃/未就绪时 1.5s 兜底直接上传
-  const fallbackTimer = setTimeout(() => {
-    if (pendingUpload) {
-      const p = pendingUpload;
-      pendingUpload = null;
-      void upload(p.samples, p.durationMs);
-    }
-  }, 1500);
-  pendingUpload = { samples, durationMs, fallbackTimer };
+  return s;
 }
 
 function concatSamples(arrs) {
@@ -216,24 +204,155 @@ function concatSamples(arrs) {
   return out;
 }
 
-async function upload(samples, durationMs) {
+/** 把攒到的 PCM 块串行上传（保持顺序，VAD 依赖时序）。 */
+function flushPending(s) {
+  if (!pendingChunks.length) return;
+  const pcm = concatSamples(pendingChunks);
+  pendingChunks = [];
+  pendingSamples = 0;
+  if (!s || s.failed) return;
+  const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  s.chain = s.chain
+    .then(async () => {
+      await s.ready;
+      if (s.failed || s.id == null) return;
+      const res = await fetch(`${backendUrl}/api/dictation/stream/${s.id}/chunk`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: bytes,
+        signal: AbortSignal.timeout(CHUNK_TIMEOUT_MS),
+      });
+      if (!res.ok) {
+        const r = await res.json().catch(() => ({}));
+        throw new Error(r.error || `后端返回 ${res.status}`);
+      }
+      const r = await res.json();
+      if (typeof r.chars === 'number' && r.chars > 0) {
+        s.chars = r.chars;
+        if (phase === 'recording') overlaySet({ ...overlayState, chars: r.chars });
+      }
+    })
+    .catch((e) => {
+      if (s.failed) return;
+      s.failed = e;
+      log('听写流上传失败：' + (e && e.message ? e.message : e));
+      if (phase === 'recording') {
+        cancel();
+        overlayFlash({ phase: 'error', message: '上传中断：' + (e && e.message ? e.message : e) }, 3500);
+      }
+    });
+}
+
+/** 取消服务端流状态（尽力而为；失败靠 TTL 兜底）。 */
+function cancelServerStream(s) {
+  if (!s || s.failed) return;
+  void s.ready.then(() => {
+    if (s.failed || s.id == null) return;
+    fetch(`${backendUrl}/api/dictation/stream/${s.id}/cancel`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => {});
+  });
+}
+
+/** 丢弃本地与与服务端的流状态。 */
+function discardStream() {
+  const s = stream;
+  stream = null;
+  pendingChunks = [];
+  pendingSamples = 0;
+  cancelServerStream(s);
+}
+
+// ———————————————— 状态机 ————————————————
+
+function begin() {
+  ensureRecorder();
+  showOverlay();
+  overlaySet({ phase: 'recording', level: 0, elapsed: 0, chars: 0 });
+  pendingChunks = [];
+  pendingSamples = 0;
+  recSamples = 0;
+  startedAt = Date.now();
+  phase = 'recording';
+  registerCancelShortcut();
+  stream = openStream();
+  elapsedTimer = setInterval(() => {
+    if (phase === 'recording') {
+      overlaySet({ ...overlayState, elapsed: Math.floor((Date.now() - startedAt) / 1000) });
+    }
+  }, 1000);
+  // 等页面就绪后再发开始（首次启动极快按键的竞态兜底）
+  Promise.resolve(recorderReady).then(() => {
+    if (phase === 'recording' && recorderWin && !recorderWin.isDestroyed()) {
+      recorderWin.webContents.send('recorder-start');
+    }
+  });
+  if (autoStopTimer) clearTimeout(autoStopTimer);
+  autoStopTimer = setTimeout(() => {
+    log('听写达到最长 1 小时，自动结束');
+    finish();
+  }, MAX_RECORD_MS);
+}
+
+function cancel() {
+  if (phase !== 'recording') return;
+  phase = 'idle';
+  unregisterCancelShortcut();
+  clearTimers();
+  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send('recorder-stop');
+  recSamples = 0;
+  discardStream();
+  overlayFlash({ phase: 'cancel' }, 900);
+}
+
+/** 快捷键再按一次：结束录音并出字。等录音页停止回执后收尾（余量音频先到齐）。 */
+function finish() {
+  if (phase !== 'recording') return;
+  phase = 'processing';
+  unregisterCancelShortcut();
+  clearTimers();
+  showOverlay();
+  overlaySet({ phase: 'processing' });
+  const durationMs = Date.now() - startedAt;
+  const samples = recSamples;
+  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send('recorder-stop');
+  // 页面崩溃/未就绪时 1.5s 兜底直接收尾
+  const fallbackTimer = setTimeout(() => {
+    if (pendingUpload) {
+      const p = pendingUpload;
+      pendingUpload = null;
+      void finalizeStream(p.durationMs, p.samples);
+    }
+  }, 1500);
+  pendingUpload = { durationMs, samples, fallbackTimer };
+}
+
+/** 收尾：尾块上传 → 排空队列 → finish 出稿 → 粘贴。 */
+async function finalizeStream(durationMs, samples) {
   try {
-    if (!samples.length) {
+    if (!samples) {
       phase = 'idle';
+      discardStream();
       overlayFlash({ phase: 'error', message: durationMs < 800 ? '按得太快，没录到音频' : '未采集到音频（检查麦克风权限）' }, 2500);
       return;
     }
     if (durationMs < 350) {
       phase = 'idle';
+      discardStream();
       overlayFlash({ phase: 'error', message: '录音太短' }, 1500);
       return;
     }
-    const pcm = new Uint8Array(concatSamples(samples).buffer);
-    const res = await fetch(`${backendUrl}/api/dictation`, {
+    const s = stream;
+    stream = null;
+    if (!s) throw new Error('听写流不可用');
+    flushPending(s); // 停止前攒的尾块也要转写
+    await s.ready;
+    await s.chain;
+    if (s.failed) throw s.failed;
+    const res = await fetch(`${backendUrl}/api/dictation/stream/${s.id}/finish`, {
       method: 'POST',
-      headers: { 'content-type': 'application/octet-stream' },
-      body: pcm,
-      signal: AbortSignal.timeout(POST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(FINISH_TIMEOUT_MS),
     });
     const r = (await res.json().catch(() => ({}))) || {};
     if (!res.ok) throw new Error(r.error || `后端返回 ${res.status}`);
@@ -252,6 +371,8 @@ async function upload(samples, durationMs) {
     }
   } catch (e) {
     phase = 'idle';
+    cancelServerStream(stream);
+    stream = null;
     log('听写失败：' + (e && e.message ? e.message : e));
     overlayFlash({ phase: 'error', message: (e && e.message ? e.message : String(e)).slice(0, 80) }, 3500);
   }
@@ -312,8 +433,13 @@ function init(opts) {
 
   // —— 录音页 IPC ——
   ipcMain.on('recorder-audio-chunk', (_e, samples) => {
-    if (phase === 'recording' && samples && samples.length) {
-      chunks.push(new Int16Array(samples.buffer, samples.byteOffset, samples.length));
+    // processing 也收：录音页停止时补发的余量音频，收尾冲块时一并上传
+    if ((phase === 'recording' || phase === 'processing') && stream && samples && samples.length) {
+      const arr = new Int16Array(samples.buffer, samples.byteOffset, samples.length);
+      recSamples += arr.length;
+      pendingChunks.push(arr);
+      pendingSamples += arr.length;
+      if (pendingSamples >= CHUNK_SAMPLES) flushPending(stream);
     }
   });
   ipcMain.on('recorder-level', (_e, level) => {
@@ -321,11 +447,11 @@ function init(opts) {
   });
   ipcMain.on('recorder-stopped', () => {
     if (pendingUpload) {
-      // finish() 的正常路径：余量音频已随 stop 一起发到，开始上传
+      // finish() 的正常路径：余量音频已随 stop 一起发到，开始收尾
       const p = pendingUpload;
       pendingUpload = null;
       clearTimeout(p.fallbackTimer);
-      void upload(p.samples, p.durationMs);
+      void finalizeStream(p.durationMs, p.samples);
     }
     // 无 pendingUpload = cancel 路径或异常停止，丢弃即可
   });
@@ -333,7 +459,9 @@ function init(opts) {
     if (phase === 'recording' || phase === 'processing') {
       phase = 'idle';
       unregisterCancelShortcut();
-      if (autoStopTimer) clearTimeout(autoStopTimer);
+      clearTimers();
+      pendingUpload = null;
+      discardStream();
     }
     log('录音失败：' + message);
     overlayFlash({ phase: 'error', message }, 4000);
@@ -343,7 +471,7 @@ function init(opts) {
   ipcMain.on('dictation-cancel-requested', () => cancel());
   ipcMain.on('dictation-open-ax-settings', () => {
     shell
-      .openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+      .openExternal('x-app.apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
       .catch(() => {});
   });
 
