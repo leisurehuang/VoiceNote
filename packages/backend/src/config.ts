@@ -80,6 +80,8 @@ export interface LlmConfig {
 
 export interface AppConfig {
   port: number;
+  /** 监听地址：默认仅本机回环（纯桌面应用，API 无鉴权）；需远程访问时用 HOST 覆盖。 */
+  host: string;
   projectRoot: string;
   dataDir: string;
   sessionsDir: string;
@@ -182,6 +184,7 @@ const dataDir = process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : join(proj
 
 export const config: AppConfig = {
   port: Number(process.env.PORT ?? 3000),
+  host: process.env.HOST ?? '127.0.0.1',
   projectRoot,
   dataDir,
   sessionsDir: join(dataDir, 'sessions'),

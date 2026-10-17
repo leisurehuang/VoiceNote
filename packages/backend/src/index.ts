@@ -55,7 +55,7 @@ async function main() {
   const app = await buildApp();
 
   try {
-    await app.listen({ port: config.port, host: '0.0.0.0' });
+    await app.listen({ port: config.port, host: config.host });
     const health = await checkHealth();
     app.log.info(
       { health },
