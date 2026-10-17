@@ -70,8 +70,9 @@ async function simulatePaste() {
  *          pasted=false 时文字已留在剪贴板，由浮窗提示手动粘贴。
  */
 async function deliverText(text) {
-  const prev = clipboard.readText(); // 仅快照文本；非文本格式不强还原
-  clipboard.writeText(text);
+  // Electron 44 起 clipboard 读写均为异步 Promise
+  const prev = await clipboard.readText(); // 仅快照文本；非文本格式不强还原
+  await clipboard.writeText(text);
   try {
     await simulatePaste();
   } catch (e) {
@@ -89,7 +90,7 @@ async function deliverText(text) {
   // 给目标应用 250ms 完成粘贴，再还原原剪贴板（原本为空则清掉）
   await new Promise((r) => setTimeout(r, 250));
   try {
-    clipboard.writeText(prev);
+    await clipboard.writeText(prev);
   } catch {
     /* ignore */
   }

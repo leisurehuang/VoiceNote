@@ -1,6 +1,6 @@
 appId: com.voicenotes.app
 productName: Voice Notes
-electronVersion: 33.4.11
+electronVersion: 44.9.0
 directories:
   output: release
   buildResources: build
