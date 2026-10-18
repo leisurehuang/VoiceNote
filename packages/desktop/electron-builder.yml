@@ -13,6 +13,10 @@ compression: maximum
 files:
   - src/**
   - package.json
+# 原生模块直接用 npm 包内自带的 NAPI 预编译（与本地开发加载路径一致）。
+# 不让 electron-builder 走 @electron/rebuild 源码重编：uiohook-napi 的 Linux
+# 编译需要 X11 头文件（libxtst-dev 等），CI 与用户机器都不该依赖工具链。
+npmRebuild: false
 # 原生模块（uiohook-napi 长按触发）需解包出 asar 才能加载 .node
 asarUnpack:
   - node_modules/uiohook-napi/**
