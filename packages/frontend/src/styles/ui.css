@@ -474,7 +474,7 @@ button:disabled {
 .st-converting,
 .st-transcribing,
 .st-summarizing {
-  background: var(--voice);
+  background: var(--accent);
   animation: dot-breathe 1.2s ease-in-out infinite;
 }
 @keyframes dot-breathe {
@@ -499,9 +499,6 @@ button:disabled {
   border-radius: 3px;
   background: var(--accent);
   transition: width 0.25s var(--ease);
-}
-.progressbar-voice .progressbar-fill {
-  background: var(--voice);
 }
 .progressbar-danger .progressbar-fill {
   background: var(--danger);
@@ -612,9 +609,9 @@ button:disabled {
   color: var(--text-2);
   flex-shrink: 0;
 }
-/* 实心圆点内的图标:琥珀底配深色、蓝底配白色 */
+/* 实心圆点内的图标:统一强调蓝底配白 */
 .mic-dot svg {
-  color: #1a1a1e;
+  color: #fff;
 }
 .finalizing-dot svg {
   color: #fff;

@@ -25,10 +25,10 @@
 }
 /* 段内任一句在播 → 琥珀竖条 + 轻底,当前句再加琥珀底增强 */
 .t-para.playing::before {
-  background: var(--voice);
+  background: var(--accent);
 }
 .t-para.playing {
-  background: linear-gradient(90deg, var(--voice-soft), transparent 72%);
+  background: linear-gradient(90deg, var(--accent-soft), transparent 72%);
   border-radius: 8px;
 }
 .t-para p {
@@ -36,11 +36,11 @@
   padding: 1px 4px;
 }
 .t-para p.active {
-  background: var(--voice-soft);
+  background: var(--accent-soft);
   border-radius: 6px;
 }
 .t-para p.active .ts {
-  color: var(--voice);
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -89,7 +89,7 @@
   transition: color 0.12s ease;
 }
 .transcript.reader .ts:hover {
-  color: var(--voice);
+  color: var(--accent);
 }
 .audio-bar audio {
   width: 100%;
@@ -330,7 +330,7 @@ input {
   width: 7px;
   height: 7px;
   border-radius: 2px;
-  background: var(--voice);
+  background: var(--accent);
   margin-right: 8px;
   vertical-align: 1px;
 }
@@ -444,7 +444,7 @@ input {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--voice);
+  background: var(--accent);
   margin-top: -4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
@@ -458,13 +458,13 @@ input {
   height: 12px;
   border: none;
   border-radius: 50%;
-  background: var(--voice);
+  background: var(--accent);
 }
 .player-track:focus-visible {
   outline: none;
 }
 .player-track:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px var(--voice-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* 播放条收尾(导出栏已上移到标题区) */

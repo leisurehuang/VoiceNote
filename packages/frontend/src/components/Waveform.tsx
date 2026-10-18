@@ -42,7 +42,7 @@ export function Waveform({ analyserRef }: { analyserRef: RefObject<AnalyserNode 
 
       // 语音琥珀色从 CSS 变量读取（跟随明暗主题）
       const css = getComputedStyle(canvas!);
-      const voice = css.getPropertyValue('--voice').trim() || '#ffb224';
+      const voice = css.getPropertyValue('--accent').trim() || '#3d80f5';
 
       if (!bins || bins.length !== analyser.frequencyBinCount) {
         bins = new Uint8Array(analyser.frequencyBinCount);

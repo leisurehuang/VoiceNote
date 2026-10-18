@@ -23,7 +23,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--voice-soft);
+  background: var(--accent-soft);
   animation: micpulse 2s ease-out infinite;
 }
 .mic-dot {
@@ -31,8 +31,8 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--voice);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--voice) 35%, transparent);
+  background: var(--accent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,7 +103,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--voice-soft);
+  background: var(--accent-soft);
   animation: micpulse 1.6s ease-out infinite; /* 复用「开始」的脉冲扩散 */
 }
 .finalizing-dot {
@@ -193,7 +193,7 @@
   margin: 3px 0;
 }
 .transcript p.active {
-  background: var(--voice-soft);
+  background: var(--accent-soft);
   border-radius: 6px;
   transition: background 0.15s ease;
 }
