@@ -61,6 +61,12 @@
   justify-content: space-between;
   gap: 8px;
 }
+/* footer 右侧图标按钮组（设置 / 主题切换） */
+.foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 .theme-toggle {
   background: transparent;
   border: none;

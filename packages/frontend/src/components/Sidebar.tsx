@@ -151,15 +151,6 @@ export function Sidebar({
             <Mic size={14} aria-hidden />
             <span>语音输入</span>
           </button>
-          <button
-            className="settings-btn"
-            onClick={onSettings}
-            disabled={disabled}
-            title="模型配置"
-          >
-            <Settings size={14} aria-hidden />
-            <span>设置</span>
-          </button>
         </div>
       </div>
 
@@ -175,16 +166,27 @@ export function Sidebar({
             就绪
           </span>
         )}
-        <button
-          className="theme-toggle"
-          onClick={() =>
-            setTheme((t) => (t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto'))
-          }
-          title={THEME_META[theme].label}
-          aria-label="切换主题"
-        >
-          <ThemeIcon size={14} aria-hidden />
-        </button>
+        <div className="foot-actions">
+          <button
+            className="theme-toggle"
+            onClick={onSettings}
+            disabled={disabled}
+            title="设置"
+            aria-label="打开设置"
+          >
+            <Settings size={14} aria-hidden />
+          </button>
+          <button
+            className="theme-toggle"
+            onClick={() =>
+              setTheme((t) => (t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto'))
+            }
+            title={THEME_META[theme].label}
+            aria-label="切换主题"
+          >
+            <ThemeIcon size={14} aria-hidden />
+          </button>
+        </div>
       </div>
     </aside>
   );
